@@ -1,0 +1,53 @@
+package jp.passgen.core
+
+enum class GenerationMode { RANDOM, PASSPHRASE, NUMERIC }
+
+/** Configuration contains no secret and may be used by either native UI. */
+class GenerationRequest(
+    val mode: GenerationMode = GenerationMode.RANDOM,
+    val length: Int = 24,
+    val wordCount: Int = 7,
+    val uppercase: Boolean = true,
+    val lowercase: Boolean = true,
+    val digits: Boolean = true,
+    val symbolsEnabled: Boolean = true,
+    val symbols: String = "!@#\u0024%&*-_+=?",
+    val excludeSimilar: Boolean = true,
+    val requireEach: Boolean = true,
+    val noAdjacent: Boolean = false,
+    val separator: String = ".",
+)
+
+interface CancellationProbe { fun isCancelled(): Boolean }
+
+class GenerationException(val code: String) : Exception(code)
+
+/** Deliberately not a data class: toString must never reveal a secret. */
+class GeneratedSecret internal constructor(val value: String, val entropyBits: Double) {
+    override fun toString(): String = "GeneratedSecret([REDACTED])"
+}
+
+object InputPolicy {
+    const val MAX_LENGTH = 999_999
+    const val MAX_TOTAL_CHARACTERS = 9_999_990
+    fun maximumCount(length: Int): Int =
+        if (length in 4..MAX_LENGTH) minOf(1_000, MAX_TOTAL_CHARACTERS / length) else 1
+
+    /** Called on editing completion, never on each keystroke. */
+    fun normalizedInteger(text: String, fallback: Int, minimum: Int, maximum: Int): Int {
+        val ascii = text.trim().map { if (it in '０'..'９') '0' + (it - '０') else it }.joinToString("")
+        if (ascii.isEmpty() || ascii.any { it !in '0'..'9' }) return fallback.coerceIn(minimum, maximum)
+        return (ascii.toLongOrNull() ?: Long.MAX_VALUE).coerceIn(minimum.toLong(), maximum.toLong()).toInt()
+    }
+}
+
+/** Same 30-symbol alphabet and paste behavior as the reference macOS app. */
+object SymbolPolicy {
+    const val SUPPORTED = "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><="
+    fun recognized(text: String): String = SUPPORTED.filter { it in text }
+    fun applyPasted(text: String, current: String): String = recognized(text).ifEmpty { current }
+
+    /** OCR / LLM candidates can only narrow explicitly observed, supported symbols. */
+    fun confirmedCandidate(proposed: String, evidence: String): String =
+        recognized(proposed).filter { it in evidence }
+}

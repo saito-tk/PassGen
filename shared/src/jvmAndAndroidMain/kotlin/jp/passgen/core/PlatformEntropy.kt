@@ -2,9 +2,11 @@ package jp.passgen.core
 
 import java.security.SecureRandom
 
-internal actual class PlatformEntropy actual constructor() : EntropySource {
-    private val random = SecureRandom()
-    actual override fun fill(destination: ByteArray) {
+internal actual fun platformEntropy(): EntropySource = JvmEntropy()
+
+private class JvmEntropy : EntropySource {
+    private val random = try { SecureRandom() } catch (_: RuntimeException) { throw GenerationException("RANDOM_UNAVAILABLE") }
+    override fun fill(destination: ByteArray) {
         try { random.nextBytes(destination) }
         catch (_: Exception) { throw GenerationException("RANDOM_UNAVAILABLE") }
     }

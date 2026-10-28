@@ -3,6 +3,7 @@ package jp.passgen.app
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        window.decorView.filterTouchesWhenObscured = true
         if (Build.VERSION.SDK_INT >= 31) window.setHideOverlayWindows(true)
         clipboard = SecureClipboard(this)
         lifecycleScope.launch {
@@ -39,5 +41,11 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         if (!isChangingConfigurations) { model.background(); clipboard.clearOwned() }
         super.onStop()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if ((event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0) return false
+        if (Build.VERSION.SDK_INT >= 29 && (event.flags and MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED) != 0) return false
+        return super.dispatchTouchEvent(event)
     }
 }

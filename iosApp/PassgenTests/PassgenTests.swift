@@ -61,4 +61,62 @@ final class SymbolEvidenceTests: XCTestCase {
         XCTAssertEqual(UIPasteboard.general.string, "replacement")
         UIPasteboard.general.items = []
     }
+
+    func testIndividualSelectionReachesSharedGenerator() async throws {
+        let model = GeneratorModel()
+        model.recipe.uppercaseCharacters = "AZ"
+        model.recipe.lowercase = false; model.recipe.digits = false; model.recipe.symbolsEnabled = false
+        model.generateOrStop()
+        for _ in 0..<100 {
+            if !model.busy { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(model.results.count, 1)
+        XCTAssertTrue(model.results.first?.value.allSatisfy { "AZ".contains($0) } == true)
+    }
+
+    func testStopPreservesCompletedResults() async throws {
+        let model = GeneratorModel()
+        model.recipe.lengthText = "999999"; model.recipe.countText = "10"
+        model.generateOrStop()
+        for _ in 0..<200 {
+            if !model.results.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        XCTAssertFalse(model.results.isEmpty)
+        XCTAssertTrue(model.busy)
+        model.generateOrStop()
+        for _ in 0..<100 {
+            if !model.busy { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.results.isEmpty)
+        XCTAssertLessThan(model.results.count, model.goal)
+    }
+
+    func testDigitsOnlyPresetUsesPasswordMode() async throws {
+        let model = GeneratorModel(); model.useDigitsOnly()
+        XCTAssertEqual(model.recipe.mode, .password)
+        XCTAssertTrue(model.isDigitsOnly); XCTAssertFalse(model.recipe.excludeSimilar)
+        XCTAssertEqual(model.recipe.digitCharacters, "0123456789")
+        model.generateOrStop()
+        for _ in 0..<100 {
+            if !model.busy { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(model.results.count, 1)
+        XCTAssertTrue(model.results.first?.value.allSatisfy { $0.isASCII && $0.isNumber } == true)
+    }
+
+    func testPassphraseSeparatorReachesCore() async throws {
+        let model = GeneratorModel(); model.recipe.mode = .passphrase; model.recipe.separator = "_"
+        model.generateOrStop()
+        for _ in 0..<100 {
+            if !model.busy { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(model.results.count, 1)
+        XCTAssertEqual(model.results.first?.value.split(separator: "_").count, 7)
+    }
 }

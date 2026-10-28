@@ -10,27 +10,35 @@ import java.util.UUID
 
 /** Labels are opaque ownership tokens; never read another application's clipboard text. */
 class SecureClipboard(context: Context) {
-    private val manager = context.getSystemService(ClipboardManager::class.java)
-    private val handler = Handler(Looper.getMainLooper())
-    private var owner: String? = null
-    private val expire = Runnable { clearOwned() }
+    private val manager = context.applicationContext.getSystemService(ClipboardManager::class.java)
+    // Ownership survives Activity recreation (rotation / folding), without retaining an Activity.
+    private companion object {
+        val handler = Handler(Looper.getMainLooper())
+        var owner: String? = null
+        var pending: Runnable? = null
+    }
 
-    fun copy(secret: String) {
-        handler.removeCallbacks(expire)
+    fun copy(secret: String): Boolean {
         val id = "passgen-${UUID.randomUUID()}"
         val clip = ClipData.newPlainText(id, secret)
         clip.description.extras = PersistableBundle().apply {
             // Official compatibility key, also safe before API 33 introduced the constant.
             putBoolean("android.content.extra.IS_SENSITIVE", true)
         }
-        manager.setPrimaryClip(clip)
+        try { manager.setPrimaryClip(clip) }
+        catch (_: RuntimeException) { return false }
+        pending?.let(handler::removeCallbacks)
         owner = id
-        handler.postDelayed(expire, 30_000)
+        pending = Runnable { clearOwned() }.also { handler.postDelayed(it, 30_000) }
+        return true
     }
 
     fun clearOwned() {
-        handler.removeCallbacks(expire)
-        if (owner != null && manager.primaryClipDescription?.label?.toString() == owner) manager.clearPrimaryClip()
+        pending?.let(handler::removeCallbacks)
+        try {
+            if (owner != null && manager.primaryClipDescription?.label?.toString() == owner) manager.clearPrimaryClip()
+        } catch (_: RuntimeException) { /* OS clipboard service unavailable; never log clip contents. */ }
         owner = null
+        pending = null
     }
 }

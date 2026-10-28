@@ -13,17 +13,12 @@ struct SymbolEditor: View {
     @State private var candidate = ""
     @State private var loading = false
     @State private var importError: String?
-    private let columns = [GridItem(.adaptive(minimum: 48), spacing: 10)]
+    private let columns = [GridItem(.adaptive(minimum: 44), spacing: 6)]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("サイトに合わせる、\n記号。").font(.system(.largeTitle, design: .serif, weight: .semibold))
-                        Text("使える記号だけを、あなたのレシピに。")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }
+                VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             Text("\(model.recipe.symbols.count) / 30種類").font(.headline)
@@ -49,7 +44,7 @@ struct SymbolEditor: View {
                             Text("記号を選択するか「記号を含める」をオフにしてください。")
                                 .font(.caption).foregroundStyle(.red)
                         }
-                    }.padding(20).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+                    }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     VStack(alignment: .leading, spacing: 12) {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)
                         TextField("例: ! @ # $ %", text: $pasted, axis: .vertical)
@@ -69,8 +64,8 @@ struct SymbolEditor: View {
                     Divider()
                     VStack(alignment: .leading, spacing: 14) {
                         Label("スクリーンショットから", systemImage: "viewfinder").font(.headline)
-                        Text("選んだ画像だけを端末内で読み取ります。許可記号の案内部分を切り取ると読み取りやすくなります。")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                        Text("許可記号の案内部分を端末内で読み取ります。候補は確認後に適用します。")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text(ScreenshotImporter.modelStatus).font(.caption).foregroundStyle(.secondary)
                         PhotosPicker(selection: $selection, matching: .images, preferredItemEncoding: .current) {
                             Label("画像を選んで読み取る", systemImage: "photo")
@@ -115,7 +110,7 @@ struct SymbolEditor: View {
                             }.font(.subheadline)
                         }
                     }
-                }.padding(24)
+                }.padding(16)
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("使える記号").navigationBarTitleDisplayMode(.inline)

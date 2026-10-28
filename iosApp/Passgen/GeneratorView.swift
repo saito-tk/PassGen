@@ -1,52 +1,87 @@
 import SwiftUI
 import PassgenCore
 
+private enum CharacterGroup: String, CaseIterable, Identifiable {
+    case upper, lower, digits, symbols
+    var id: Self { self }
+    var title: String { switch self { case .upper: "大文字"; case .lower: "小文字"; case .digits: "数字"; case .symbols: "記号" } }
+    var alphabet: String {
+        switch self {
+        case .upper: CharacterPolicy.shared.UPPERCASE
+        case .lower: CharacterPolicy.shared.LOWERCASE
+        case .digits: CharacterPolicy.shared.DIGITS
+        case .symbols: SymbolPolicy.shared.SUPPORTED
+        }
+    }
+    func selected(in recipe: Recipe) -> String {
+        switch self { case .upper: recipe.uppercaseCharacters; case .lower: recipe.lowercaseCharacters; case .digits: recipe.digitCharacters; case .symbols: recipe.symbols }
+    }
+    func enabled(in recipe: Recipe) -> Bool {
+        switch self { case .upper: recipe.uppercase; case .lower: recipe.lowercase; case .digits: recipe.digits; case .symbols: recipe.symbolsEnabled }
+    }
+    func setSelected(_ value: String, in recipe: inout Recipe) {
+        let value = CharacterPolicy.shared.canonical(selected: value, alphabet: alphabet)
+        switch self { case .upper: recipe.uppercaseCharacters = value; case .lower: recipe.lowercaseCharacters = value; case .digits: recipe.digitCharacters = value; case .symbols: recipe.symbols = value }
+    }
+    func setEnabled(_ value: Bool, in recipe: inout Recipe) {
+        switch self { case .upper: recipe.uppercase = value; case .lower: recipe.lowercase = value; case .digits: recipe.digits = value; case .symbols: recipe.symbolsEnabled = value }
+    }
+}
+
 struct GeneratorView: View {
     @State private var model = GeneratorModel()
     @State private var clipboard = SecureClipboard()
-    @State private var showRecipe = false
     @State private var showSymbols = false
     @State private var showPrivacy = false
     @State private var showResults = false
     @Environment(\.scenePhase) private var phase
     @Environment(\.isSceneCaptured) private var captured
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .largeTitle) private var headlineSize = 40.0
 
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
-                ZStack {
-                    AppBackdrop()
+                Group {
                     if geometry.size.width >= 760 && !typeSize.isAccessibilitySize {
-                        HStack(spacing: 0) {
-                            RecipeForm(model: model, showSymbols: $showSymbols).frame(width: min(380, geometry.size.width * 0.42))
-                            ScrollView { mainContent(wide: true).padding(36).frame(maxWidth: 700).frame(maxWidth: .infinity) }
+                        HStack(alignment: .top, spacing: 12) {
+                            ScrollView {
+                                VStack(spacing: 12) { modePicker; QuantityEditor(model: model); RulesEditor(model: model) }
+                                    .padding(12)
+                            }.frame(width: min(360, geometry.size.width * 0.42))
+                            ScrollView { CharacterEditor(model: model, showSymbols: $showSymbols).padding(12) }
                         }
                     } else {
-                        ScrollView { mainContent(wide: false).padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 24) }
-                            .scrollDismissesKeyboard(.interactively)
+                        ScrollView {
+                            VStack(spacing: 12) {
+                                modePicker
+                                QuantityEditor(model: model)
+                                CharacterEditor(model: model, showSymbols: $showSymbols)
+                                RulesEditor(model: model)
+                            }.padding(12)
+                        }.scrollDismissesKeyboard(.interactively)
                     }
                 }
+                .background(Color(uiColor: .systemGroupedBackground))
                 .safeAreaInset(edge: .bottom, spacing: 0) { generateDock }
             }
-            .navigationTitle("Passgen")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Passgen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Image(systemName: "key.horizontal.fill").foregroundStyle(Color.passgenAccent).accessibilityHidden(true)
+                    if !model.results.isEmpty || model.busy {
+                        Button("結果 \(model.results.count)件") { showResults = true }.font(.subheadline)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showPrivacy = true } label: { Image(systemName: "lock.shield") }
-                        .accessibilityLabel("プライバシーと安全性")
+                    Button { showPrivacy = true } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
                 }
-            }
-            .sheet(isPresented: $showRecipe) {
-                RecipeSheet(model: model).sensitiveScene().presentationDetents([.large])
             }
             .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene() }
             .sheet(isPresented: $showPrivacy) { PrivacyView().sensitiveScene() }
-            .sheet(isPresented: $showResults) { ResultsList(model: model, copy: copy).sensitiveScene() }
+            .sheet(isPresented: $showResults) {
+                ResultsList(model: model, copy: copy).sensitiveScene()
+                    .presentationDetents([.height(CGFloat(220 + min(model.busy ? model.goal : model.results.count, 5) * 76)), .large])
+                    .presentationDragIndicator(.visible)
+            }
             .sensitiveScene()
         }
         .tint(.passgenAccent)
@@ -57,102 +92,33 @@ struct GeneratorView: View {
         .onChange(of: captured) { _, value in if value { model.revealed = false } }
     }
 
-    @ViewBuilder private func mainContent(wide: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 26) {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("PRIVATE BY DESIGN", systemImage: "circle.inset.filled")
-                    .font(.system(.caption2, design: .monospaced, weight: .medium)).tracking(2).foregroundStyle(Color.passgenAccent)
-                Text("強さを、\n手のひらに。")
-                    .font(.system(size: wide ? headlineSize * 1.2 : headlineSize, weight: .semibold, design: .serif)).tracking(-1)
-                    .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                Text("あなたの秘密は、あなたの端末で。")
-                    .font(.subheadline).foregroundStyle(.secondary)
-            }
-            SecretCard(model: model, copy: copy, all: { showResults = true })
-            if !wide {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("生成のレシピ").font(.headline)
-                        Spacer()
-                        Button("カスタマイズ", systemImage: "slider.horizontal.3") { showRecipe = true }.font(.subheadline)
-                            .disabled(model.busy)
-                    }
-                    Picker("生成方式", selection: Binding(get: { model.recipe.mode }, set: { model.chooseMode($0) })) {
-                        ForEach(RecipeMode.allCases) { mode in Text(mode.title).tag(mode) }
-                    }.pickerStyle(.segmented).disabled(model.busy)
-                    Text(model.recipe.mode.subtitle).font(.caption).foregroundStyle(.secondary)
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) { lengthSummary; countSummary }
-                        VStack(spacing: 12) { lengthSummary; countSummary }
-                    }
-                    if model.recipe.mode == .random && model.recipe.symbolsEnabled {
-                        Button { showSymbols = true } label: {
-                            HStack(spacing: 14) {
-                                Image(systemName: "character.cursor.ibeam").font(.title2).frame(width: 38, height: 44)
-                                    .foregroundStyle(Color.passgenAccent)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("サイトに合わせる記号").font(.subheadline.weight(.semibold))
-                                    Text("\(model.recipe.symbols.count)種類 · 貼り付け / 画像から読み取る").font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 0)
-                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            }.padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
-                        }.buttonStyle(.plain).disabled(model.busy)
-                    }
-                }
-            }
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "iphone.gen3.radiowaves.left.and.right.slash").foregroundStyle(Color.passgenAccent)
-                Text("通信も、履歴も、ありません。\n生成結果は背景へ移ると消去されます。")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }.padding(.horizontal, 4)
+    private var modePicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("生成形式").font(.caption).foregroundStyle(.secondary)
+            Picker("生成形式", selection: Binding(get: { model.recipe.mode }, set: { model.chooseMode($0) })) {
+                ForEach(RecipeMode.allCases) { mode in Text(mode.title).tag(mode) }
+            }.pickerStyle(.segmented).disabled(model.busy)
         }
     }
-
-    private var lengthSummary: some View {
-        Button { showRecipe = true } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(model.recipe.mode == .passphrase ? "単語数" : "文字数").font(.caption).foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text("\(model.recipe.mode == .passphrase ? model.recipe.words : model.recipe.length)")
-                        .font(.system(.largeTitle, design: .rounded, weight: .semibold)).monospacedDigit()
-                    Text(model.recipe.mode == .passphrase ? "words" : "characters").font(.caption2).foregroundStyle(.secondary)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(18)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
-        }.buttonStyle(.plain).disabled(model.busy)
-    }
-    private var countSummary: some View {
-        Button { showRecipe = true } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("まとめて生成").font(.caption).foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text("\(model.recipe.count)").font(.system(.largeTitle, design: .rounded, weight: .semibold)).monospacedDigit()
-                    Text("passwords").font(.caption2).foregroundStyle(.secondary)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(18)
-                .background(Color.passgenAccent.opacity(0.09), in: RoundedRectangle(cornerRadius: 22))
-        }.buttonStyle(.plain).disabled(model.busy)
-    }
-
     private var generateDock: some View {
-        VStack(spacing: 8) {
-            if let message = model.message { Text(message).font(.caption).foregroundStyle(.red).accessibilityAddTraits(.updatesFrequently) }
-            Button(action: model.generateOrStop) {
-                HStack(spacing: 12) {
-                    Image(systemName: model.busy ? "stop.fill" : "sparkles")
-                    Text(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "パスワードを生成")
-                        .font(.headline)
-                    if !model.busy { Image(systemName: "arrow.right") }
-                }.frame(maxWidth: .infinity).padding(.vertical, 12)
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("推定エントロピー").font(.caption2).foregroundStyle(.secondary)
+                Text(model.estimate.map { "\(Int($0)) bits" } ?? "文字の選択を確認")
+                    .font(.subheadline.monospacedDigit().weight(.medium))
+                    .foregroundStyle((model.estimate ?? 0) < 80 ? Color.orange : Color.primary)
             }
-            .controlSize(.large).modifier(PrimaryActionStyle())
-            .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
-            Text("端末内で生成 · 保存しない · 送信しない").font(.caption2).foregroundStyle(.secondary)
-        }.frame(maxWidth: 600).padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 10)
-            .frame(maxWidth: .infinity).background(.bar)
+            Spacer(minLength: 0)
+            Button {
+                if !model.busy { showResults = true }
+                model.generateOrStop()
+            } label: {
+                Text(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "生成")
+                    .font(.headline).frame(minWidth: 100, minHeight: 36)
+            }.modifier(PrimaryActionStyle()).controlSize(.large)
+                .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
+        }.padding(.horizontal, 16).padding(.vertical, 8).background(.bar)
     }
-
     private func copy(_ item: SecretItem) {
         guard !captured, phase == .active else { return }
         clipboard.copy(item.value); model.copiedID = item.id
@@ -160,162 +126,144 @@ struct GeneratorView: View {
     }
 }
 
-struct SecretCard: View {
+private struct QuantityEditor: View {
     @Bindable var model: GeneratorModel
-    var copy: (SecretItem) -> Void
-    var all: () -> Void
-    @Environment(\.isSceneCaptured) private var captured
-    @Environment(\.colorScheme) private var scheme
-    private var first: SecretItem? { model.results.first }
-    private var bits: Double? { first?.bits ?? model.estimate }
-
+    @FocusState private var focus: Field?
+    private enum Field { case length, count }
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack {
-                Label(first == nil ? "まだ生成されていません" : "今回だけの秘密", systemImage: "lock.fill")
-                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                Spacer()
-                if let first { Text("\(first.value.count)文字").font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            }
-            ZStack(alignment: .leading) {
-                if let first {
-                    Text(model.revealed && !captured ? String(first.value.prefix(100)) : "••••  ••••\n••••  ••••")
-                        .font(.system(.title2, design: .monospaced, weight: .medium)).lineSpacing(8).lineLimit(4)
-                        .privacySensitive().accessibilityLabel("生成されたパスワード。読み上げを保護しています")
-                        .accessibilityIdentifier("secret")
-                } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Image(systemName: "key.horizontal").font(.system(size: 32, weight: .light))
-                            .foregroundStyle(Color.passgenAccent).accessibilityHidden(true)
-                        Text("新しい秘密を、\nここから。")
-                            .font(.system(.title2, design: .serif, weight: .medium)).lineSpacing(5)
+        VStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(model.recipe.mode == .passphrase ? "単語数" : "文字数").font(.caption).foregroundStyle(.secondary)
+                    if model.recipe.mode == .passphrase {
+                        Stepper("\(model.recipe.words)", value: $model.recipe.words, in: 6...12)
+                            .font(.title3.monospacedDigit())
+                    } else {
+                        TextField("24", text: $model.recipe.lengthText).keyboardType(.numberPad)
+                            .font(.system(.title2, design: .rounded, weight: .semibold)).focused($focus, equals: .length)
+                            .accessibilityIdentifier("length")
+                        Text("4〜999,999").font(.caption2).foregroundStyle(.secondary)
                     }
-                }
-            }.frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
-            if let first, first.value.count > 100 { Text("先頭100文字のプレビュー。コピーは全文です。").font(.caption2).foregroundStyle(.secondary) }
-            Divider()
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().stroke(Color.passgenAccent.opacity(0.12), lineWidth: 4)
-                    Circle().trim(from: 0, to: min(1, (bits ?? 0) / 128)).stroke(Color.passgenAccent,
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
-                    Image(systemName: (bits ?? 0) >= 128 ? "checkmark.shield" : "shield.lefthalf.filled")
-                        .font(.title3).foregroundStyle(Color.passgenAccent)
-                }.frame(width: 47, height: 47).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(bits == nil ? "条件を確認してください" : (bits ?? 0) >= 128 ? "余裕のある強度" : (bits ?? 0) >= 80 ? "十分な候補の広さ" : "長さを増やすと安心")
-                        .font(.subheadline.weight(.semibold))
-                    Text(bits.map { "\(Int($0)) bits · \(first == nil ? "生成前の目安" : "生成時の条件")" } ?? "文字種を選んでください")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("生成件数").font(.caption).foregroundStyle(.secondary)
+                    TextField("1", text: $model.recipe.countText).keyboardType(.numberPad)
+                        .font(.system(.title2, design: .rounded, weight: .semibold)).focused($focus, equals: .count)
+                        .accessibilityIdentifier("count")
+                    Text("1〜\(model.recipe.maximumCount)").font(.caption2).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.fixedSize(horizontal: false, vertical: true)
+            if model.recipe.mode == .passphrase {
+                Picker("区切り", selection: $model.recipe.separator) {
+                    Text("スペース").tag(" "); Text("-").tag("-"); Text("_").tag("_"); Text(".").tag(".")
+                }.pickerStyle(.segmented)
             }
-            if model.busy {
-                ProgressView(value: Double(model.results.count), total: Double(model.goal))
-                Text("\(model.results.count) / \(model.goal)件").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            if let first {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { resultButtons(first) }
-                    VStack(alignment: .leading, spacing: 12) { resultButtons(first) }
-                }
-                if model.results.count > 1 { Button("すべての結果を見る (\(model.results.count))", action: all).font(.subheadline) }
-                Text("コピーは30秒で消去されます").font(.caption2).foregroundStyle(.secondary)
-            }
-        }.padding(24).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 28))
-            .overlay(RoundedRectangle(cornerRadius: 28).strokeBorder(Color.passgenAccent.opacity(scheme == .dark ? 0.25 : 0.10)))
-            .shadow(color: Color.passgenAccent.opacity(0.05), radius: 20, y: 10)
-            .accessibilityElement(children: .contain).accessibilityIdentifier("secret-card")
-    }
-
-    @ViewBuilder private func resultButtons(_ item: SecretItem) -> some View {
-        Button { copy(item) } label: { Label(model.copiedID == item.id ? "コピー済み" : "コピー", systemImage: model.copiedID == item.id ? "checkmark" : "doc.on.doc") }
-            .foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(captured)
-        Button { model.revealed.toggle() } label: { Label(model.revealed ? "隠す" : "表示", systemImage: model.revealed ? "eye.slash" : "eye") }
-            .labelStyle(.iconOnly).accessibilityLabel(model.revealed ? "パスワードを隠す" : "パスワードを表示").disabled(captured)
-        Button(role: .destructive, action: model.clear) { Label("消去", systemImage: "trash") }
-            .labelStyle(.iconOnly).disabled(model.busy)
+            if model.isDigitsOnly { Text("数字は0–9を使用。短いコードは候補数が少なくなります。") .font(.caption).foregroundStyle(.secondary) }
+        }.padding(14).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .disabled(model.busy)
+            .onChange(of: focus) { previous, value in if previous != nil && previous != value { model.recipe.normalize() } }
+            .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("完了") { focus = nil; model.recipe.normalize() } } }
     }
 }
 
-struct RecipeForm: View {
+private struct CharacterEditor: View {
     @Bindable var model: GeneratorModel
     @Binding var showSymbols: Bool
-    @FocusState private var fieldFocused: Bool
-
+    @State private var group: CharacterGroup = .upper
+    private var selected: String { group.selected(in: model.recipe) }
+    private var enabled: Bool { group.enabled(in: model.recipe) }
+    private var excluded: String {
+        guard model.recipe.excludeSimilar, group != .symbols else { return "" }
+        return String(group.alphabet.filter { model.recipe.similarExclusions.contains($0) })
+    }
+    private var summary: String {
+        CharacterGroup.allCases.map { item in
+            let count = item.enabled(in: model.recipe) ? item.selected(in: model.recipe).filter {
+                item == .symbols || !model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0)
+            }.count : 0
+            return "\(item.title.prefix(1))\(count)"
+        }.joined(separator: " / ")
+    }
     var body: some View {
-        Form {
-            Section {
-                Picker("つくり方", selection: Binding(get: { model.recipe.mode }, set: { model.chooseMode($0) })) {
-                    ForEach(RecipeMode.allCases) { mode in Label(mode.title, systemImage: mode.symbol).tag(mode) }
+        if model.recipe.mode == .password {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack { Text("文字セット").font(.subheadline.weight(.semibold)); Spacer(); Text(summary).font(.caption2).foregroundStyle(.secondary)
+                    Button("数字のみ") { model.useDigitsOnly(); group = .digits }.font(.caption).frame(minHeight: 44)
                 }
-                Text(model.recipe.mode.subtitle).font(.caption).foregroundStyle(.secondary)
-            } header: { Text("生成方式") }
-            Section {
-                if model.recipe.mode == .passphrase {
-                    Stepper("\(model.recipe.words)単語", value: $model.recipe.words, in: 6...12)
-                    Picker("区切り", selection: $model.recipe.separator) {
-                        Text("ドット").tag("."); Text("アンダーバー").tag("_"); Text("スペース").tag(" ")
-                    }
-                } else {
-                    LabeledContent("文字数") {
-                        TextField("24", text: $model.recipe.lengthText).multilineTextAlignment(.trailing)
-                            .keyboardType(.numberPad).focused($fieldFocused).accessibilityIdentifier("length")
-                    }
-                    HStack {
-                        ForEach([16, 24, 32, 48], id: \.self) { length in
-                            Button("\(length)") { model.recipe.lengthText = String(length); model.recipe.normalize(); fieldFocused = false }
-                                .buttonStyle(.bordered).frame(maxWidth: .infinity)
-                        }
-                    }
+                Picker("文字種", selection: $group) {
+                    ForEach(CharacterGroup.allCases) { item in Text(item.title).tag(item) }
+                }.pickerStyle(.segmented)
+                HStack {
+                    Toggle("\(group.title)を含める", isOn: Binding(get: { enabled }, set: { group.setEnabled($0, in: &model.recipe) }))
+                        .font(.subheadline)
+                    Menu {
+                        Button("すべて選択") { group.setSelected(group.alphabet, in: &model.recipe) }
+                        Button("選択を解除") { group.setSelected("", in: &model.recipe) }
+                        Button("選択を反転") { group.setSelected(String(group.alphabet.filter { !selected.contains($0) }), in: &model.recipe) }
+                    } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
+                        .accessibilityLabel("文字の一括選択").disabled(!enabled)
                 }
-                LabeledContent("生成件数") {
-                    TextField("1", text: $model.recipe.countText).multilineTextAlignment(.trailing).keyboardType(.numberPad).focused($fieldFocused)
-                }
-            } header: { Text("ボリューム") } footer: {
-                Text("\(model.recipe.mode == .passphrase ? "6〜12単語" : "4〜999,999文字") / 1〜\(model.recipe.maximumCount)件。数値は入力完了時に調整します。")
-            }
-            if model.recipe.mode == .random {
-                Section("文字セット") {
-                    Toggle("大文字 A–Z", isOn: $model.recipe.uppercase)
-                    Toggle("小文字 a–z", isOn: $model.recipe.lowercase)
-                    Toggle("数字 0–9", isOn: $model.recipe.digits)
-                    Toggle("記号を含める", isOn: $model.recipe.symbolsEnabled)
-                    if model.recipe.symbolsEnabled {
-                        Button { showSymbols = true } label: { LabeledContent("使える記号", value: "\(model.recipe.symbols.count)種類  ›") }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 5)], spacing: 5) {
+                    ForEach(Array(group.alphabet), id: \.self) { character in
+                        let isExcluded = excluded.contains(character)
+                        let checked = selected.contains(character) && !isExcluded
+                        Button {
+                            group.setSelected(selected.contains(character) ? String(selected.filter { $0 != character }) : selected + String(character), in: &model.recipe)
+                        } label: {
+                            Text(String(character)).font(.system(.body, design: .monospaced, weight: .medium))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(checked ? Color.passgenAccent.opacity(0.15) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(checked ? Color.passgenAccent.opacity(0.5) : Color.clear))
+                                .foregroundStyle(!enabled || isExcluded ? Color.secondary.opacity(0.4) : Color.primary)
+                        }.buttonStyle(.plain).disabled(!enabled || isExcluded)
+                            .accessibilityLabel("\(group.title) \(String(character))")
+                            .accessibilityValue(isExcluded ? "似た文字として除外中" : checked ? "選択" : "未選択")
+                            .accessibilityAddTraits(checked ? [.isSelected] : [])
+                            .accessibilityIdentifier("character-\(character)")
                     }
                 }
-                Section("生成ルール") {
-                    Toggle("似た文字を除外する", isOn: $model.recipe.excludeSimilar)
-                    Text("O o 0 / I l 1 を候補から除きます。").font(.caption).foregroundStyle(.secondary)
-                    Toggle("各文字種を必ず含める", isOn: $model.recipe.requireEach)
-                    Toggle("同じ文字を連続させない", isOn: $model.recipe.noAdjacent)
+                if !excluded.isEmpty { Text("\(excluded) は「似た文字を除外」で除外中").font(.caption2).foregroundStyle(.secondary) }
+                if group == .symbols && enabled {
+                    Button("記号一覧を貼り付け・画像から読み取る", systemImage: "doc.viewfinder") { showSymbols = true }
+                        .font(.subheadline).frame(minHeight: 44)
                 }
-            } else if model.recipe.mode == .numeric {
-                Section { Toggle("同じ数字を連続させない", isOn: $model.recipe.noAdjacent) }
-            }
-            Section {
-                LabeledContent("推定エントロピー", value: model.estimate.map { "\(Int($0)) bits" } ?? "条件を確認")
-                Text("候補の広さを示す目安です。サービスの安全性や解読時間を保証するものではありません。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+                if model.estimate == nil { Text("有効な文字を各文字種で1つ以上選択してください。").font(.caption).foregroundStyle(.red) }
+            }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                .disabled(model.busy)
         }
-        .scrollContentBackground(.hidden).background(Color(uiColor: .systemGroupedBackground))
-        .disabled(model.busy)
-        .onChange(of: fieldFocused) { _, focused in if !focused { model.recipe.normalize() } }
-        .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("入力完了") { fieldFocused = false; model.recipe.normalize() } } }
     }
 }
 
-private struct RecipeSheet: View {
+private struct RulesEditor: View {
     @Bindable var model: GeneratorModel
-    @State private var showSymbols = false
-    @Environment(\.dismiss) private var dismiss
+    @State private var expanded = false
     var body: some View {
-        NavigationStack {
-            RecipeForm(model: model, showSymbols: $showSymbols)
-                .navigationTitle("生成のレシピ").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { model.recipe.normalize(); dismiss() } } }
-                .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene() }
+        if model.recipe.mode != .passphrase {
+            DisclosureGroup("生成ルール", isExpanded: $expanded) {
+                VStack(spacing: 12) {
+                    if model.recipe.mode == .password {
+                        Toggle("各文字種を必ず含める", isOn: $model.recipe.requireEach)
+                        Toggle("似た文字を除外", isOn: $model.recipe.excludeSimilar)
+                        if model.recipe.excludeSimilar {
+                            HStack(spacing: 6) {
+                                ForEach(Array("Oo0Il1"), id: \.self) { c in
+                                    let selected = model.recipe.similarExclusions.contains(c)
+                                    Button {
+                                        model.recipe.similarExclusions = selected ? String(model.recipe.similarExclusions.filter { $0 != c }) : model.recipe.similarExclusions + String(c)
+                                    } label: {
+                                        Text(String(c)).font(.system(.body, design: .monospaced))
+                                            .frame(maxWidth: .infinity, minHeight: 44)
+                                            .background(selected ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                                    }.buttonStyle(.plain).accessibilityLabel("\(String(c)) を除外").accessibilityAddTraits(selected ? [.isSelected] : [])
+                                }
+                            }
+                        }
+                    }
+                    Toggle("同じ文字を連続させない", isOn: $model.recipe.noAdjacent)
+                }.font(.subheadline).padding(.top, 12).disabled(model.busy)
+            }.font(.subheadline).padding(14)
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }
@@ -327,28 +275,59 @@ struct ResultsList: View {
     @Environment(\.isSceneCaptured) private var captured
     var body: some View {
         NavigationStack {
-            List(model.results) { item in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(item.id + 1) · \(item.value.count)文字").font(.caption).foregroundStyle(.secondary)
-                    Text(model.revealed && !captured ? String(item.value.prefix(100)) : "•••• •••• ••••")
-                        .font(.system(.body, design: .monospaced)).lineLimit(3).privacySensitive()
-                        .accessibilityLabel("パスワード。読み上げを保護しています")
-                    Button { copy(item) } label: { Label(model.copiedID == item.id ? "コピー済み" : "コピー", systemImage: "doc.on.doc") }
-                        .disabled(captured)
-                }.padding(.vertical, 8)
-            }.navigationTitle("今回の\(model.results.count)件").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { dismiss() } } }
+            List {
+                if model.busy {
+                    Section {
+                        ProgressView(value: Double(model.results.count), total: Double(model.goal))
+                        Text("\(model.results.count) / \(model.goal)件").font(.caption.monospacedDigit())
+                    }
+                }
+                if let message = model.message { Text(message).font(.caption).foregroundStyle(.red) }
+                if model.results.isEmpty && !model.busy { Text("生成結果はありません。").foregroundStyle(.secondary) }
+                Section {
+                    ForEach(model.results) { item in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字" : "")").font(.caption2).foregroundStyle(.secondary)
+                                Text(model.revealed && !captured ? String(item.value.prefix(100)) : "•••• •••• ••••")
+                                    .font(.system(.body, design: .monospaced)).lineLimit(3).privacySensitive()
+                                    .accessibilityLabel("パスワード。読み上げを保護しています").accessibilityIdentifier("secret")
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                            Button { copy(item) } label: {
+                                Image(systemName: model.copiedID == item.id ? "checkmark" : "doc.on.doc").frame(width: 36, height: 36)
+                            }.buttonStyle(.bordered).disabled(captured).accessibilityLabel(model.copiedID == item.id ? "コピー済み" : "コピー")
+                        }.padding(.vertical, 3)
+                    }
+                } footer: {
+                    if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · コピーは30秒で消去") }
+                }
+            }
+            .navigationTitle("生成結果 \(model.results.count)件").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { model.revealed.toggle() } label: { Image(systemName: model.revealed ? "eye.slash" : "eye") }
+                        .disabled(captured || model.results.isEmpty).accessibilityLabel(model.revealed ? "隠す" : "表示")
+                }
+                ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
+                ToolbarItem(placement: .bottomBar) {
+                    Button("消去", role: .destructive, action: model.clear).disabled(model.busy || model.results.isEmpty)
+                }
+                ToolbarItem(placement: .bottomBar) { Spacer() }
+                ToolbarItem(placement: .bottomBar) {
+                    Button(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "再生成", action: model.generateOrStop)
+                        .disabled(model.state == .cancelling)
+                }
+            }
         }
     }
 }
-
 struct PrivacyView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Label("秘密に、居場所をつくらない。", systemImage: "lock.shield").font(.headline)
+                    Label("データの扱い", systemImage: "lock.shield").font(.headline)
                     Text("OSの暗号学的乱数から生成します。通信・アカウント・パスワードの保存はありません。")
                     Text("生成結果は背景へ移ると消去します。コピーはこの端末に限定し、30秒で期限切れになります。")
                 }
@@ -362,7 +341,7 @@ struct PrivacyView: View {
                     Text("読み取りは誤ることがあります。記号の根拠を確認してから適用してください。")
                 }
                 Section("生成方式") {
-                    Text("ランダム文字列、EFFの7,776語パスフレーズ、数字コードから選べます。数字は同じ長さの英数字より候補が少なくなります。")
+                    Text("パスワードとEFFの7,776語パスフレーズから選べます。数字のみの生成はパスワードの文字種設定で行います。数字は同じ長さの英数字より候補が少なくなります。")
                     Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 3.0 US")
                     Link("EFFの単語リストについて", destination: URL(string: "https://www.eff.org/dice")!)
                 }

@@ -1,7 +1,7 @@
 package jp.passgen.core
 
 internal interface EntropySource { fun fill(destination: ByteArray) }
-internal expect class PlatformEntropy() : EntropySource { override fun fill(destination: ByteArray) }
+internal expect fun platformEntropy(): EntropySource
 
 /** One short-lived buffer per generation; never shared across workers. */
 internal class SecureSampler(private val source: EntropySource, private val cancellation: CancellationProbe) {

@@ -3,26 +3,18 @@ import Observation
 import PassgenCore
 
 enum RecipeMode: String, CaseIterable, Identifiable, Sendable {
-    case random, passphrase, numeric
+    case password, passphrase
     var id: Self { self }
-    var title: String { switch self { case .random: "ランダム"; case .passphrase: "単語"; case .numeric: "数字" } }
-    var symbol: String { switch self { case .random: "shuffle"; case .passphrase: "textformat.abc"; case .numeric: "number" } }
-    var subtitle: String {
-        switch self {
-        case .random: "サイトの条件に合わせて、自由に。"
-        case .passphrase: "7,776語から無作為に。覚えやすさを大切に。"
-        case .numeric: "数字専用のサービスに。短いコードは強度に注意。"
-        }
-    }
-    var core: GenerationMode { switch self { case .random: .random; case .passphrase: .passphrase; case .numeric: .numeric } }
+    var title: String { switch self { case .password: "パスワード"; case .passphrase: "パスフレーズ" } }
+    var core: GenerationMode { switch self { case .password: .password; case .passphrase: .passphrase } }
 }
 
 struct Recipe: Sendable {
-    var mode: RecipeMode = .random
+    var mode: RecipeMode = .password
     var lengthText = "24"
     var countText = "1"
     var words = 7
-    var separator = "."
+    var separator = " "
     var uppercase = true
     var lowercase = true
     var digits = true
@@ -31,6 +23,10 @@ struct Recipe: Sendable {
     var excludeSimilar = true
     var requireEach = true
     var noAdjacent = false
+    var uppercaseCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    var lowercaseCharacters = "abcdefghijklmnopqrstuvwxyz"
+    var digitCharacters = "0123456789"
+    var similarExclusions = "Oo0Il1"
 
     var length: Int { Int(InputPolicy.shared.normalizedInteger(text: lengthText, fallback: 24, minimum: 4, maximum: 999_999)) }
     var maximumCount: Int { mode == .passphrase ? 1000 : Int(InputPolicy.shared.maximumCount(length: Int32(length))) }
@@ -39,7 +35,9 @@ struct Recipe: Sendable {
     func request() -> GenerationRequest {
         GenerationRequest(mode: mode.core, length: Int32(length), wordCount: Int32(words), uppercase: uppercase,
                           lowercase: lowercase, digits: digits, symbolsEnabled: symbolsEnabled, symbols: symbols,
-                          excludeSimilar: excludeSimilar, requireEach: requireEach, noAdjacent: noAdjacent, separator: separator)
+                          excludeSimilar: excludeSimilar, requireEach: requireEach, noAdjacent: noAdjacent, separator: separator,
+                          uppercaseCharacters: uppercaseCharacters, lowercaseCharacters: lowercaseCharacters,
+                          digitCharacters: digitCharacters, similarExclusions: similarExclusions)
     }
 }
 
@@ -47,6 +45,7 @@ struct SecretItem: Identifiable, Sendable, CustomStringConvertible {
     let id: Int
     let value: String
     let bits: Double
+    let length: Int
     var description: String { "SecretItem([REDACTED])" }
 }
 
@@ -71,13 +70,21 @@ enum GenerationState { case idle, running, cancelling }
     @ObservationIgnored private var cancellation = GenerationCancellation()
     @ObservationIgnored private var epoch = 0
     var busy: Bool { state != .idle }
+    var isDigitsOnly: Bool { recipe.mode == .password && recipe.digits && !recipe.uppercase && !recipe.lowercase && !recipe.symbolsEnabled }
     var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
+
+    func useDigitsOnly() {
+        guard !busy else { return }
+        recipe.mode = .password
+        recipe.uppercase = false; recipe.lowercase = false; recipe.digits = true; recipe.symbolsEnabled = false
+        recipe.digitCharacters = "0123456789"; recipe.excludeSimilar = false
+        recipe.normalize()
+    }
 
     func chooseMode(_ mode: RecipeMode) {
         guard !busy else { return }
         recipe.mode = mode
-        if mode == .numeric { recipe.lengthText = "20" }
-        if mode == .random { recipe.lengthText = "24" }
+        if mode == .password { recipe.lengthText = "24" }
         recipe.normalize()
     }
 
@@ -102,7 +109,7 @@ enum GenerationState { case idle, running, cancelling }
                 for index in 0..<snapshot.count {
                     try Task.checkCancellation()
                     let generated = try engine.generate(request: request, cancellation: token)
-                    let item = SecretItem(id: index, value: generated.value, bits: generated.entropyBits)
+                    let item = SecretItem(id: index, value: generated.value, bits: generated.entropyBits, length: Int(generated.length))
                     guard !token.isCancelled() else { break }
                     await self?.append(item, run: run)
                     await Task.yield()

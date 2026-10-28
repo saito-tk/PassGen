@@ -37,7 +37,6 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.window)
-    implementation(libs.adaptive)
     debugImplementation(libs.compose.ui.tooling)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test)

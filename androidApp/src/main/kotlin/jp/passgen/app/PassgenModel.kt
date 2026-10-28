@@ -14,11 +14,11 @@ class SecretRow(val value: String, val bits: Double, val index: Int) {
 }
 
 class PassgenModel : ViewModel() {
-    var mode by mutableStateOf(GenerationMode.RANDOM)
+    var mode by mutableStateOf(GenerationMode.PASSWORD)
     var lengthText by mutableStateOf("24")
     var countText by mutableStateOf("1")
     var words by mutableIntStateOf(7)
-    var separator by mutableStateOf(".")
+    var separator by mutableStateOf(" ")
     var uppercase by mutableStateOf(true)
     var lowercase by mutableStateOf(true)
     var digits by mutableStateOf(true)
@@ -27,6 +27,10 @@ class PassgenModel : ViewModel() {
     var excludeSimilar by mutableStateOf(true)
     var requireEach by mutableStateOf(true)
     var noAdjacent by mutableStateOf(false)
+    var uppercaseCharacters by mutableStateOf(CharacterPolicy.UPPERCASE)
+    var lowercaseCharacters by mutableStateOf(CharacterPolicy.LOWERCASE)
+    var digitCharacters by mutableStateOf(CharacterPolicy.DIGITS)
+    var similarExclusions by mutableStateOf(CharacterPolicy.SIMILAR)
     var work by mutableStateOf(WorkState.IDLE); private set
     var results by mutableStateOf<List<SecretRow>>(emptyList()); private set
     var goal by mutableIntStateOf(1); private set
@@ -37,20 +41,28 @@ class PassgenModel : ViewModel() {
     private var cancel = AtomicBoolean(false)
     private var epoch = 0L
     val busy get() = work != WorkState.IDLE
+    val isDigitsOnly get() = mode == GenerationMode.PASSWORD && digits && !uppercase && !lowercase && !symbolsEnabled
     val length get() = InputPolicy.normalizedInteger(lengthText, 24, 4, InputPolicy.MAX_LENGTH)
     val maxCount get() = if (mode == GenerationMode.PASSPHRASE) 1000 else InputPolicy.maximumCount(length)
     val count get() = InputPolicy.normalizedInteger(countText, 1, 1, maxCount)
 
     fun normalize() { lengthText = length.toString(); countText = count.toString() }
+    fun useDigitsOnly() {
+        if (busy) return
+        mode = GenerationMode.PASSWORD
+        uppercase = false; lowercase = false; digits = true; symbolsEnabled = false
+        digitCharacters = CharacterPolicy.DIGITS; excludeSimilar = false
+        normalize()
+    }
     fun chooseMode(value: GenerationMode) {
         if (busy) return
         mode = value
-        if (value == GenerationMode.NUMERIC) lengthText = "20"
-        if (value == GenerationMode.RANDOM) lengthText = "24"
+        if (value == GenerationMode.PASSWORD) lengthText = "24"
         normalize()
     }
     fun request() = GenerationRequest(mode, length, words, uppercase, lowercase, digits,
-        symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent, separator)
+        symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent, separator,
+        uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
     fun estimate(): Double? = try { PasswordEngine().estimatedEntropy(request()) } catch (_: GenerationException) { null }
 
     fun generateOrStop() {

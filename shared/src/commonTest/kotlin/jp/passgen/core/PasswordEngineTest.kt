@@ -59,7 +59,7 @@ class PasswordEngineTest {
     }
 
     @Test fun numericIncludesZeroAndHasNoHiddenCharacterRules() {
-        val request = GenerationRequest(mode = GenerationMode.NUMERIC, length = 1000)
+        val request = GenerationRequest(length = 1000, uppercase = false, lowercase = false, symbolsEnabled = false, excludeSimilar = false)
         val result = engine().generate(request, neverCancel)
         assertEquals(('0'..'9').toSet(), result.value.toSet())
         assertEquals(1000 * log2(10.0), result.entropyBits, 0.000001)
@@ -70,7 +70,7 @@ class PasswordEngineTest {
         assertEquals(7776, EffWords.words.toSet().size)
         assertEquals("abacus", EffWords.words.first())
         assertEquals("zoom", EffWords.words.last())
-        val result = engine().generate(GenerationRequest(mode = GenerationMode.PASSPHRASE), neverCancel)
+        val result = engine().generate(GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = "."), neverCancel)
         assertEquals(7, result.value.split('.').size)
         assertTrue(result.value.split('.').all { it in EffWords.words })
         assertEquals(7 * log2(7776.0), result.entropyBits, 0.00001)
@@ -83,7 +83,7 @@ class PasswordEngineTest {
             GenerationRequest(symbols = ""), GenerationRequest(symbols = "!😀"),
             GenerationRequest(uppercase = false, lowercase = false, digits = false, symbols = "!", noAdjacent = true),
             GenerationRequest(mode = GenerationMode.PASSPHRASE, wordCount = 5),
-            GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = "-"),
+            GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = ""),
         )
         cases.forEach { assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> { engine().generate(it, neverCancel) }.code) }
     }
@@ -137,6 +137,51 @@ class PasswordEngineTest {
         val engine = PasswordEngine()
         val values = (1..20).map { engine.generate(GenerationRequest(), neverCancel).value }
         assertEquals(20, values.toSet().size)
+    }
+
+    @Test fun individualCharactersAreAnExactAllowlist() {
+        val result = engine().generate(GenerationRequest(length = 1000, uppercaseCharacters = "AZA",
+            lowercaseCharacters = "mn", digitCharacters = "79", symbols = "!?"), neverCancel)
+        assertEquals("AZmn79!?".toSet(), result.value.toSet())
+        assertTrue(result.entropyBits < 3000.001)
+        assertTrue(result.entropyBits > 2999)
+    }
+
+    @Test fun emptyOrUnsupportedEnabledCharacterSelectionsFailClosed() {
+        listOf(GenerationRequest(uppercaseCharacters = ""), GenerationRequest(lowercaseCharacters = "a😀"),
+            GenerationRequest(digitCharacters = "１"), GenerationRequest(uppercaseCharacters = "OI"),
+            GenerationRequest(similarExclusions = "A")).forEach { request ->
+            assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> { engine().generate(request, neverCancel) }.code)
+        }
+    }
+
+    @Test fun exclusionsAreIndividuallyConfigurable() {
+        val result = engine().generate(GenerationRequest(length = 1000, uppercaseCharacters = "OI",
+            lowercase = false, digits = false, symbolsEnabled = false, similarExclusions = "I"), neverCancel)
+        assertTrue(result.value.all { it == 'O' })
+        assertEquals(0.0, result.entropyBits)
+    }
+
+    @Test fun disabledCharacterCategoriesDoNotAffectDistribution() {
+        val result = engine().generate(GenerationRequest(length = 100, uppercase = false, uppercaseCharacters = "",
+            lowercase = false, digitCharacters = "79", symbolsEnabled = false), neverCancel)
+        assertEquals(setOf('7', '9'), result.value.toSet())
+        assertEquals(100.0, result.entropyBits, 0.0001)
+    }
+
+    @Test fun phraseSeparatorsPreserveWordsAndEntropy() {
+        for (separator in listOf(" ", "-", "_", ".")) {
+            val result = engine().generate(GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = separator), neverCancel)
+            assertEquals(7 * log2(7776.0), result.entropyBits, 0.00001)
+            if (separator != "-") assertEquals(7, result.value.split(separator).size)
+            assertTrue(separator in result.value)
+        }
+        // EFF's four hyphenated words start with fragments that are not words in the list.
+        // The hyphen-token sequences therefore form a prefix-free code, so joining is injective.
+        val code = EffWords.words.map { it.split('-') }
+        assertTrue(code.filter { it.size > 1 }.all { parts ->
+            parts.first() !in EffWords.words && code.none { other -> other != parts && other.size <= parts.size && parts.take(other.size) == other }
+        })
     }
 }
 

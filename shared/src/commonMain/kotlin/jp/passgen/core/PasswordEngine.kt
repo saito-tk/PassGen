@@ -7,7 +7,7 @@ import kotlin.math.max
 
 /** No state, IO, secret persistence, third-party crypto, or caller-provided seeds. */
 class PasswordEngine internal constructor(private val entropy: EntropySource) {
-    constructor() : this(PlatformEntropy())
+    constructor() : this(platformEntropy())
 
     @Throws(GenerationException::class)
     fun generate(request: GenerationRequest, cancellation: CancellationProbe): GeneratedSecret {
@@ -17,8 +17,7 @@ class PasswordEngine internal constructor(private val entropy: EntropySource) {
             validate(request)
             return when (request.mode) {
                 GenerationMode.PASSPHRASE -> phrase(request, sampler)
-                GenerationMode.NUMERIC -> characters(request, listOf("0123456789"), sampler, false)
-                GenerationMode.RANDOM -> characters(request, pools(request), sampler, request.requireEach)
+                GenerationMode.PASSWORD -> characters(request, pools(request), sampler, request.requireEach)
             }
         } finally { sampler.close() }
     }
@@ -28,30 +27,32 @@ class PasswordEngine internal constructor(private val entropy: EntropySource) {
         validate(request)
         return when (request.mode) {
             GenerationMode.PASSPHRASE -> request.wordCount * log2(EffWords.words.size.toDouble())
-            GenerationMode.NUMERIC -> entropyBits(listOf(10), request.length, false, request.noAdjacent)
-            GenerationMode.RANDOM -> entropyBits(pools(request).map { it.length }, request.length, request.requireEach, request.noAdjacent)
+            GenerationMode.PASSWORD -> entropyBits(pools(request).map { it.length }, request.length, request.requireEach, request.noAdjacent)
         }
     }
 
     private fun validate(r: GenerationRequest) {
         if (r.mode == GenerationMode.PASSPHRASE) {
-            if (r.wordCount !in 6..12 || r.separator !in listOf(".", "_", " ")) invalid()
+            if (r.wordCount !in 6..12 || r.separator !in listOf(".", "_", " ", "-")) invalid()
             return
         }
         if (r.length !in 4..InputPolicy.MAX_LENGTH) invalid()
-        if (r.mode == GenerationMode.RANDOM) {
+        if (r.mode == GenerationMode.PASSWORD) {
+            if (r.similarExclusions.any { it !in CharacterPolicy.SIMILAR }) invalid()
+            if (r.uppercase && r.uppercaseCharacters.any { it !in CharacterPolicy.UPPERCASE }) invalid()
+            if (r.lowercase && r.lowercaseCharacters.any { it !in CharacterPolicy.LOWERCASE }) invalid()
+            if (r.digits && r.digitCharacters.any { it !in CharacterPolicy.DIGITS }) invalid()
             if (r.symbolsEnabled && (r.symbols.isEmpty() || r.symbols.any { it !in SymbolPolicy.SUPPORTED })) invalid()
             val pools = pools(r)
-            if (pools.isEmpty() || (r.requireEach && r.length < pools.size)) invalid()
+            if (pools.isEmpty() || pools.any { it.isEmpty() } || (r.requireEach && r.length < pools.size)) invalid()
             if (r.noAdjacent && pools.sumOf { it.length } < 2) invalid()
         }
     }
 
     private fun pools(r: GenerationRequest): List<String> = buildList {
-        val similar = if (r.excludeSimilar) "Oo0Il1" else ""
-        if (r.uppercase) add("ABCDEFGHIJKLMNOPQRSTUVWXYZ".filterNot { it in similar })
-        if (r.lowercase) add("abcdefghijklmnopqrstuvwxyz".filterNot { it in similar })
-        if (r.digits) add("0123456789".filterNot { it in similar })
+        if (r.uppercase) add(CharacterPolicy.effective(r.uppercaseCharacters, CharacterPolicy.UPPERCASE, r.excludeSimilar, r.similarExclusions))
+        if (r.lowercase) add(CharacterPolicy.effective(r.lowercaseCharacters, CharacterPolicy.LOWERCASE, r.excludeSimilar, r.similarExclusions))
+        if (r.digits) add(CharacterPolicy.effective(r.digitCharacters, CharacterPolicy.DIGITS, r.excludeSimilar, r.similarExclusions))
         if (r.symbolsEnabled) add(SymbolPolicy.recognized(r.symbols))
     }
 

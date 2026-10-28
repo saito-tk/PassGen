@@ -1,10 +1,10 @@
 package jp.passgen.core
 
-enum class GenerationMode { RANDOM, PASSPHRASE, NUMERIC }
+enum class GenerationMode { PASSWORD, PASSPHRASE }
 
 /** Configuration contains no secret and may be used by either native UI. */
 class GenerationRequest(
-    val mode: GenerationMode = GenerationMode.RANDOM,
+    val mode: GenerationMode = GenerationMode.PASSWORD,
     val length: Int = 24,
     val wordCount: Int = 7,
     val uppercase: Boolean = true,
@@ -15,7 +15,11 @@ class GenerationRequest(
     val excludeSimilar: Boolean = true,
     val requireEach: Boolean = true,
     val noAdjacent: Boolean = false,
-    val separator: String = ".",
+    val separator: String = " ",
+    val uppercaseCharacters: String = CharacterPolicy.UPPERCASE,
+    val lowercaseCharacters: String = CharacterPolicy.LOWERCASE,
+    val digitCharacters: String = CharacterPolicy.DIGITS,
+    val similarExclusions: String = CharacterPolicy.SIMILAR,
 )
 
 interface CancellationProbe { fun isCancelled(): Boolean }
@@ -24,6 +28,7 @@ class GenerationException(val code: String) : Exception(code)
 
 /** Deliberately not a data class: toString must never reveal a secret. */
 class GeneratedSecret internal constructor(val value: String, val entropyBits: Double) {
+    val length: Int get() = value.length
     override fun toString(): String = "GeneratedSecret([REDACTED])"
 }
 
@@ -50,4 +55,14 @@ object SymbolPolicy {
     /** OCR / LLM candidates can only narrow explicitly observed, supported symbols. */
     fun confirmedCandidate(proposed: String, evidence: String): String =
         recognized(proposed).filter { it in evidence }
+}
+
+object CharacterPolicy {
+    const val UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    const val LOWERCASE = "abcdefghijklmnopqrstuvwxyz"
+    const val DIGITS = "0123456789"
+    const val SIMILAR = "Oo0Il1"
+    fun canonical(selected: String, alphabet: String): String = alphabet.filter { it in selected }
+    fun effective(selected: String, alphabet: String, excludeSimilar: Boolean, exclusions: String): String =
+        canonical(selected, alphabet).filterNot { excludeSimilar && it in exclusions }
 }

@@ -342,8 +342,9 @@ struct PrivacyView: View {
                 }
                 Section("生成方式") {
                     Text("パスワードとEFFの7,776語パスフレーズから選べます。数字のみの生成はパスワードの文字種設定で行います。数字は同じ長さの英数字より候補が少なくなります。")
-                    Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 3.0 US")
+                    Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0")
                     Link("EFFの単語リストについて", destination: URL(string: "https://www.eff.org/dice")!)
+                    Link("CC BY 4.0 ライセンス", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
                 }
             }.navigationTitle("プライバシー").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } } }

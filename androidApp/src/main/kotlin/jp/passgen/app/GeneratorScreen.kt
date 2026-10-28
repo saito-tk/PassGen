@@ -109,7 +109,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             Text("OSの暗号学的乱数を使用し、パスワードを保存・送信しません。背景へ移ると生成結果を破棄します。")
             Text("コピーは機密情報として扱い、30秒後または背景移行時に消去します。他の内容へ置き換わっていた場合は消しません。")
             Text("画面キャプチャとアプリ切替時のプレビューを保護します。侵害されたOSやコピー先アプリでの保護は保証できません。")
-            Text("エントロピーは生成候補数の目安です。サービスの安全性や解読時間を保証しません。単語方式はEFF 7,776語 / CC BY 3.0 US。", style = MaterialTheme.typography.bodySmall)
+            Text("エントロピーは生成候補数の目安です。サービスの安全性や解読時間を保証しません。EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0。", style = MaterialTheme.typography.bodySmall)
+            Text("出典: https://www.eff.org/dice\nライセンス: https://creativecommons.org/licenses/by/4.0/", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { showPrivacy = false }, modifier = Modifier.align(Alignment.End)) { Text("閉じる") }
         }
     }

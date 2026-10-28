@@ -1,0 +1,136 @@
+# Passgen
+
+端末内で完結する、Android / iOSのパスワード生成アプリ。
+Kotlin Multiplatformの共通エンジンを、AndroidのJetpack Compose / Material 3と、iOSのSwiftUI / Liquid Glassから利用します。
+
+## できること
+
+- **パスワード**: 大文字・小文字・数字・30種類の記号を、1文字ずつ選択して生成。
+- **パスフレーズ**: EFFの7,776語から6〜12語を無作為に選択。区切りは半角スペース（初期値）・ハイフン・アンダーバー・ドット。
+- **数字のみ**: パスワード内の一括設定で0〜9のみを使用。短いコードの候補数が少ないことも表示。
+- 4〜999,999文字、1〜1,000件。件数の上限は `min(1000, floor(9999990 / 文字数))`。
+- 似た文字 `O o 0 I l 1` の個別除外、各文字種の必須化、同一文字の連続禁止。
+- 記号パレット、一覧の貼り付け反映。対応記号がなければ選択を維持し、入力欄だけを空にします。
+- iOSは画像選択 → Vision OCR → 対応端末のローカルLLM → 根拠と候補の確認 → 記号への適用。
+- 設定を中心にした凝縮UI。生成結果は下から開く一覧シートで、停止・進捗・表示切替・全文コピーを操作。プレビューは100文字まで。
+- Androidはウィンドウ幅・縦横ヒンジに追従。iOSはiPhone向け編集シートとiPad向け2ペイン。
+- システムのダークモード、文字サイズ拡大、VoiceOver / TalkBack向けラベルに対応。
+
+起動時は自動生成しません。設定と生成結果はセッション内だけのものです。保存済みプリセット、履歴、同期、Safari拡張、Autofillサービスはこのモバイル版に含めていません。
+
+## 安全性
+
+生成用の乱数はAndroidの `SecureRandom`、iOSの `SecRandomCopyBytes` から取得します。
+範囲化と文字種必須条件にはrejection samplingを使用し、無作為な候補の一様性を維持します。
+乱数取得に失敗した場合や条件が厳しすぎる場合、弱い方式へ切り替えず停止します。
+
+パスワードを保存・送信・ログ出力しません。AndroidにはINTERNET権限がありません。
+生成結果は初期状態でマスクし、背景へ移るとキャンセルして破棄します。
+コピーは機密情報として扱い、30秒後に消去します。iOSはUniversal Clipboardへ同期しません。
+Androidは背景移行時にも所有するコピーを消去し、他の内容へ置き換わっていた場合は消去しません。
+OSが長い値のコピーを拒否した場合は、クラッシュせず失敗を表示します。
+
+iOS 26以降は標準ツールバーと主要アクションにLiquid Glassを使用します。
+「透明度を下げる」設定では不透明な操作面を使い、秘密を表示するカードは常に可読性を優先します。
+非アクティブ画面は覆い、画面収録時は秘密を隠します。iOSの静止画スクリーンショットを完全に禁止することはできません。
+
+JVM / Swift文字列やOSクリップボードの完全なメモリ消去、侵害されたOS、コピー先のアプリに対する保護は保証できません。
+エントロピーは生成空間に基づく目安であり、解読時間やサービス全体の安全性を保証しません。
+詳しくは [安全性の設計](docs/design/security.md) と [UI設計](docs/design/ui.md) を参照してください。
+
+## iOSのスクリーンショット取り込み
+
+「サイトに合わせる記号」から「画像を選んで読み取る」を選びます。
+写真ライブラリ全体への権限を要求せず、選んだ画像だけを処理します。
+画像は最大20 MiB / 4,000万ピクセル。端末内で縮小してからVisionで読み取ります。
+
+iOS 27以降でApple Intelligenceの端末内モデルが利用可能な場合だけ、`SystemLanguageModel` にOCRテキストからの候補抽出を依頼します。
+クラウドモデルへのフォールバックはありません。モデルを使えない場合はOCR結果と手動パレットを使えます。
+iCloud上の写真を選んだ場合、写真アプリ側が元画像を取得することはあります。
+
+候補は自動適用しません。画像内に実在する対応記号に限定し、許可文の引用が存在しない、禁止表現を含む、判断が曖昧な場合は候補を出しません。
+元の案内を確認し、必要なら候補を減らしてから「確認した候補を適用」を押してください。
+
+## 開発環境
+
+| 要素 | 固定バージョン |
+|---|---|
+| Kotlin / Compose compiler | 2.4.21 |
+| Android Gradle Plugin | 9.3.1 |
+| Gradle | 9.7.0 |
+| Compose BOM | 2026.09.00 |
+| Activity / Lifecycle | 1.13.0 / 2.11.0 |
+| Window | 1.5.1 |
+| Android | min 28 / compile・target 37 |
+| iOS | min 18 / Liquid Glass 26+ / ローカルLLM 27+ |
+| Xcode（検証環境） | 27.0 / Apple Silicon |
+
+2026-10-29時点の公式安定版と[Kotlin互換表](https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html)を確認しています。
+AGP単体の最新9.5.0とGradle単体の最新9.8.2は、Kotlin 2.4.21の公開互換範囲を超えるため採用していません。
+Kotlin公式表のXcode検証版は26.4ですが、このリポジトリではXcode 27.0でビルド・Simulatorテストを行います。
+実行時の依存はGoogle / JetBrains / Appleの公式ライブラリと標準APIに限定しています。
+
+## ビルド
+
+Android Studio、Android SDK 37、JDK 17以降（21推奨）が必要です。
+
+```sh
+./scripts/gradle-local.sh :shared:jvmTest :androidApp:assembleDebug :androidApp:lintDebug
+```
+
+補助スクリプトは、キャッシュをリポジトリ内 `.local-tools/` に置きます。
+必要なら `JAVA_HOME` / `ANDROID_HOME` を指定してください。
+生成されるAPKは `androidApp/build/outputs/apk/debug/androidApp-debug.apk` です。
+リリースの署名鍵は含めていません。
+
+iOSは `iosApp/Passgen.xcodeproj` を開き、`Passgen` schemeとSimulatorを選びます。
+XcodeのビルドフェーズがKotlinフレームワークを生成・リンクします。
+Apple Silicon Simulatorとarm64実機用のターゲットを定義しています。実機の署名Teamは開発者が設定してください。
+
+```sh
+xcodebuild -project iosApp/Passgen.xcodeproj -scheme Passgen \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath .local-tools/DerivedData CODE_SIGNING_ALLOWED=NO build
+```
+
+Xcodeプロジェクトはコミット済みです。再生成が必要な場合だけ、`xcodeproj` gemを持つRubyで `ruby scripts/generate-xcode-project.rb` を使います。
+アプリのビルド時にRubyや追加のSwift Packageは不要です。
+
+## テスト
+
+```sh
+# 共通ロジック: JVM / iOSのOS乱数を含む同一テスト
+./scripts/gradle-local.sh :shared:jvmTest
+./scripts/gradle-local.sh --no-daemon :shared:iosSimulatorArm64Test
+
+# 接続先を必ずemulatorに限定する
+./scripts/test-android-emulator.sh emulator-5580
+
+# 利用可能なSimulatorのIDを指定
+xcodebuild -project iosApp/Passgen.xcodeproj -scheme Passgen \
+  -destination 'platform=iOS Simulator,id=SIMULATOR_ID' \
+  -derivedDataPath .local-tools/DerivedData -parallel-testing-enabled NO \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+共通テストは範囲化の全走査、エントロピーの全列挙照合、最大長、文字種条件、キャンセル、乱数失敗を検証します。
+ネイティブテストはコピーの所有判定、背景消去、生成停止、OCR・候補検証、画面操作を検証します。
+画面確認用のAndroidテストだけが一時的にFLAG_SECUREを解除し、未生成画面を撮影します。製品コードに解除経路はありません。
+
+依存物のSHA-256は `gradle/verification-metadata.xml`、Gradle配布物はwrapper設定で検証します。
+依存更新時は取得元と差分をレビューし、検証メタデータを更新してください。初回取得の独立した監査・署名検証を代替するものではありません。
+
+## 構成
+
+```text
+shared/          Kotlinの生成・検証・記号ポリシー・テスト
+androidApp/      Androidネイティブ画面・ライフサイクル・クリップボード
+iosApp/          SwiftUI画面・Liquid Glass・Vision / Foundation Models
+docs/design/     脅威モデルと設計上の境界
+docs/tasks/      実装タスクと検証記録
+third-party/     EFF単語リスト原本・出典・ライセンス
+scripts/         ローカルビルド・Xcodeプロジェクト生成
+```
+
+参照元 `/Users/saitotk/github/safari-extension_passgen` は読み取りのみで使用しました。
+モデルが利用可能な実機でのLLM抽出精度、ストア署名・配布、第三者セキュリティ監査は未実施です。

@@ -1,0 +1,135 @@
+import Foundation
+import Observation
+import PassgenCore
+
+enum RecipeMode: String, CaseIterable, Identifiable, Sendable {
+    case random, passphrase, numeric
+    var id: Self { self }
+    var title: String { switch self { case .random: "ランダム"; case .passphrase: "単語"; case .numeric: "数字" } }
+    var symbol: String { switch self { case .random: "shuffle"; case .passphrase: "textformat.abc"; case .numeric: "number" } }
+    var subtitle: String {
+        switch self {
+        case .random: "サイトの条件に合わせて、自由に。"
+        case .passphrase: "7,776語から無作為に。覚えやすさを大切に。"
+        case .numeric: "数字専用のサービスに。短いコードは強度に注意。"
+        }
+    }
+    var core: GenerationMode { switch self { case .random: .random; case .passphrase: .passphrase; case .numeric: .numeric } }
+}
+
+struct Recipe: Sendable {
+    var mode: RecipeMode = .random
+    var lengthText = "24"
+    var countText = "1"
+    var words = 7
+    var separator = "."
+    var uppercase = true
+    var lowercase = true
+    var digits = true
+    var symbolsEnabled = true
+    var symbols = "!@#$%&*-_+=?"
+    var excludeSimilar = true
+    var requireEach = true
+    var noAdjacent = false
+
+    var length: Int { Int(InputPolicy.shared.normalizedInteger(text: lengthText, fallback: 24, minimum: 4, maximum: 999_999)) }
+    var maximumCount: Int { mode == .passphrase ? 1000 : Int(InputPolicy.shared.maximumCount(length: Int32(length))) }
+    var count: Int { Int(InputPolicy.shared.normalizedInteger(text: countText, fallback: 1, minimum: 1, maximum: Int32(maximumCount))) }
+    mutating func normalize() { lengthText = String(length); countText = String(count) }
+    func request() -> GenerationRequest {
+        GenerationRequest(mode: mode.core, length: Int32(length), wordCount: Int32(words), uppercase: uppercase,
+                          lowercase: lowercase, digits: digits, symbolsEnabled: symbolsEnabled, symbols: symbols,
+                          excludeSimilar: excludeSimilar, requireEach: requireEach, noAdjacent: noAdjacent, separator: separator)
+    }
+}
+
+struct SecretItem: Identifiable, Sendable, CustomStringConvertible {
+    let id: Int
+    let value: String
+    let bits: Double
+    var description: String { "SecretItem([REDACTED])" }
+}
+
+final class GenerationCancellation: NSObject, CancellationProbe, @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    func cancel() { lock.withLock { cancelled = true } }
+    func isCancelled() -> Bool { lock.withLock { cancelled } }
+}
+
+enum GenerationState { case idle, running, cancelling }
+
+@MainActor @Observable final class GeneratorModel {
+    var recipe = Recipe()
+    private(set) var results: [SecretItem] = []
+    private(set) var state: GenerationState = .idle
+    private(set) var goal = 1
+    var revealed = false
+    var message: String?
+    var copiedID: Int?
+    @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private var cancellation = GenerationCancellation()
+    @ObservationIgnored private var epoch = 0
+    var busy: Bool { state != .idle }
+    var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
+
+    func chooseMode(_ mode: RecipeMode) {
+        guard !busy else { return }
+        recipe.mode = mode
+        if mode == .numeric { recipe.lengthText = "20" }
+        if mode == .random { recipe.lengthText = "24" }
+        recipe.normalize()
+    }
+
+    func generateOrStop() {
+        guard state != .cancelling else { return }
+        if state == .running {
+            state = .cancelling; cancellation.cancel(); task?.cancel()
+            return
+        }
+        recipe.normalize()
+        let snapshot = recipe
+        let token = GenerationCancellation()
+        cancellation = token
+        epoch += 1
+        let run = epoch
+        goal = snapshot.count
+        results = []; revealed = false; copiedID = nil; message = nil; state = .running
+        task = Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                let engine = PasswordEngine()
+                let request = snapshot.request()
+                for index in 0..<snapshot.count {
+                    try Task.checkCancellation()
+                    let generated = try engine.generate(request: request, cancellation: token)
+                    let item = SecretItem(id: index, value: generated.value, bits: generated.entropyBits)
+                    guard !token.isCancelled() else { break }
+                    await self?.append(item, run: run)
+                    await Task.yield()
+                }
+            } catch {
+                if !token.isCancelled() { await self?.failed(run: run) }
+            }
+            await self?.finished(run: run)
+        }
+    }
+
+    private func append(_ item: SecretItem, run: Int) {
+        guard run == epoch, state == .running else { return }
+        results.append(item)
+    }
+    private func failed(run: Int) {
+        guard run == epoch else { return }
+        message = "安全に生成できませんでした。文字種・記号の選択と条件を確認してください。"
+    }
+    private func finished(run: Int) { if run == epoch { state = .idle } }
+
+    func clear() {
+        guard !busy else { return }
+        results = []; revealed = false; copiedID = nil
+    }
+    func background() {
+        epoch += 1; cancellation.cancel(); task?.cancel(); task = nil
+        results = []; revealed = false; copiedID = nil; message = nil; state = .idle
+    }
+}

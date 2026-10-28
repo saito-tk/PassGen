@@ -1,0 +1,675 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0B7AEB522C6893EAC171635B /* GeneratorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F984678CA14E6B62036F066C /* GeneratorModel.swift */; };
+		0BA8C358408509381F00271A /* SymbolEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6E2194D8A3195152210BBC /* SymbolEditor.swift */; };
+		1D9EBF8D76530D61D6FD724E /* PassgenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204AF1544A4D5BFC70590548 /* PassgenApp.swift */; };
+		214C6E4A2270ED0433E7ACF1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AC5B81B2BF69BBFCC013BDAA /* PrivacyInfo.xcprivacy */; };
+		34E18458AEF1F20204DDEC89 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8EA497486FB74CE1C39A18A /* Foundation.framework */; };
+		41BA249853D82E5DC0659C28 /* ScreenshotImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB22C537ECC222557915F069 /* ScreenshotImporter.swift */; };
+		62763D7CF97752525F5EF857 /* PassgenUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF4B5C025DAF4DD889BA412 /* PassgenUITests.swift */; };
+		6468032B89792D79FB42AF46 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93C760ECAC2AF5C5809A6137 /* Assets.xcassets */; };
+		6E6BA0C2B03C989589691233 /* PassgenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B693F205EA1A603CB7F6306 /* PassgenTests.swift */; };
+		7D2E2F8F31E4CC2CC50A1097 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8EA497486FB74CE1C39A18A /* Foundation.framework */; };
+		AD7F958BF25FC941D7B3437E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8EA497486FB74CE1C39A18A /* Foundation.framework */; };
+		B713B1B39B79A818FF3505D5 /* GeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168B552568EFEB2DC78AB177 /* GeneratorView.swift */; };
+		BC91A9FD24D89B489F4543C3 /* SecureClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F100EF4D3E96FEA8AD6E7F0 /* SecureClipboard.swift */; };
+		C3D8482B904238E5B38AECF4 /* GlassStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85661075D6335CCB0DAAC239 /* GlassStyle.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2CF04B49D84FFA9BD250CA6E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C061EC90C7FC7E82991865B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52E8615C8326917D0D9C2940;
+			remoteInfo = Passgen;
+		};
+		42329A2F8687E83F9615F682 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C061EC90C7FC7E82991865B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52E8615C8326917D0D9C2940;
+			remoteInfo = Passgen;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0B693F205EA1A603CB7F6306 /* PassgenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PassgenTests.swift; sourceTree = "<group>"; };
+		11400A49F76201B389813A18 /* PassgenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PassgenTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		168B552568EFEB2DC78AB177 /* GeneratorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneratorView.swift; sourceTree = "<group>"; };
+		1C41B496402A3A0169B575F8 /* Passgen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Passgen.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		204AF1544A4D5BFC70590548 /* PassgenApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PassgenApp.swift; sourceTree = "<group>"; };
+		3B6E2194D8A3195152210BBC /* SymbolEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SymbolEditor.swift; sourceTree = "<group>"; };
+		3F100EF4D3E96FEA8AD6E7F0 /* SecureClipboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SecureClipboard.swift; sourceTree = "<group>"; };
+		4A64770553F5A6729D6A0227 /* PassgenUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PassgenUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7316CAB513969DBF71193E5F /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		85661075D6335CCB0DAAC239 /* GlassStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlassStyle.swift; sourceTree = "<group>"; };
+		93C760ECAC2AF5C5809A6137 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A8EA497486FB74CE1C39A18A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		AC5B81B2BF69BBFCC013BDAA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		DB22C537ECC222557915F069 /* ScreenshotImporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenshotImporter.swift; sourceTree = "<group>"; };
+		EAF4B5C025DAF4DD889BA412 /* PassgenUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PassgenUITests.swift; sourceTree = "<group>"; };
+		F984678CA14E6B62036F066C /* GeneratorModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneratorModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A68C12814D13D4A1D4D203B6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7D2E2F8F31E4CC2CC50A1097 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A9C57A784EB98B38652C16F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AD7F958BF25FC941D7B3437E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F15AD4EE81F6A3346FF75B37 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34E18458AEF1F20204DDEC89 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		07DB0E921589405309DCEC57 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0F79ABE554ED61AE7BD89BF1 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0D134B00C9D9C71E3CA2D16D /* PassgenTests */ = {
+			isa = PBXGroup;
+			children = (
+				0B693F205EA1A603CB7F6306 /* PassgenTests.swift */,
+			);
+			name = PassgenTests;
+			path = PassgenTests;
+			sourceTree = "<group>";
+		};
+		0F79ABE554ED61AE7BD89BF1 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A8EA497486FB74CE1C39A18A /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		1C948E20679A485667A2B6D5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1C41B496402A3A0169B575F8 /* Passgen.app */,
+				11400A49F76201B389813A18 /* PassgenTests.xctest */,
+				4A64770553F5A6729D6A0227 /* PassgenUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		82B9AAC8991D48C8691A4DE1 = {
+			isa = PBXGroup;
+			children = (
+				1C948E20679A485667A2B6D5 /* Products */,
+				07DB0E921589405309DCEC57 /* Frameworks */,
+				EC2FC3C2522B5AC4865D9E25 /* Passgen */,
+				0D134B00C9D9C71E3CA2D16D /* PassgenTests */,
+				E0B2031A2078DE4B7AD083EC /* PassgenUITests */,
+			);
+			sourceTree = "<group>";
+		};
+		E0B2031A2078DE4B7AD083EC /* PassgenUITests */ = {
+			isa = PBXGroup;
+			children = (
+				EAF4B5C025DAF4DD889BA412 /* PassgenUITests.swift */,
+			);
+			name = PassgenUITests;
+			path = PassgenUITests;
+			sourceTree = "<group>";
+		};
+		EC2FC3C2522B5AC4865D9E25 /* Passgen */ = {
+			isa = PBXGroup;
+			children = (
+				F984678CA14E6B62036F066C /* GeneratorModel.swift */,
+				168B552568EFEB2DC78AB177 /* GeneratorView.swift */,
+				85661075D6335CCB0DAAC239 /* GlassStyle.swift */,
+				204AF1544A4D5BFC70590548 /* PassgenApp.swift */,
+				DB22C537ECC222557915F069 /* ScreenshotImporter.swift */,
+				3F100EF4D3E96FEA8AD6E7F0 /* SecureClipboard.swift */,
+				3B6E2194D8A3195152210BBC /* SymbolEditor.swift */,
+				93C760ECAC2AF5C5809A6137 /* Assets.xcassets */,
+				AC5B81B2BF69BBFCC013BDAA /* PrivacyInfo.xcprivacy */,
+				7316CAB513969DBF71193E5F /* Info.plist */,
+			);
+			name = Passgen;
+			path = Passgen;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		21FACD8C8953A9F377A21865 /* PassgenTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 197F51E7E617B4FF8AE1D961 /* Build configuration list for PBXNativeTarget "PassgenTests" */;
+			buildPhases = (
+				A6695CB24DBABDB9ED8EDD6B /* Sources */,
+				F15AD4EE81F6A3346FF75B37 /* Frameworks */,
+				CA46527C4C54EF259D0A7E35 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4D50FB4014AFE76EBFCD5506 /* PBXTargetDependency */,
+			);
+			name = PassgenTests;
+			productName = PassgenTests;
+			productReference = 11400A49F76201B389813A18 /* PassgenTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		52E8615C8326917D0D9C2940 /* Passgen */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 78E1198339E49ACF3C9D21FD /* Build configuration list for PBXNativeTarget "Passgen" */;
+			buildPhases = (
+				647CB1E3C23B97AF900A01A5 /* Build Kotlin shared framework */,
+				AD701B1853CD484F16A2ED73 /* Sources */,
+				A68C12814D13D4A1D4D203B6 /* Frameworks */,
+				7A0F5B890B2B5C1FF67CED01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Passgen;
+			productName = Passgen;
+			productReference = 1C41B496402A3A0169B575F8 /* Passgen.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A63765AE79EC6F4DDE61ECCE /* PassgenUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EDAE37F43728C7DAC4A5CE14 /* Build configuration list for PBXNativeTarget "PassgenUITests" */;
+			buildPhases = (
+				F12B4446E911BA99D971CDFA /* Sources */,
+				A9C57A784EB98B38652C16F8 /* Frameworks */,
+				3369A9E8C0DE94E4120975B3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D9ADC06FA6883D7DA3404969 /* PBXTargetDependency */,
+			);
+			name = PassgenUITests;
+			productName = PassgenUITests;
+			productReference = 4A64770553F5A6729D6A0227 /* PassgenUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C061EC90C7FC7E82991865B5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = D9E65CF8546D30571A2D6A8A /* Build configuration list for PBXProject "Passgen" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = ja;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				ja,
+				en,
+				Base,
+			);
+			mainGroup = 82B9AAC8991D48C8691A4DE1;
+			productRefGroup = 1C948E20679A485667A2B6D5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				52E8615C8326917D0D9C2940 /* Passgen */,
+				21FACD8C8953A9F377A21865 /* PassgenTests */,
+				A63765AE79EC6F4DDE61ECCE /* PassgenUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3369A9E8C0DE94E4120975B3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0F5B890B2B5C1FF67CED01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6468032B89792D79FB42AF46 /* Assets.xcassets in Resources */,
+				214C6E4A2270ED0433E7ACF1 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA46527C4C54EF259D0A7E35 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		647CB1E3C23B97AF900A01A5 /* Build Kotlin shared framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Kotlin shared framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\ncd \"$SRCROOT/..\"\n./scripts/gradle-local.sh :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A6695CB24DBABDB9ED8EDD6B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E6BA0C2B03C989589691233 /* PassgenTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AD701B1853CD484F16A2ED73 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0B7AEB522C6893EAC171635B /* GeneratorModel.swift in Sources */,
+				B713B1B39B79A818FF3505D5 /* GeneratorView.swift in Sources */,
+				C3D8482B904238E5B38AECF4 /* GlassStyle.swift in Sources */,
+				1D9EBF8D76530D61D6FD724E /* PassgenApp.swift in Sources */,
+				41BA249853D82E5DC0659C28 /* ScreenshotImporter.swift in Sources */,
+				BC91A9FD24D89B489F4543C3 /* SecureClipboard.swift in Sources */,
+				0BA8C358408509381F00271A /* SymbolEditor.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F12B4446E911BA99D971CDFA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				62763D7CF97752525F5EF857 /* PassgenUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4D50FB4014AFE76EBFCD5506 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Passgen;
+			target = 52E8615C8326917D0D9C2940 /* Passgen */;
+			targetProxy = 42329A2F8687E83F9615F682 /* PBXContainerItemProxy */;
+		};
+		D9ADC06FA6883D7DA3404969 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Passgen;
+			target = 52E8615C8326917D0D9C2940 /* Passgen */;
+			targetProxy = 2CF04B49D84FFA9BD250CA6E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		66B9D100E53C924C0AE23A3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.passgentests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Passgen.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Passgen";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		6AC874C8ECEFA20A1AF1C4D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Passgen/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					PassgenCore,
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.app;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		814B3A88B152D983BC66D863 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Passgen/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					PassgenCore,
+					"-lsqlite3",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.app;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B9C7767591D00B8751C4E014 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.passgenuitests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Passgen;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BC1BD50B35CE7FD25A974AE9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E283E455934B22BB8A57F8B5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.passgentests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Passgen.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Passgen";
+			};
+			name = Debug;
+		};
+		E3B6D221886C770DF8A8573E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.passgen.passgenuitests;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Passgen;
+			};
+			name = Debug;
+		};
+		EA9BC0C4E8701866BF584D75 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		197F51E7E617B4FF8AE1D961 /* Build configuration list for PBXNativeTarget "PassgenTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				66B9D100E53C924C0AE23A3D /* Release */,
+				E283E455934B22BB8A57F8B5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		78E1198339E49ACF3C9D21FD /* Build configuration list for PBXNativeTarget "Passgen" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				814B3A88B152D983BC66D863 /* Release */,
+				6AC874C8ECEFA20A1AF1C4D3 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D9E65CF8546D30571A2D6A8A /* Build configuration list for PBXProject "Passgen" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC1BD50B35CE7FD25A974AE9 /* Debug */,
+				EA9BC0C4E8701866BF584D75 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EDAE37F43728C7DAC4A5CE14 /* Build configuration list for PBXNativeTarget "PassgenUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B9C7767591D00B8751C4E014 /* Release */,
+				E3B6D221886C770DF8A8573E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C061EC90C7FC7E82991865B5 /* Project object */;
+}

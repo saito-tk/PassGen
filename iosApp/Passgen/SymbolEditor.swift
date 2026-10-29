@@ -10,10 +10,14 @@ struct SymbolEditor: View {
     @State private var pasted = ""
     @State private var feedback: String?
     @State private var selection: PhotosPickerItem?
-    @State private var analysis: ScreenshotAnalysis?
-    @State private var candidate = ""
-    @State private var loading = false
-    @State private var importError: String?
+    @State private var session: ScreenshotImportSession = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-screenshot-import") {
+            return ScreenshotImportSession { try await ScreenshotImporter.analyze($0, useModel: false) }
+        }
+        #endif
+        return ScreenshotImportSession()
+    }()
     private let columns = [GridItem(.adaptive(minimum: 44), spacing: 6)]
 
     var body: some View {
@@ -65,23 +69,24 @@ struct SymbolEditor: View {
                     }
                     Divider()
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("スクリーンショットから", systemImage: "viewfinder").font(.headline)
-                        Text("許可記号の案内部分を端末内で読み取ります。候補は確認後に適用します。")
+                        Label("スクリーンショットから", systemImage: "viewfinder").font(.headline).accessibilityIdentifier("screenshot-import-section")
+                        Text("許可記号の案内部分を端末内で読み取ります。候補は確認後に適用します。読み取り内容はこの画面を閉じるまで保持します。")
                             .font(.caption).foregroundStyle(.secondary)
                         Text(ScreenshotImporter.modelStatus).font(.caption).foregroundStyle(.secondary)
                         PhotosPicker(selection: $selection, matching: .images, preferredItemEncoding: .current) {
                             Label("画像を選んで読み取る", systemImage: "photo")
                                 .frame(maxWidth: .infinity).padding(.vertical, 8)
                         }.buttonStyle(.bordered).disabled((protection.isCaptured && model.security.protectCapture))
-                        if loading {
+                        if session.suspended { Text("復帰後に読み取りを再開します。").font(.caption) }
+                        if session.loading {
                             HStack { ProgressView(); Text("端末内で読み取り中…").font(.caption) }
-                            Button("読み取りを中止") { selection = nil; loading = false; analysis = nil; candidate = "" }.font(.caption)
+                            Button("読み取りを中止") { selection = nil; session.clear() }.font(.caption)
                         }
-                        if let importError { Text(importError).font(.caption).foregroundStyle(.red) }
+                        if let importError = session.errorMessage { Text(importError).font(.caption).foregroundStyle(.red) }
                         if (protection.isCaptured && model.security.protectCapture) {
                             Text("画面収録中は読み取り内容を非表示にしています。").font(.caption).foregroundStyle(.secondary)
-                        } else if let analysis {
-                            Text(analysis.note).font(.subheadline)
+                        } else if let analysis = session.analysis {
+                            Text(analysis.note).font(.subheadline).accessibilityIdentifier("screenshot-import-status")
                             if !analysis.evidence.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("読み取った根拠").font(.caption.weight(.semibold))
@@ -93,33 +98,34 @@ struct SymbolEditor: View {
                                 Image(uiImage: image).resizable().scaledToFit()
                                     .padding(8).background(.white, in: RoundedRectangle(cornerRadius: 12))
                                     .accessibilityLabel("元画像の記号部分。下の候補と照合してください。")
+                                    .accessibilityIdentifier("screenshot-import-preview")
                                     .privacySensitive()
                             }
                             if analysis.previewData != nil {
-                                Text("画像と照合 · \(candidate.count)種類を選択中").font(.subheadline.weight(.semibold))
+                                Text("画像と照合 · \(session.candidate.count)種類を選択中").font(.subheadline.weight(.semibold))
                                 Text("読み落とした記号は追加し、余分な記号は解除してください。").font(.caption).foregroundStyle(.secondary)
                                 LazyVGrid(columns: columns, spacing: 8) {
                                     ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
                                         Button {
-                                            if candidate.contains(symbol) { candidate.removeAll { $0 == symbol } }
-                                            else { candidate = SymbolPolicy.shared.recognized(text: candidate + String(symbol)) }
+                                            if session.candidate.contains(symbol) { session.candidate.removeAll { $0 == symbol } }
+                                            else { session.candidate = SymbolPolicy.shared.recognized(text: session.candidate + String(symbol)) }
                                         } label: {
                                             Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
                                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                                .foregroundStyle(candidate.contains(symbol) ? Color.passgenOnAccent : Color.primary)
-                                                .background(candidate.contains(symbol) ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                                .foregroundStyle(session.candidate.contains(symbol) ? Color.passgenOnAccent : Color.primary)
+                                                .background(session.candidate.contains(symbol) ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                                         }.buttonStyle(.plain).accessibilityLabel("候補 \(String(symbol))")
                                             .accessibilityIdentifier("candidate-\(String(symbol))")
-                                            .accessibilityAddTraits(candidate.contains(symbol) ? [.isSelected] : [])
+                                            .accessibilityAddTraits(session.candidate.contains(symbol) ? [.isSelected] : [])
                                     }
                                 }
                                 Button("確認した候補を適用") {
-                                    guard !candidate.isEmpty else { return }
-                                    model.recipe.symbols = candidate
+                                    guard !session.candidate.isEmpty else { return }
+                                    model.recipe.symbols = session.candidate
                                     model.recipe.symbolsEnabled = true
-                                    feedback = "確認した\(candidate.count)種類の記号を適用しました。"
-                                    self.analysis = nil; selection = nil; candidate = ""
-                                }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(candidate.isEmpty)
+                                    feedback = "確認した\(session.candidate.count)種類の記号を適用しました。"
+                                    session.clear(); selection = nil
+                                }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(session.candidate.isEmpty)
                                     .accessibilityIdentifier("apply-image-symbols")
                             }
                             DisclosureGroup("文字認識の結果を確認") {
@@ -129,31 +135,36 @@ struct SymbolEditor: View {
                     }
                 }.padding(16)
             }
+            .accessibilityIdentifier("symbol-editor-scroll")
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("使える記号").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { dismiss() } } }
             .disabled(model.busy)
         }
-        .task(id: selection) {
-            guard let selection else { return }
-            analysis = nil; candidate = ""; importError = nil; loading = true
-            do {
-                guard let data = try await selection.loadTransferable(type: Data.self) else { throw ScreenshotImportError.invalidImage }
-                try Task.checkCancellation()
-                let result = try await ScreenshotImporter.analyze(data)
-                try Task.checkCancellation()
-                analysis = result; candidate = result.proposedSymbols; loading = false
-            } catch is CancellationError { }
-            catch {
-                guard !Task.isCancelled else { return }
-                importError = (error as? ScreenshotImportError)?.errorDescription ?? "画像を読み込めませんでした。別の画像を選んでください。"
-                loading = false
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--uitest-screenshot-import"), session.analysis == nil, !session.loading {
+                session.start {
+                    let image = UIGraphicsImageRenderer(size: CGSize(width: 1400, height: 340)).image { context in
+                        UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1400, height: 340))
+                        ("Allowed password symbols:" as NSString).draw(at: CGPoint(x: 30, y: 40), withAttributes: [.font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black])
+                        (#"! " # $ % & ' ( ) * + , - . / : ;"# as NSString).draw(at: CGPoint(x: 30, y: 130), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
+                        (#"< = > ? @ [ ] ^ _ ` { } | ~"# as NSString).draw(at: CGPoint(x: 30, y: 210), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
+                    }
+                    return image.pngData()
+                }
             }
+            #endif
+        }
+        .onChange(of: selection) { _, item in
+            guard let item else { return }
+            session.start { try await item.loadTransferable(type: Data.self) }
         }
         .onChange(of: phase) { _, value in
-            if value == .background { selection = nil; analysis = nil; candidate = ""; pasted = ""; loading = false; importError = nil; feedback = nil }
+            if value == .background { session.suspend() }
+            else if value == .active { session.resume() }
         }
-        .onDisappear { selection = nil; analysis = nil; candidate = ""; pasted = "" }
+        .onDisappear { selection = nil; session.clear(); pasted = "" }
     }
 
     private func toggle(_ symbol: Character) {

@@ -21,6 +21,45 @@ final class PassgenUITests: XCTestCase {
         app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
         XCTAssertTrue(app.navigationBars["使える記号"].waitForExistence(timeout: 3))
     }
+    @MainActor func testImportedSymbolsAndManualReviewSurviveBackground() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-ephemeral-settings", "--uitest-screenshot-import"]
+        app.launch()
+        app.segmentedControls.buttons["記号"].tap(); app.swipeUp()
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        XCTAssertTrue(app.navigationBars["使える記号"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["screenshot-import-status"].waitForExistence(timeout: 15))
+        guard app.images["screenshot-import-preview"].exists else {
+            XCTFail("Fixture did not produce an editable preview: " + app.staticTexts["screenshot-import-status"].label)
+            return
+        }
+        let scroll = app.scrollViews["symbol-editor-scroll"]
+        let ready = XCTAttachment(screenshot: app.screenshot()); ready.name = "Import ready before review"; ready.lifetime = .keepAlways; add(ready)
+        let bang = app.buttons["candidate-!"]
+        for _ in 0..<8 { if bang.isHittable { break }; scroll.swipeUp() }
+        XCTAssertTrue(bang.waitForExistence(timeout: 5)); XCTAssertTrue(bang.isSelected)
+        let brace = app.buttons["candidate-{"]
+        for _ in 0..<3 { if brace.isHittable { break }; scroll.swipeUp() }
+        // Vision revisions can miss a glyph: exercise a manual addition as well
+        // as a removal, then verify both edits survive the real scene transition.
+        if !brace.isSelected { brace.tap() }
+        XCTAssertTrue(brace.isSelected)
+        let hash = app.buttons["candidate-#"]
+        for _ in 0..<3 { if hash.isHittable { break }; scroll.swipeDown() }
+        XCTAssertTrue(hash.isSelected); hash.tap(); XCTAssertFalse(hash.isSelected)
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertTrue(app.navigationBars["使える記号"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.images["screenshot-import-preview"].exists)
+        XCTAssertFalse(hash.isSelected); XCTAssertTrue(bang.isSelected)
+        XCTAssertTrue(brace.isSelected)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Imported symbols after background"; image.lifetime = .keepAlways; add(image)
+        let apply = app.buttons["apply-image-symbols"]
+        for _ in 0..<4 { if apply.isHittable { break }; scroll.swipeUp() }
+        apply.tap()
+        XCTAssertFalse(app.images["screenshot-import-preview"].exists)
+        app.buttons["完了"].tap()
+    }
+
     @MainActor func testInitialLayoutForVisualReview() {
         let app = launchApp()
         let field = app.textFields["length"]

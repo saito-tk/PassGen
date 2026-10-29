@@ -229,7 +229,7 @@ final class PassgenUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["auth-count"].label, "2種類")
         XCTAssertEqual(app.staticTexts["auth-outcome"].label, "2段階で、異なる2つの要素を確認します。")
         let initial = XCTAttachment(screenshot: app.screenshot()); initial.name = "Authenticator factors"; initial.lifetime = .keepAlways; add(initial)
-        app.segmentedControls.buttons["質問"].tap()
+        app.segmentedControls.buttons["2段階"].tap()
         XCTAssertEqual(app.staticTexts["auth-steps"].label, "2段階")
         XCTAssertEqual(app.staticTexts["auth-count"].label, "1種類")
         XCTAssertEqual(app.staticTexts["auth-outcome"].label, "2回確認しても、2要素にはなりません。")

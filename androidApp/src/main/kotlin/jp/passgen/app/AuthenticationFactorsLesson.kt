@@ -25,11 +25,11 @@ private enum class AuthFactor(val title: String, val meaning: String, val exampl
 private enum class AuthExample(val tab: String, val title: String, val first: String, val second: String,
     val firstFactor: AuthFactor, val secondFactor: AuthFactor, val steps: String, val factors: String,
     val result: String, val explanation: String) {
-    QUESTION("質問", "パスワード ＋ 秘密の質問", "パスワード", "秘密の質問の答え",
+    QUESTION("2段階", "パスワード ＋ 秘密の質問", "パスワード", "秘密の質問の答え",
         AuthFactor.KNOWLEDGE, AuthFactor.KNOWLEDGE, "2段階", "1種類",
         "2回確認しても、2要素にはなりません。",
         "どちらも「知っていること」です。これは違いを説明するための例です。秘密の質問は推測や調査で知られやすく、NISTでも認証手段として認められていません。"),
-    APP("アプリ", "パスワード ＋ 認証アプリ", "パスワード", "アプリの一時コード",
+    APP("2要素", "パスワード ＋ 認証アプリ", "パスワード", "アプリの一時コード",
         AuthFactor.KNOWLEDGE, AuthFactor.POSSESSION, "2段階", "2種類",
         "2段階で、異なる2つの要素を確認します。",
         "パスワードを知っていることと、認証アプリの秘密鍵を使えることを確かめます。コードを入力する操作でも、ここでは「所持」の証明です。"),

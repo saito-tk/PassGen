@@ -772,7 +772,7 @@ private enum AuthFactor: String, CaseIterable {
 }
 
 private enum AuthExample: String, CaseIterable {
-    case question = "質問", app = "アプリ", passkey = "パスキー"
+    case question = "2段階", app = "2要素", passkey = "パスキー"
     var title: String {
         switch self { case .question: "パスワード ＋ 秘密の質問"; case .app: "パスワード ＋ 認証アプリ"; case .passkey: "指紋で本人確認するパスキー" }
     }

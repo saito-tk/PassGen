@@ -146,12 +146,17 @@ struct SymbolEditor: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--uitest-screenshot-import"), session.analysis == nil, !session.loading {
                 session.start {
-                    let image = UIGraphicsImageRenderer(size: CGSize(width: 1400, height: 340)).image { context in
-                        UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1400, height: 340))
-                        let heading = ProcessInfo.processInfo.arguments.contains("--uitest-symbol-list") ? "記号の一覧" : "Allowed password symbols:"
-                        (heading as NSString).draw(at: CGPoint(x: 30, y: 40), withAttributes: [.font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black])
-                        (#"! " # $ % & ' ( ) * + , - . / : ;"# as NSString).draw(at: CGPoint(x: 30, y: 130), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
-                        (#"< = > ? @ [ ] ^ _ ` { } | ~"# as NSString).draw(at: CGPoint(x: 30, y: 210), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
+                    let inline = ProcessInfo.processInfo.arguments.contains("--uitest-inline-permission")
+                    let fixtureWidth: CGFloat = inline ? 2000 : 1400
+                    let image = UIGraphicsImageRenderer(size: CGSize(width: fixtureWidth, height: 340)).image { context in
+                        UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: fixtureWidth, height: 340))
+                        let heading = inline ? "次の記号も任意で使用可能です。" :
+                            ProcessInfo.processInfo.arguments.contains("--uitest-symbol-list") ? "記号の一覧" : "Allowed password symbols:"
+                        let headingAttributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black]
+                        (heading as NSString).draw(at: CGPoint(x: 30, y: 40), withAttributes: headingAttributes)
+                        let upperX = inline ? 38 + (heading as NSString).size(withAttributes: headingAttributes).width : 30
+                        (#"! " # $ % & ' ( ) * + , - . / : ;"# as NSString).draw(at: CGPoint(x: upperX, y: inline ? 40 : 130), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
+                        (#"< = > ? @ [ ] ^ _ ` { } | ~"# as NSString).draw(at: CGPoint(x: 30, y: inline ? 120 : 210), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
                     }
                     return image.pngData()
                 }

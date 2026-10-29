@@ -116,6 +116,36 @@ final class PassgenUITests: XCTestCase {
         app.buttons["完了"].tap()
     }
 
+    @MainActor func testInlineWrappedPermissionKeepsBothRowsAndExplicitApply() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-ephemeral-settings", "--uitest-screenshot-import", "--uitest-inline-permission"]
+        app.launch()
+        app.segmentedControls.buttons["記号"].tap(); app.swipeUp()
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        let status = app.staticTexts["screenshot-import-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 15))
+        let preview = app.images["screenshot-import-preview"]
+        XCTAssertTrue(preview.exists, status.label)
+        let scroll = app.scrollViews["symbol-editor-scroll"]
+        for _ in 0..<6 { if preview.isHittable { break }; scroll.swipeUp() }
+        let picture = XCTAttachment(screenshot: app.screenshot()); picture.name = "Inline and wrapped punctuation review"; picture.lifetime = .keepAlways; add(picture)
+        for symbol in ["#", "%", "~"] {
+            let candidate = app.buttons["candidate-" + symbol]
+            for _ in 0..<6 { if candidate.isHittable { break }; scroll.swipeUp() }
+            XCTAssertTrue(candidate.isSelected, "Both rows must contribute: " + symbol)
+        }
+        // This UI fixture deliberately uses OCR only. A font-dependent missed
+        // glyph remains editable; the real supplied-image unit test covers @.
+        let at = app.buttons["candidate-@"]
+        if !at.isSelected { at.tap() }
+        XCTAssertTrue(at.isSelected)
+        let apply = app.buttons["apply-image-symbols"]
+        for _ in 0..<6 { if apply.isHittable { break }; scroll.swipeUp() }
+        XCTAssertTrue(apply.isEnabled); apply.tap()
+        XCTAssertFalse(preview.exists)
+        app.buttons["完了"].tap()
+    }
+
     @MainActor func testUnlabelledSymbolListOffersReviewWithoutPermissionPhrase() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-ephemeral-settings", "--uitest-screenshot-import", "--uitest-symbol-list"]

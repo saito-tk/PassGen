@@ -153,6 +153,9 @@ enum SymbolEvidenceValidator {
 struct OCRLayoutLine: Sendable {
     let text: String
     let bounds: CGRect
+    // Some Vision revisions report the entire observation for a substring.
+    // Preserve the known inline relationship even when those boxes overlap.
+    var permissionLabelBounds: CGRect? = nil
 }
 
 struct SymbolTableRegion: Sendable {
@@ -221,6 +224,90 @@ enum SymbolTableLocator {
                 primary: values.map(\.text)))
         }
         return result
+    }
+}
+
+/// Associate a permission label with its inline and wrapped glyph rows by position,
+/// never by Vision's observation-array order. Small OCR noise only selects pixels;
+/// it is not converted into guessed punctuation.
+enum SymbolPermissionLocator {
+    struct Region {
+        let rowBounds: [CGRect]
+        let primary: [String]
+    }
+    static func isGlyphRow(_ text: String) -> Bool {
+        let compact = SymbolEvidenceValidator.narrowWidth(text).filter { !$0.isWhitespace }
+        let lower = compact.lowercased()
+        guard !compact.isEmpty, compact.count <= 96,
+              !SymbolEvidenceValidator.hasRestriction(compact),
+              !lower.contains("://"), !lower.contains("www."),
+              !["例", "入力", "名称", "example", "keyboard"].contains(where: { lower.contains($0) }) else { return false }
+        if lower.contains("@"), lower.contains("."),
+           lower.range(of: #"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}"#, options: .regularExpression) != nil { return false }
+        if compact.count > 3 && Set(compact).count == 1 { return false }
+        if ScreenshotImporter.isSymbolPayload(text) { return true }
+        let punctuation = SymbolPolicy.shared.SUPPORTED + "、。"
+        let known = compact.filter { punctuation.contains($0) }.count
+        // Japanese punctuation OCR can include a stray kana such as ッ. Keep
+        // a punctuation-dominated crop for re-reading, without accepting prose.
+        let uncertain = compact.filter {
+            !punctuation.contains($0) && !"口ロ中三一二日ー".contains($0) &&
+                !$0.isPunctuation && !$0.isSymbol && !$0.isNumber && !($0.isASCII && $0.isLetter)
+        }.count
+        return known >= 3 && known * 2 >= compact.count && uncertain <= 3
+    }
+    private static func sameRow(_ a: CGRect, _ b: CGRect) -> Bool {
+        let overlap = min(a.maxY, b.maxY) - max(a.minY, b.minY)
+        return overlap >= min(a.height, b.height) * 0.35 ||
+            abs(a.midY - b.midY) < max(a.height, b.height) * 0.6
+    }
+    static func region(for label: OCRLayoutLine, in lines: [OCRLayoutLine]) -> Region? {
+        guard lines.count <= 512, label.bounds.height >= 0.001,
+              SymbolEvidenceValidator.isPermission(label.text) else { return nil }
+        let left = label.bounds.minX - 0.015
+        var used = Set<Int>()
+        var selected: [[Int]] = []
+        var previous = label.bounds
+        // A separate observation to the right may be emitted BEFORE its label.
+        let inline = lines.indices.filter {
+            lines[$0].permissionLabelBounds == label.bounds ||
+                (lines[$0].bounds.minX >= label.bounds.maxX - 0.005 && sameRow(lines[$0].bounds, label.bounds))
+        }.sorted { lines[$0].bounds.minX < lines[$1].bounds.minX }
+        if !inline.isEmpty {
+            var edge = label.bounds.maxX
+            var row: [Int] = []
+            for index in inline {
+                let line = lines[index]
+                guard line.bounds.minX - edge < max(0.045, label.bounds.height * 3) else { break }
+                guard isGlyphRow(line.text) else { return nil }
+                row.append(index); edge = max(edge, line.bounds.maxX)
+            }
+            if !row.isEmpty {
+                selected.append(row); used.formUnion(row)
+                previous = row.reduce(label.bounds) { $0.union(lines[$1].bounds) }
+            }
+        }
+        let right = min(1, max(previous.maxX + 0.06, label.bounds.maxX + 0.20))
+        for _ in 0..<3 {
+            if Task.isCancelled { return nil }
+            let below = lines.indices.filter {
+                !used.contains($0) && lines[$0].bounds.midY < previous.minY &&
+                lines[$0].bounds.maxX >= left && lines[$0].bounds.minX < right
+            }
+            guard let nearest = below.max(by: { lines[$0].bounds.maxY < lines[$1].bounds.maxY }) else { break }
+            let next = lines[nearest].bounds
+            guard previous.minY - next.maxY < max(0.025, max(previous.height, next.height) * 1.8) else { break }
+            let row = below.filter { sameRow(lines[$0].bounds, next) }
+                .sorted { lines[$0].bounds.minX < lines[$1].bounds.minX }
+            // Do not skip prose to find a later, unrelated punctuation block.
+            guard !row.isEmpty, row.allSatisfy({ isGlyphRow(lines[$0].text) }) else { break }
+            selected.append(row); used.formUnion(row)
+            previous = row.dropFirst().reduce(lines[row[0]].bounds) { $0.union(lines[$1].bounds) }
+        }
+        guard !selected.isEmpty else { return nil }
+        return Region(rowBounds: selected.map { row in
+            row.dropFirst().reduce(lines[row[0]].bounds) { $0.union(lines[$1].bounds) }
+        }, primary: selected.flatMap { $0.map { lines[$0].text } })
     }
 }
 
@@ -299,9 +386,9 @@ enum SymbolListLocator {
 
 @available(iOS 27, *) @Generable
 private struct SymbolListExtraction {
-    @Guide(description: "True for a legible literal punctuation list or the symbol cell of a password character-type table. A permission statement is optional. False for prose, URLs, masked text, keyboard/typing examples, or uncertain content.")
+    @Guide(description: "True for a legible literal punctuation list or the symbol cell of a password character-type table. A permission statement is optional. False for prose-only regions, URLs, masked text, keyboard/typing examples, or uncertain content.")
     var literalSymbolList: Bool
-    @Guide(description: "Return visible punctuation in reading order using only halfwidth ASCII symbols supported by the app. Normalize fullwidth equivalents to halfwidth. No spaces, prose, guessed ranges or unseen symbols. Empty if unreadable.")
+    @Guide(description: "Return all visible punctuation across every wrapped row in reading order using only halfwidth ASCII symbols supported by the app. Normalize fullwidth equivalents to halfwidth. No spaces, prose, guessed ranges or unseen symbols. Empty if unreadable.")
     var symbols: String
 }
 
@@ -343,7 +430,9 @@ enum ScreenshotImporter {
                     The vocabulary is NOT the image's allowlist. Include only symbols actually visible in the image; never return the whole vocabulary by default.
                     A password character-type table can define the symbol cell without the word 'allowed'. Transcribe only that cell; ignore alphabet/digit rows and keyboard input examples.
                     A standalone punctuation list is also a review candidate without permission prose. Transcribe the visible list without claiming that the service accepts it.
-                    The crop contains the symbol list; OCR may confuse brackets and braces with Japanese characters.
+                    A permission sentence may remain beside the first symbol row. Ignore that prose and transcribe the punctuation beside it.
+                    A list can wrap over multiple rows. Read EVERY row, including the first row beside a permission sentence and all continuation rows. Do not return only the last row.
+                    The crop contains the symbol list; OCR may confuse punctuation with Japanese characters. These OCR errors must not cause you to skip a visible row.
                     Read the actual pixels, not an assumed ASCII sequence. Do not fill missing symbols or invent ranges.
                     Distinguish apostrophe from backtick, exclamation from letter l, and curly braces from parentheses. Use halfwidth ASCII for fullwidth punctuation equivalents.
                     """)
@@ -390,52 +479,39 @@ enum ScreenshotImporter {
         let text = rows.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ScreenshotImportError.noText }
         guard text.count <= 6000 else { throw ScreenshotImportError.tooMuchText }
-        let matches = rows.indices.filter { index in
-            let line = rows[index].topCandidates(1).first?.string ?? ""
-            let lower = line.lowercased()
-            return SymbolEvidenceValidator.isPermission(line) && ["記号", "symbol", "character"].contains { lower.contains($0) }
+        let layout = layoutLines(rows)
+        let matches = layout.filter { line in
+            let lower = line.text.lowercased()
+            return SymbolEvidenceValidator.isPermission(line.text) && ["記号", "symbol", "character"].contains { lower.contains($0) }
         }
-        let tables = SymbolTableLocator.regions(in: layoutLines(rows))
+        let tables = SymbolTableLocator.regions(in: layout)
         // Independent rule blocks are never silently combined.
         guard matches.count <= 1, tables.count <= 1 else {
             return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
         }
         if let table = tables.first {
-            guard matches.isEmpty || table.evidence.contains(rows[matches[0]].topCandidates(1).first?.string ?? ""),
+            guard matches.isEmpty || table.evidence.contains(matches[0].text),
                   let part = crop(image, table.bounds, padding: 12) else {
                 return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
             }
             return try recognizeParts([part], primary: table.primary, evidence: table.evidence, source: .characterTable, text: text)
         }
         if matches.isEmpty {
-            let lists = SymbolListLocator.regions(in: layoutLines(rows))
+            let lists = SymbolListLocator.regions(in: layout)
             guard lists.count == 1, let list = lists.first, let part = crop(image, list.bounds, padding: 12) else {
                 return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
             }
             return try recognizeParts([part], primary: list.primary, evidence: list.evidence, source: .symbolList, text: text)
         }
-        guard let index = matches.first, let label = rows[index].topCandidates(1).first else {
+        guard let label = matches.first,
+              let region = SymbolPermissionLocator.region(for: label, in: layout) else {
             return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
         }
-        var parts: [CGImage] = []
-        var primary: [String] = []
-        let start = payloadStart(in: label.string)
-        if let start, start < label.string.endIndex, isSymbolPayload(String(label.string[start...])) {
-            primary.append(String(label.string[start...]))
-            if let bounds = try? label.boundingBox(for: start..<label.string.endIndex), let part = crop(image, bounds.boundingBox) {
-                parts.append(part)
-            }
+        let parts = region.rowBounds.compactMap { crop(image, $0, padding: 12) }
+        guard parts.count == region.rowBounds.count else {
+            return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
         }
-        for next in (index + 1)..<min(rows.count, index + 4) {
-            let observation = rows[next]
-            let line = observation.topCandidates(1).first?.string ?? ""
-            let distance = rows[next - 1].boundingBox.minY - observation.boundingBox.maxY
-            guard distance < max(0.025, max(rows[index].boundingBox.height, rows[next - 1].boundingBox.height) * 1.8), isSymbolPayload(line) else { break }
-            primary.append(line)
-            if let part = crop(image, observation.boundingBox, padding: 12) { parts.append(part) }
-        }
-        let permission = start.map { String(label.string[..<$0]) } ?? label.string
-        return try recognizeParts(parts, primary: primary, evidence: permission, source: .permissionStatement, text: text)
+        return try recognizeParts(parts, primary: region.primary, evidence: label.text, source: .permissionStatement, text: text)
     }
 
     private static func recognizeParts(_ parts: [CGImage], primary: [String], evidence: String, source: SymbolEvidenceSource, text: String) throws -> OCRDocument {
@@ -464,6 +540,16 @@ enum ScreenshotImporter {
     private static func layoutLines(_ rows: [VNRecognizedTextObservation]) -> [OCRLayoutLine] {
         rows.flatMap { row -> [OCRLayoutLine] in
             guard let text = row.topCandidates(1).first else { return [] }
+            // Split the permission prefix from its same-line glyphs even if a
+            // few glyphs were misread as kana. The locator validates the crop.
+            if SymbolEvidenceValidator.isPermission(text.string),
+               let start = payloadStart(in: text.string), start < text.string.endIndex,
+               !text.string[start...].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let prefix = (try? text.boundingBox(for: text.string.startIndex..<start))?.boundingBox ?? row.boundingBox
+                let payload = (try? text.boundingBox(for: start..<text.string.endIndex))?.boundingBox ?? row.boundingBox
+                return [OCRLayoutLine(text: String(text.string[..<start]), bounds: prefix),
+                        OCRLayoutLine(text: String(text.string[start...]), bounds: payload, permissionLabelBounds: prefix)]
+            }
             // Vision may emit either one observation per cell or a whole row.
             // Preserve measured character boxes when splitting a combined row.
             for name in SymbolTableLocator.labels {

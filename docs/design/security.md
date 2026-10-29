@@ -102,3 +102,6 @@ Google / JetBrains / Appleの保守されている標準・公式ライブラリ
 - [IANA: 文書用の予約ドメイン](https://www.iana.org/help/example-domains)
 - [FBI: 偽サイトと情報の入力](https://www.fbi.gov/how-we-can-help-you/common-frauds-and-scams/spoofing-and-phishing)
 - [FBI: HTTPSを利用するフィッシング](https://www.ic3.gov/PSA/2019/PSA190610)
+
+
+折り返し許可記号の領域選択では、許可文に結び付く記号主体の短い文字列に限り、少数の未知文字を含む画素を再読取する。未知の日本語を記号へ置換・推測する処理は加えない。候補の生成は従来どおり対応ASCII記号への限定と幅違いの正規化だけを行う。許可文の同じ行・近い後続行に限定し、文章・禁止・除外・入力例・URL・遠いブロックを飛び越えて結合しない。モデルには最初の行と折り返し行をすべて読むよう指示するが、画像と候補の手動照合を維持する。

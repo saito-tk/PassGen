@@ -81,6 +81,20 @@ final class PassgenUITests: XCTestCase {
         let details = app.buttons["ハッシュ化なら、漏れても安全？"]
         for _ in 0..<5 { if details.isHittable { break }; app.swipeUp() }
         details.tap(); XCTAssertTrue(app.staticTexts["hash-guessing"].exists)
+        XCTAssertEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
+        let saltChoice = app.segmentedControls.buttons["個別ソルト"]
+        for _ in 0..<5 { if saltChoice.isHittable { break }; app.swipeUp() }
+        let unsalted = XCTAttachment(screenshot: app.screenshot()); unsalted.name = "Same hash without salt"; unsalted.lifetime = .keepAlways; add(unsalted)
+        saltChoice.tap()
+        XCTAssertNotEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
+        XCTAssertEqual(app.staticTexts["salt-outcome"].label, "同じパスワードでも、保存値は異なります。")
+        let outcome = app.staticTexts["salt-outcome"]
+        for _ in 0..<3 { if outcome.isHittable { break }; app.swipeUp() }
+        let salted = XCTAttachment(screenshot: app.screenshot()); salted.name = "Different hashes with unique salts"; salted.lifetime = .keepAlways; add(salted)
+        let noSalt = app.segmentedControls.buttons["ソルトなし"]
+        for _ in 0..<3 { if noSalt.isHittable { break }; app.swipeDown() }
+        noSalt.tap()
+        XCTAssertEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
         let stored = XCTAttachment(screenshot: app.screenshot()); stored.name = "Hash storage explanation"; stored.lifetime = .keepAlways; add(stored)
         app.segmentedControls.buttons["使い回し"].tap()
         XCTAssertEqual(app.staticTexts["reuse-outcome"].label, "同じ値が別のサービスでも試されます。")

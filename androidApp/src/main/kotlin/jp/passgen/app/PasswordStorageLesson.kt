@@ -154,8 +154,37 @@ import androidx.window.layout.FoldingFeature
     }
     if (expanded) LessonPanel("推測で見つかる可能性があります") {
         Text("攻撃者は候補を次々に計算し、漏れた値と比べて元のパスワードを探せます。短い値・よくある値は特に推測されやすくなります。", Modifier.semantics { testTag = "hash-guessing" })
-        Text("サービス側はパスワードごとにランダムな「ソルト」を加え、推測の計算に時間やメモリがかかる専用の保存方式を使います。ソルトだけでは短い値や使い回しを守れません。", style = MaterialTheme.typography.bodySmall)
+        SaltComparison()
+        Text("個別ソルトがあっても、候補の計算による推測は可能です。サービス側は推測に時間やメモリがかかる専用の保存方式も使います。利用者は長く無作為な値を、サービスごとに別々にしましょう。", style = MaterialTheme.typography.bodySmall)
         Text("暗号化は鍵で元へ戻せる方式です。ハッシュ化は元へ戻す鍵を持たず、計算結果の照合に使います。", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable private fun SaltComparison() {
+    var salted by remember { mutableStateOf(false) }
+    Text("同じパスワードを使う2人", style = MaterialTheme.typography.titleSmall)
+    Text("同じ方式・設定で計算する模式図です。表示する値は実際のハッシュではありません。", style = MaterialTheme.typography.bodySmall)
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        listOf(false to "ソルトなし", true to "個別ソルト").forEachIndexed { index, (selected, title) ->
+            SegmentedButton(salted == selected, { salted = selected }, shape = SegmentedButtonDefaults.itemShape(index, 2),
+                modifier = Modifier.fillMaxHeight().semantics { testTag = if (selected) "salt-unique" else "salt-none" }) { Text(title) }
+        }
+    }
+    SaltAccount("利用者A", if (salted) "A専用のソルト" else "ソルトなし", if (salted) "b31a…81d0" else "a7f0…9c2e", "salt-hash-a")
+    SaltAccount("利用者B", if (salted) "B専用のソルト" else "ソルトなし", if (salted) "f82c…04a9" else "a7f0…9c2e", "salt-hash-b")
+    Text(if (salted) "同じパスワードでも、保存値は異なります。" else "保存値の一致が、同じパスワードの手掛かりに。",
+        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.semantics { testTag = "salt-outcome" })
+    Text(if (salted) "利用者ごとに異なるランダムな「ソルト」を加えると、保存値の単純な一致比較を防げます。ソルトは通常ハッシュと一緒に保存され、秘密にする値ではありません。"
+        else "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトを全員で使い回す場合も、同じ方式・設定なら同じ問題が残ります。", style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable private fun SaltAccount(name: String, salt: String, hash: String, tag: String) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("$name · $salt", style = MaterialTheme.typography.labelMedium)
+            Text(hash, style = MaterialTheme.typography.bodyLarge, fontFamily = FontFamily.Monospace, modifier = Modifier.semantics { testTag = tag })
+        }
     }
 }
 

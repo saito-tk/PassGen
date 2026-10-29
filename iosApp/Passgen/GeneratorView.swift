@@ -620,7 +620,8 @@ private struct PasswordStorageLessonView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("攻撃者は候補を次々に計算し、漏れた値と比べて元のパスワードを探せます。短い値・よくある値は特に推測されやすくなります。")
                         .accessibilityIdentifier("hash-guessing")
-                    Text("サービス側はパスワードごとにランダムな「ソルト」を加え、推測の計算に時間やメモリがかかる専用の保存方式を使います。ソルトだけでは短い値や使い回しを守れません。")
+                    SaltComparisonView()
+                    Text("個別ソルトがあっても、候補の計算による推測は可能です。サービス側は推測に時間やメモリがかかる専用の保存方式も使います。利用者は長く無作為な値を、サービスごとに別々にしましょう。")
                     Text("暗号化は鍵で元へ戻せる方式です。ハッシュ化は元へ戻す鍵を持たず、計算結果の照合に使います。")
                 }.font(.subheadline).padding(.top, 10)
             } label: { Text("ハッシュ化なら、漏れても安全？").font(.subheadline.weight(.semibold)) }
@@ -700,6 +701,33 @@ private struct StorageComparisonCard: View {
             Text(hashed ? "値の表示は模式図です。元の文字列へ読み戻すための仕組みではありません。" : "保存先を見られると、パスワードもそのまま読まれます。")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct SaltComparisonView: View {
+    @State private var salted = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("同じパスワードを使う2人").font(.subheadline.weight(.semibold))
+            Text("同じ方式・設定で計算する模式図です。表示する値は実際のハッシュではありません。").font(.caption).foregroundStyle(.secondary)
+            Picker("ソルトの比較", selection: $salted) {
+                Text("ソルトなし").tag(false); Text("個別ソルト").tag(true)
+            }.pickerStyle(.segmented)
+            account("利用者A", salted ? "A専用のソルト" : "ソルトなし", salted ? "b31a…81d0" : "a7f0…9c2e", "salt-hash-a")
+            account("利用者B", salted ? "B専用のソルト" : "ソルトなし", salted ? "f82c…04a9" : "a7f0…9c2e", "salt-hash-b")
+            Text(salted ? "同じパスワードでも、保存値は異なります。" : "保存値の一致が、同じパスワードの手掛かりに。")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Color.passgenAccent).accessibilityIdentifier("salt-outcome")
+            Text(salted ? "利用者ごとに異なるランダムな「ソルト」を加えると、保存値の単純な一致比較を防げます。ソルトは通常ハッシュと一緒に保存され、秘密にする値ではありません。"
+                 : "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトを全員で使い回す場合も、同じ方式・設定なら同じ問題が残ります。")
+                .font(.subheadline)
+        }.padding(.vertical, 8)
+    }
+    private func account(_ name: String, _ salt: String, _ hash: String, _ identifier: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(name) · \(salt)").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            Text(hash).font(.system(.body, design: .monospaced)).accessibilityIdentifier(identifier)
+        }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 

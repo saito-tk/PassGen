@@ -17,7 +17,7 @@ final class SymbolEvidenceTests: XCTestCase {
         XCTAssertTrue(SymbolEvidenceValidator.candidate(symbols: "#", evidence: "Allowed !", fullText: "Allowed !", explicit: true).isEmpty)
     }
     func testInvalidImageFailsWithoutCallingModel() async {
-        do { _ = try await ScreenshotImporter.analyze(Data([0, 1, 2])); XCTFail("Invalid image accepted") }
+        do { _ = try await ScreenshotImporter.analyzeUsingOCR(Data([0, 1, 2])); XCTFail("Invalid image accepted") }
         catch { XCTAssertTrue(error is ScreenshotImportError) }
     }
     func testPermissionIsScopedAndVisualCandidatesIncludeBacktickWithoutInventingBackslash() {
@@ -33,7 +33,7 @@ final class SymbolEvidenceTests: XCTestCase {
     func testOriginalAllowedSymbolParagraphProducesEditableLocalOCRCandidates() async throws {
         // Only the supplied public symbol-rule paragraph, no account or surrounding form data.
         let data = Data(base64Encoded: Self.symbolRulePNG, options: .ignoreUnknownCharacters)!
-        let result = try await ScreenshotImporter.analyze(data, useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(data, useModel: false)
         XCTAssertNotNil(result.previewData)
         XCTAssertTrue(result.evidence.contains("使用可能"))
         let expected = Set("!\"#$%&'()*+,-./:;<=>?@[]^_`{}|~")
@@ -66,7 +66,7 @@ final class SymbolEvidenceTests: XCTestCase {
         return try XCTUnwrap(image.pngData())
     }
     @MainActor func testReportedPreviewOCRFallbackRetainsExclamationAndEditablePixels() async throws {
-        let result = try await ScreenshotImporter.analyze(reportedPreviewData(), useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(reportedPreviewData(), useModel: false)
         XCTAssertNotNil(result.previewData)
         XCTAssertTrue(result.proposedSymbols.contains("!"), result.proposedSymbols)
         XCTAssertGreaterThanOrEqual(result.proposedSymbols.count, 20)
@@ -78,7 +78,7 @@ final class SymbolEvidenceTests: XCTestCase {
         guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else {
             throw XCTSkip("On-device image model is unavailable on this test runtime")
         }
-        let result = try await ScreenshotImporter.analyze(reportedPreviewData())
+        let result = try await ScreenshotImporter.analyzeUsingOCR(reportedPreviewData())
         XCTAssertTrue(result.proposedSymbols.contains("!"), result.proposedSymbols)
         XCTAssertTrue(result.proposedSymbols.contains("{"), result.proposedSymbols)
         XCTAssertFalse(result.proposedSymbols.contains("\\"))
@@ -94,12 +94,12 @@ final class SymbolEvidenceTests: XCTestCase {
             ("Allowed password symbols: ! @ # $ %" as NSString).draw(at: CGPoint(x: 40, y: 100),
                 withAttributes: [.font: UIFont.systemFont(ofSize: 42), .foregroundColor: UIColor.black])
         }
-        let result = try await ScreenshotImporter.analyze(image.pngData()!, useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(image.pngData()!, useModel: false)
         XCTAssertTrue(result.recognizedText.lowercased().contains("allowed"))
         XCTAssertEqual(Set(result.proposedSymbols), Set("!@#$%")); XCTAssertNotNil(result.previewData)
     }
     @MainActor func testUnlabelledSymbolListIsAnEditableCandidate() async throws {
-        let result = try await ScreenshotImporter.analyze(symbolListImage(title: "記号の一覧"), useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(symbolListImage(title: "記号の一覧"), useModel: false)
         XCTAssertNotNil(result.previewData)
         XCTAssertTrue(result.note.contains("記号の並び"))
         XCTAssertTrue(result.note.contains("使える記号か確認"))
@@ -114,7 +114,7 @@ final class SymbolEvidenceTests: XCTestCase {
             (#"! " # $ % & ' ( ) * + , - . / : ;"# as NSString).draw(at: CGPoint(x: 30, y: 130), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
             (#"< = > ? @ [ ] ^ _ ` { } | ~"# as NSString).draw(at: CGPoint(x: 30, y: 210), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
         }
-        let result = try await ScreenshotImporter.analyze(image.pngData()!, useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(image.pngData()!, useModel: false)
         let previewWidth = UIImage(data: result.previewData ?? Data())?.size.width ?? 0
         let expectedWidth = CGFloat(min(4096, image.cgImage!.width)) * 0.5
         XCTAssertGreaterThanOrEqual(previewWidth, expectedWidth, result.recognizedText)
@@ -122,7 +122,7 @@ final class SymbolEvidenceTests: XCTestCase {
         XCTAssertTrue(result.note.hasPrefix("記号の並びから拾った候補"), result.recognizedText)
     }
     @MainActor func testForbiddenListCannotUseUnlabelledFallback() async throws {
-        let result = try await ScreenshotImporter.analyze(symbolListImage(title: "使用禁止の記号"), useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(symbolListImage(title: "使用禁止の記号"), useModel: false)
         XCTAssertTrue(result.proposedSymbols.isEmpty, result.recognizedText)
         XCTAssertNil(result.previewData)
     }
@@ -136,7 +136,7 @@ final class SymbolEvidenceTests: XCTestCase {
     }
 
     @MainActor func testCharacterTableFromReportedImageProducesSymbolCellPreview() async throws {
-        let result = try await ScreenshotImporter.analyze(Data(base64Encoded: Self.table0400PNG, options: .ignoreUnknownCharacters)!, useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(Data(base64Encoded: Self.table0400PNG, options: .ignoreUnknownCharacters)!, useModel: false)
         XCTAssertNotNil(result.previewData)
         XCTAssertTrue(result.evidence.contains("文字種"), result.recognizedText)
         XCTAssertTrue(result.evidence.contains("記号"))
@@ -159,7 +159,7 @@ final class SymbolEvidenceTests: XCTestCase {
                 (row as NSString).draw(at: CGPoint(x: 30, y: 30 + i * 75), withAttributes: [.font: UIFont.systemFont(ofSize: 34), .foregroundColor: UIColor.black])
             }
         }
-        let result = try await ScreenshotImporter.analyze(image.pngData()!, useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(image.pngData()!, useModel: false)
         XCTAssertNotNil(result.previewData)
         XCTAssertTrue(result.evidence.contains("文字種"), result.evidence)
         XCTAssertTrue(result.proposedSymbols.contains("@"), result.recognizedText)
@@ -5741,7 +5741,7 @@ final class ParentheticalPermissionImageTests: XCTestCase {
         return try XCTUnwrap(image.pngData())
     }
     @MainActor func testReportedFormKeepsParentheticalSymbolsAndWrappedPermission() async throws {
-        let result = try await ScreenshotImporter.analyze(formImage(), useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(formImage(), useModel: false)
         XCTAssertNotNil(result.previewData, result.recognizedText + "\n" + result.note)
         XCTAssertGreaterThanOrEqual(result.proposedSymbols.count, 20, result.recognizedText)
         if let data = result.previewData, let image = UIImage(data: data) {
@@ -5750,7 +5750,7 @@ final class ParentheticalPermissionImageTests: XCTestCase {
     }
     @MainActor func testReportedFormWithImageModelWhenAvailable() async throws {
         guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
-        let result = try await ScreenshotImporter.analyze(formImage())
+        let result = try await ScreenshotImporter.analyzeUsingOCR(formImage())
         XCTAssertNotNil(result.previewData, result.recognizedText + "\n" + result.note)
         XCTAssertTrue(result.note.contains("OCRと端末内の画像モデルの候補"), result.note)
         XCTAssertEqual(Set(result.proposedSymbols), Set("!\"#$%&'()*+,-./:;<=>?@[]^_`{|}~\\"), result.recognizedText)
@@ -5765,7 +5765,7 @@ final class ParentheticalPermissionImageTests: XCTestCase {
             (symbols as NSString).draw(at: CGPoint(x: 60, y: 160), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 44, weight: .regular), .foregroundColor: UIColor.black])
         }
         let result = try await ScreenshotImporter.analyze(XCTUnwrap(image.pngData()))
-        XCTAssertTrue(result.note.contains("OCRと端末内の画像モデルの候補"), result.note)
+        XCTAssertEqual(result.readingMethod, .imageModelWithOCR)
         XCTAssertEqual(Set(result.proposedSymbols), Set(symbols), result.recognizedText)
     }
     @MainActor func testNegativeInterruptedAndMaskedContinuationDoNotAuthorizeTheList() async throws {
@@ -5778,10 +5778,30 @@ final class ParentheticalPermissionImageTests: XCTestCase {
                     (text as NSString).draw(at: CGPoint(x: 90, y: 100 + index * 60), withAttributes: [.font: UIFont.systemFont(ofSize: 36), .foregroundColor: UIColor.black])
                 }
             }
-            let result = try await ScreenshotImporter.analyze(XCTUnwrap(image.pngData()), useModel: false)
+            let result = try await ScreenshotImporter.analyzeUsingOCR(XCTUnwrap(image.pngData()), useModel: false)
             XCTAssertTrue(result.proposedSymbols.isEmpty, result.recognizedText)
             XCTAssertNil(result.previewData, result.recognizedText)
         }
+    }
+    @MainActor func testAIImagePathCanOperateWithoutOCRText() async throws {
+        guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
+        let analysis = try await ScreenshotImporter.analyzeDirectly(formImage(), supplementWithOCR: false)
+        let result = try XCTUnwrap(analysis)
+        XCTAssertEqual(result.readingMethod, .imageModel)
+        XCTAssertNotNil(result.previewData)
+        XCTAssertFalse(result.proposedSymbols.isEmpty, result.note)
+        XCTAssertFalse(result.note.contains("OCR"))
+        XCTAssertFalse(result.note.contains("文字認識"))
+        if let data = result.previewData, let preview = UIImage(data: data) {
+            let attachment = XCTAttachment(image: preview); attachment.name = "AI located rule without OCR"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+    }
+    @MainActor func testDefaultEntryKeepsAllReportedSymbolsWithAIOrFallback() async throws {
+        guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
+        let result = try await ScreenshotImporter.analyze(formImage())
+        XCTAssertEqual(result.readingMethod, .imageModelWithOCR)
+        XCTAssertNotNil(result.previewData)
+        XCTAssertEqual(Set(result.proposedSymbols), Set("!\"#$%&'()*+,-./:;<=>?@[]^_`{|}~\\"), result.proposedSymbols)
     }
     // Public rule pixels only; EXIF/text metadata removed. Surrounding fields are synthetic.
     private static let rulePNG = """
@@ -6090,7 +6110,7 @@ final class SymbolRulePatternTests: XCTestCase {
             (["使用可能な記号", "ハイフン（-）", "アンダースコア（_）"], "-_")
         ]
         for (lines, expected) in examples {
-            let result = try await ScreenshotImporter.analyze(image(lines), useModel: false)
+            let result = try await ScreenshotImporter.analyzeUsingOCR(image(lines), useModel: false)
             let context = lines.joined() + "\n" + result.recognizedText
             if #available(iOS 27, *) {
                 XCTAssertNotNil(result.previewData, context)
@@ -6108,7 +6128,7 @@ final class SymbolRulePatternTests: XCTestCase {
     }
     @MainActor func testUnquotedVariantsRetainPixelsForReviewAndModelCorrection() async throws {
         for text in ["使用可能な記号: ! @ #", "! @ # の記号が使用できます", "記号: -_"] {
-            let result = try await ScreenshotImporter.analyze(image([text]), useModel: false)
+            let result = try await ScreenshotImporter.analyzeUsingOCR(image([text]), useModel: false)
             XCTAssertNotNil(result.previewData, result.recognizedText)
             XCTAssertFalse(result.proposedSymbols.isEmpty, result.recognizedText)
         }
@@ -6117,16 +6137,25 @@ final class SymbolRulePatternTests: XCTestCase {
         guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
         for (text, expected) in [("使用可能な記号: ! @ #", "!@#"), ("! @ # の記号が使用できます", "!@#"), ("記号: -_", "-_"),
             ("使用可能な記号: '!', '@', '#'", "!@#"), ("使える記号は「!@#」です。", "!@#"), ("使用可能な記号（!@#）", "!@#")] {
-            let result = try await ScreenshotImporter.analyze(image([text]))
+            let result = try await ScreenshotImporter.analyzeUsingOCR(image([text]))
             guard result.note.contains("OCRと端末内の画像モデルの候補") else { throw XCTSkip("Image inference unavailable") }
             XCTAssertEqual(Set(result.proposedSymbols), Set(expected), text + " " + result.proposedSymbols)
         }
     }
     @MainActor func testForbiddenConditionalRangeAndExampleScreensDoNotGuessAnAllowlist() async throws {
         for lines in [["使用不可の記号: < > #"], ["使用可能な記号: ! @ # ただし # は不可"], ["使用可能な記号: regex [!-~]"], ["記号の入力例: Password!1"]] {
-            let result = try await ScreenshotImporter.analyze(image(lines), useModel: false)
+            let result = try await ScreenshotImporter.analyzeUsingOCR(image(lines), useModel: false)
             XCTAssertTrue(result.proposedSymbols.isEmpty, lines.joined() + "\n" + result.recognizedText)
             XCTAssertNil(result.previewData)
+        }
+    }
+    @MainActor func testAIEntryPreservesQuotedFormattingAndRejectsUnsafeRules() async throws {
+        guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
+        let quoted = try await ScreenshotImporter.analyze(image(["使用可能な記号: '!', '@', '#' "]))
+        XCTAssertEqual(Set(quoted.proposedSymbols), Set("!@#"), quoted.note + " " + quoted.proposedSymbols)
+        for lines in [["使用不可の記号: < > #"], ["使用可能な記号: regex [!-~]"], ["パスワードの入力例: Password!1"], ["現在のパスワード", "********"]] {
+            let result = try await ScreenshotImporter.analyze(image(lines))
+            XCTAssertTrue(result.proposedSymbols.isEmpty, lines.joined() + " " + result.proposedSymbols)
         }
     }
     func testExplicitValueLimitsExcludeFormattingEvenWhenRereadOrModelSeesIt() throws {
@@ -6229,7 +6258,7 @@ final class WrappedPermissionImageTests: XCTestCase {
         return try XCTUnwrap(image.pngData())
     }
     @MainActor func testReportedInlineWrappedRuleKeepsUpperAndLowerRows() async throws {
-        let result = try await ScreenshotImporter.analyze(reportedImage(), useModel: false)
+        let result = try await ScreenshotImporter.analyzeUsingOCR(reportedImage(), useModel: false)
         let preview = try XCTUnwrap(UIImage(data: result.previewData ?? Data()), result.recognizedText)
         XCTAssertGreaterThan(preview.size.height, 140, result.recognizedText)
         for symbol in ["#", "%", "@", "~"] { XCTAssertTrue(result.proposedSymbols.contains(symbol), result.recognizedText) }
@@ -6240,7 +6269,7 @@ final class WrappedPermissionImageTests: XCTestCase {
         guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else {
             throw XCTSkip("On-device image model is unavailable on this runtime")
         }
-        let result = try await ScreenshotImporter.analyze(reportedImage())
+        let result = try await ScreenshotImporter.analyzeUsingOCR(reportedImage())
         guard result.note.hasPrefix("OCRと端末内の画像モデルの候補") else {
             throw XCTSkip("Image inference unavailable; the separate OCR test verifies both rows")
         }

@@ -138,7 +138,7 @@ struct SymbolEditor: View {
                                 }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(session.candidate.isEmpty)
                                     .accessibilityIdentifier("apply-image-symbols")
                             }
-                            DisclosureGroup("文字認識の結果を確認") {
+                            DisclosureGroup("読み取りの詳細") {
                                 Text(analysis.recognizedText).font(.caption.monospaced()).frame(maxWidth: .infinity, alignment: .leading).privacySensitive().padding(.top, 8)
                             }.font(.subheadline)
                         }

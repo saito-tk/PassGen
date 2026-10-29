@@ -70,7 +70,7 @@ struct SymbolEditor: View {
                     Divider()
                     VStack(alignment: .leading, spacing: 14) {
                         Label("スクリーンショットから", systemImage: "viewfinder").font(.headline).accessibilityIdentifier("screenshot-import-section")
-                        Text("許可記号の案内部分を端末内で読み取ります。候補は確認後に適用します。読み取り内容はこの画面を閉じるまで保持します。")
+                        Text("文字種の表や記号の並びを端末内で読み取ります。候補は確認後に適用します。読み取り内容はこの画面を閉じるまで保持します。")
                             .font(.caption).foregroundStyle(.secondary)
                         Text(ScreenshotImporter.modelStatus).font(.caption).foregroundStyle(.secondary)
                         PhotosPicker(selection: $selection, matching: .images, preferredItemEncoding: .current) {
@@ -147,7 +147,8 @@ struct SymbolEditor: View {
                 session.start {
                     let image = UIGraphicsImageRenderer(size: CGSize(width: 1400, height: 340)).image { context in
                         UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1400, height: 340))
-                        ("Allowed password symbols:" as NSString).draw(at: CGPoint(x: 30, y: 40), withAttributes: [.font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black])
+                        let heading = ProcessInfo.processInfo.arguments.contains("--uitest-symbol-list") ? "記号の一覧" : "Allowed password symbols:"
+                        (heading as NSString).draw(at: CGPoint(x: 30, y: 40), withAttributes: [.font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black])
                         (#"! " # $ % & ' ( ) * + , - . / : ;"# as NSString).draw(at: CGPoint(x: 30, y: 130), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
                         (#"< = > ? @ [ ] ^ _ ` { } | ~"# as NSString).draw(at: CGPoint(x: 30, y: 210), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 38, weight: .regular), .foregroundColor: UIColor.black])
                     }

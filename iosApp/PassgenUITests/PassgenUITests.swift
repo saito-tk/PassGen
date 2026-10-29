@@ -60,6 +60,25 @@ final class PassgenUITests: XCTestCase {
         app.buttons["完了"].tap()
     }
 
+    @MainActor func testUnlabelledSymbolListOffersReviewWithoutPermissionPhrase() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-ephemeral-settings", "--uitest-screenshot-import", "--uitest-symbol-list"]
+        app.launch()
+        app.segmentedControls.buttons["記号"].tap(); app.swipeUp()
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        let status = app.staticTexts["screenshot-import-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 15))
+        guard status.label.hasPrefix("記号の並びから拾った候補") else { XCTFail(status.label); return }
+        XCTAssertTrue(status.label.contains("使える記号か確認"), status.label)
+        let preview = app.images["screenshot-import-preview"]
+        XCTAssertTrue(preview.exists)
+        let scroll = app.scrollViews["symbol-editor-scroll"]
+        for _ in 0..<6 { if preview.isHittable { break }; scroll.swipeUp() }
+        let picture = XCTAttachment(screenshot: app.screenshot()); picture.name = "Unlabelled punctuation review"; picture.lifetime = .keepAlways; add(picture)
+        XCTAssertTrue(app.buttons["apply-image-symbols"].isEnabled)
+        app.buttons["完了"].tap()
+    }
+
     @MainActor func testInitialLayoutForVisualReview() {
         let app = launchApp()
         let field = app.textFields["length"]

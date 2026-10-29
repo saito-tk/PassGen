@@ -82,7 +82,8 @@ Kotlin公式表のXcode検証版は26.4ですが、このリポジトリではXc
 
 ## ビルド
 
-Android Studio、Android SDK 37、JDK 17以降（21推奨）が必要です。
+AGP 9.3に対応するAndroid Studio（Quail 2 / 2026.1.2以降）、Android SDK 37、JDK 17以降（21推奨）が必要です。
+Panda 4 / 2025.3.4はAGP 9.2までの対応なので、この構成でIDE同期する場合はStudioを更新してください（[公式互換表](https://developer.android.com/build/releases/about-agp#android_gradle_plugin_and_android_studio_compatibility)）。
 
 ```sh
 ./scripts/gradle-local.sh :shared:jvmTest :androidApp:assembleDebug :androidApp:lintDebug
@@ -131,6 +132,15 @@ xcodebuild -project iosApp/Passgen.xcodeproj -scheme Passgen \
 
 依存物のSHA-256は `gradle/verification-metadata.xml`、Gradle配布物はwrapper設定で検証します。
 依存更新時は取得元と差分をレビューし、検証メタデータを更新してください。初回取得の独立した監査・署名検証を代替するものではありません。
+
+Android Studioの同期では、通常のビルドで取得しないKotlin・JUnitなどのソースとGradleのソース配布物も検証します。これらを含む固定チェックサムを登録しています。
+`Dependency verification failed` が出たら、HTMLレポートで未登録か不一致かを確認してください。検証の無効化やソース全体の検証除外では対処しません（[Gradle公式資料](https://docs.gradle.org/current/userguide/dependency_verification.html#sec:troubleshooting-verification)）。
+今回のIDE用ソース7種の取得・検証は次で再現できます。これはIDE同期全体の代替ではありません。
+
+```sh
+./scripts/gradle-local.sh --no-configuration-cache --dependency-verification strict \
+  --init-script scripts/verify-ide-dependencies.init.gradle verifyIdeSources
+```
 
 ## 構成
 

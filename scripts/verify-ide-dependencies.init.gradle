@@ -1,0 +1,39 @@
+// Explicitly resolve the extra sources requested by the Kotlin IDE model.
+// Run with --dependency-verification strict; never bootstrap trust from this task.
+settingsEvaluated { settings ->
+    settings.dependencyResolutionManagement.repositories.ivy {
+        name = 'Gradle source distributions'
+        url = uri('https://services.gradle.org/distributions')
+        patternLayout { artifact('gradle-[revision]-[classifier].[ext]') }
+        metadataSources { artifact() }
+        content { includeModule('gradle', 'gradle') }
+    }
+}
+
+projectsEvaluated {
+    def root = gradle.rootProject
+    def kotlinVersion = root.extensions.getByType(org.gradle.api.artifacts.VersionCatalogsExtension)
+        .named('libs').findVersion('kotlin').get().requiredVersion
+    def coordinates = [
+        'org.jetbrains:annotations:13.0:sources@jar',
+        "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}:sources@jar",
+        "org.jetbrains.kotlin:kotlin-test:${kotlinVersion}:sources@jar",
+        "org.jetbrains.kotlin:kotlin-test-junit:${kotlinVersion}:sources@jar",
+        'org.hamcrest:hamcrest-core:1.3:sources@jar',
+        'junit:junit:4.13.2:sources@jar',
+        "gradle:gradle:${gradle.gradleVersion}:src@zip",
+    ]
+    def sources = root.configurations.detachedConfiguration(
+        coordinates.collect { root.dependencies.create(it) } as org.gradle.api.artifacts.Dependency[]
+    )
+    sources.transitive = false
+    root.tasks.register('verifyIdeSources') {
+        group = 'verification'
+        description = 'Verifies sources required by IDE import using the pinned checksums.'
+        doLast {
+            def files = sources.resolve()
+            if (files.size() != coordinates.size()) throw new GradleException('Missing IDE source artifact')
+            files.sort { it.name }.each { logger.lifecycle("Verified: ${it.name}") }
+        }
+    }
+}

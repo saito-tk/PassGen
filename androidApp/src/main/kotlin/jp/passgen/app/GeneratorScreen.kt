@@ -350,7 +350,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("${row.index + 1} · ${row.value.length}文字${if (row.value.length > 100) " / 先頭100文字" else ""}", style = MaterialTheme.typography.labelSmall)
+                                Text("${row.index + 1} · ${row.value.length}文字${if (row.value.length > 100) " / 先頭100文字のみ表示" else ""}", style = MaterialTheme.typography.labelSmall)
                                 Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
                             }

@@ -497,7 +497,7 @@ struct ResultsList: View {
                             ForEach(model.results) { item in
                                 HStack(spacing: 10) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字" : "")").font(.caption2).foregroundStyle(.secondary)
+                                        Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字のみ表示" : "")").font(.caption2).foregroundStyle(.secondary)
                                         SecretPreview(value: protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture) ? String(item.value.prefix(100)) : SecretPresentation.shared.MASK)
                                             .privacySensitive()
                                     }.frame(maxWidth: .infinity, alignment: .leading)

@@ -4,6 +4,56 @@ final class PassgenUITests: XCTestCase {
     @MainActor private func launchApp() -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--uitest-ephemeral-settings"]; app.launch(); return app
     }
+    @MainActor private func chooseOnlyDigits(_ app: XCUIApplication) {
+        for group in ["大文字", "小文字", "記号"] {
+            app.segmentedControls.buttons[group].tap()
+            let toggle = nativeSwitch(app.switches[group + "を含める"])
+            if toggle.value as? String == "1" { toggle.tap() }
+        }
+    }
+    @MainActor func testNamedPresetsSaveLoadRenameAndDelete() {
+        let app = launchApp(); XCTAssertFalse(app.buttons["数字のみ"].exists)
+        let length = app.textFields["length"]
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap(); app.buttons["presets"].tap()
+        // iOS 18 exposes sheet elements before the detent transition finishes.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let name = app.textFields["preset-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Mail\n")
+        app.buttons["preset-save"].tap()
+        XCTAssertTrue(app.buttons["Mailを読み込む"].waitForExistence(timeout: 3))
+        let preview = XCTAttachment(screenshot: app.screenshot()); preview.name = "Named generation presets"; preview.lifetime = .keepAlways; add(preview)
+        app.navigationBars["プリセット"].buttons["完了"].tap()
+        if app.windows.firstMatch.frame.width < 700 { XCTAssertTrue(app.navigationBars["生成結果 0件"].waitForExistence(timeout: 5)) }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: app.buttons["generate"])
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "32")
+        app.buttons["完了"].tap(); app.buttons["presets"].tap()
+        // iOS 18 exposes sheet elements before the detent transition finishes.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        app.buttons["Mailを読み込む"].tap()
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "64"), object: length)
+        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: app.buttons["generate"])
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+        XCTAssertFalse(app.staticTexts["secret"].exists)
+        app.buttons["presets"].tap()
+        // iOS 18 exposes sheet elements before the detent transition finishes.
+        RunLoop.current.run(until: Date().addingTimeInterval(1)); app.buttons["Mailの編集"].tap(); app.buttons["名前を変更"].tap()
+        let rename = app.textFields["preset-rename-name"]
+        XCTAssertTrue(rename.waitForExistence(timeout: 3)); rename.tap()
+        rename.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 8) + "Backup\n")
+        XCTAssertEqual(rename.value as? String, "Backup")
+        app.buttons["preset-rename-save"].tap()
+        XCTAssertTrue(app.buttons["Backupを読み込む"].waitForExistence(timeout: 3))
+        app.buttons["Backupの編集"].tap(); app.buttons["削除"].tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        app.buttons["「Backup」を削除"].tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["Backupを読み込む"])
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
+        app.navigationBars["プリセット"].buttons["完了"].tap()
+        XCTAssertTrue(app.buttons["generate"].waitForExistence(timeout: 5))
+    }
     @MainActor func testPeekSheetAllowsSettingsAndMovesGenerationToHeader() {
         let app = launchApp()
         let generate = app.buttons["generate"]
@@ -111,7 +161,7 @@ final class PassgenUITests: XCTestCase {
     }
     @MainActor func testCopiedPasswordCanBePastedAfterBackground() {
         let app = launchApp()
-        app.buttons["数字のみ"].tap()
+        chooseOnlyDigits(app)
         let length = app.textFields["length"]; length.tap()
         length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "4")
         app.buttons["完了"].tap()
@@ -332,11 +382,11 @@ final class PassgenUITests: XCTestCase {
         XCTAssertEqual(preview("upper").value as? String, "生成対象: B C D E F G H J K L M N P Q R S T U V W X Y Z")
         XCTAssertEqual(preview("digits").value as? String, "生成対象: 2 3 4 5 6 7 8 9")
         let initial = XCTAttachment(screenshot: app.screenshot()); initial.name = "All characters preview"; initial.lifetime = .keepAlways; add(initial)
-        app.swipeDown(); app.swipeDown(); app.buttons["数字のみ"].tap(); app.swipeUp()
+        app.swipeDown(); app.swipeDown(); chooseOnlyDigits(app); app.swipeUp()
         XCTAssertEqual(preview("upper").value as? String, "生成対象: なし")
         XCTAssertEqual(preview("lower").value as? String, "生成対象: なし")
         XCTAssertEqual(preview("symbols").value as? String, "生成対象: なし")
-        XCTAssertEqual(preview("digits").value as? String, "生成対象: 0 1 2 3 4 5 6 7 8 9")
+        XCTAssertEqual(preview("digits").value as? String, "生成対象: 2 3 4 5 6 7 8 9")
         let digits = XCTAttachment(screenshot: app.screenshot()); digits.name = "Disabled groups preview"; digits.lifetime = .keepAlways; add(digits)
     }
 

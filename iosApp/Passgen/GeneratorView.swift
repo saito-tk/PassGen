@@ -63,7 +63,7 @@ private enum CharacterGroup: String, CaseIterable, Identifiable {
     }
 }
 
-private enum GeneratorSheet: Identifiable { case results, symbols, privacy; var id: Self { self } }
+private enum GeneratorSheet: Identifiable { case results, symbols, privacy, presets; var id: Self { self } }
 
 struct GeneratorView: View {
     @State private var model = GeneratorModel.applicationModel()
@@ -112,12 +112,17 @@ struct GeneratorView: View {
             }
             .navigationTitle("Passgen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("プリセット", systemImage: "bookmark") { activeSheet = .presets }
+                        .labelStyle(.iconOnly).accessibilityIdentifier("presets")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .privacy } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
                 }
             }
             .sheet(item: $activeSheet, onDismiss: restoreResultDock) { sheet in
                 switch sheet {
+                case .presets: PresetsView(model: model, done: { activeSheet = nil }).sensitiveScene(enabled: model.security.protectAppSwitcher).presentationDetents([.large])
                 case .symbols: SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .privacy: PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .results:
@@ -236,7 +241,7 @@ private struct QuantityEditor: View {
                     Text("スペース").tag(" "); Text("-").tag("-"); Text("_").tag("_"); Text(".").tag(".")
                 }.pickerStyle(.segmented)
             }
-            if model.isDigitsOnly { Text("数字は0–9を使用。短いコードは候補数が少なくなります。") .font(.caption).foregroundStyle(.secondary) }
+            if model.isDigitsOnly { Text("数字だけの短いパスワードは、候補数が少なくなります。") .font(.caption).foregroundStyle(.secondary) }
         }.padding(14).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .disabled(model.busy)
             .onChange(of: focus) { previous, value in if previous != nil && previous != value { model.recipe.normalize() } }
@@ -266,7 +271,6 @@ private struct CharacterEditor: View {
         if model.recipe.mode == .password {
             VStack(alignment: .leading, spacing: 8) {
                 HStack { Text("文字セット").font(.subheadline.weight(.semibold)); Spacer(); Text(summary).font(.caption2).foregroundStyle(.secondary)
-                    Button("数字のみ") { model.useDigitsOnly(); group = .digits }.font(.caption).frame(minHeight: 44)
                 }
                 Picker("文字種", selection: $group) {
                     ForEach(CharacterGroup.allCases) { item in Text(item.title).tag(item) }
@@ -541,6 +545,101 @@ struct ResultsList: View {
         }
     }
 }
+struct PresetsView: View {
+    @Bindable var model: GeneratorModel
+    var done: () -> Void
+    @State private var name = ""
+    @State private var status: String?
+    @State private var renaming: GeneratorPreset?
+    @State private var renameText = ""
+    @State private var replacing: GeneratorPreset?
+    @State private var deleting: GeneratorPreset?
+    @State private var showReplaceConfirmation = false
+    @State private var showDeleteConfirmation = false
+    @FocusState private var nameFocused: Bool
+    @FocusState private var renameFocused: Bool
+    private func perform(_ operation: () throws -> Void, success: String? = nil) {
+        do { try operation(); status = success } catch { status = error.localizedDescription }
+    }
+    var body: some View {
+        NavigationStack {
+            List { saveSection; savedSection }
+            .navigationTitle("プリセット").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了", action: done) } }
+            .confirmationDialog("現在の設定で上書きしますか？", isPresented: $showReplaceConfirmation, titleVisibility: .visible, presenting: replacing) { preset in
+                Button("「\(preset.name)」を上書き", role: .destructive) { perform({ try model.replacePreset(preset.id) }, success: "更新しました。") }
+            }
+            .confirmationDialog("プリセットを削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible, presenting: deleting) { preset in
+                Button("「\(preset.name)」を削除", role: .destructive) { perform({ try model.deletePreset(preset.id) }, success: "削除しました。") }
+            }
+        }
+    }
+    private var saveSection: some View {
+        Section {
+            Text(model.recipe.presetSummary).font(.caption).foregroundStyle(.secondary)
+            TextField("プリセット名", text: $name).textInputAutocapitalization(.never).autocorrectionDisabled().focused($nameFocused).submitLabel(.done)
+                .onSubmit { nameFocused = false }.accessibilityIdentifier("preset-name")
+            if !name.isEmpty, let error = model.presetNameError(name) { Text(error).font(.caption).foregroundStyle(.red) }
+            Button("保存") {
+                nameFocused = false
+                perform({ try model.savePreset(name: name); name = "" }, success: "保存しました。")
+            }.disabled(model.busy || model.presetNameError(name) != nil || model.presetStorageIssue != nil)
+                .accessibilityIdentifier("preset-save")
+            if let status { Text(status).font(.caption).accessibilityIdentifier("preset-status") }
+            if let issue = model.presetStorageIssue { Text(issue).font(.caption).foregroundStyle(.red) }
+        } header: { Text("現在の設定を保存") } footer: { Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。") }
+    }
+    private var savedSection: some View {
+        Section("保存済み · \(model.presets.count)件") {
+            if model.presets.isEmpty { Text("名前を付けて保存すると、ここから呼び出せます。").font(.subheadline).foregroundStyle(.secondary) }
+            ForEach(model.presets) { preset in
+                presetRow(preset)
+            }
+    }
+    }
+    @ViewBuilder private func presetRow(_ preset: GeneratorPreset) -> some View {
+        if renaming?.id == preset.id {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(preset.name).font(.caption).foregroundStyle(.secondary)
+                TextField("新しい名前", text: $renameText).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .focused($renameFocused).submitLabel(.done).onSubmit { renameFocused = false }
+                    .accessibilityIdentifier("preset-rename-name")
+                if let error = model.presetNameError(renameText, excluding: preset.id) { Text(error).font(.caption).foregroundStyle(.red) }
+                HStack {
+                    Button("キャンセル") { renaming = nil; renameFocused = false }
+                    Spacer()
+                    Button("保存") {
+                        perform({ try model.renamePreset(preset.id, to: renameText); renaming = nil; renameFocused = false }, success: "名前を変更しました。")
+                    }.disabled(model.busy || model.presetNameError(renameText, excluding: preset.id) != nil)
+                        .accessibilityIdentifier("preset-rename-save")
+                }.buttonStyle(.borderless)
+            }
+        } else {
+            HStack {
+                Button {
+                    perform({
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        try model.applyPreset(preset.id); done()
+                    })
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(preset.name).foregroundStyle(.primary)
+                        Text(preset.recipe.presetSummary).font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                }.buttonStyle(.borderless).accessibilityLabel(preset.name + "を読み込む").accessibilityHint(preset.recipe.presetSummary)
+                if preset.recipe == model.recipe.sanitized() { Image(systemName: "checkmark").foregroundStyle(Color.passgenAccent).accessibilityLabel("現在の設定と一致") }
+                Menu {
+                    Button("名前を変更") { renameText = preset.name; renaming = preset; renameFocused = true }
+                    Button("現在の設定で上書き") { replacing = preset; showReplaceConfirmation = true }
+                    Button("削除", role: .destructive) { deleting = preset; showDeleteConfirmation = true }
+                } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
+                    .accessibilityLabel(preset.name + "の編集")
+            }.disabled(model.busy)
+        }
+    }
+
+}
+
 struct PrivacyView: View {
     @Bindable var model: GeneratorModel
     @Environment(\.dismiss) private var dismiss
@@ -574,7 +673,7 @@ struct PrivacyView: View {
                 } header: { Label("画面の保護", systemImage: "record.circle") }
                 footer: { Text("画面を隠す設定をオフにすると、アプリ切替画面などに内容が映る場合があります。収録中の保護は別に設定できます。生成結果は背景へ移ってもメモリ内に保持し、消去・再生成・アプリの終了で破棄します。") }
                 Section("データの扱い") {
-                    Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。パスワード・画像・読み取りテキストは保存しません。")
+                    Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件・名前付きプリセット・表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。パスワード・画像・読み取りテキストは保存しません。")
                     Text("画像はVisionと、対応するiOS 27端末ではApple Intelligenceの画像モデルで端末内処理します。読み取り候補は画像と照合して適用してください。iCloud写真を選ぶ際はOSが元画像を取得することがあります。")
                     Text("侵害されたOS・コピー先のアプリ・外部カメラへの保護や、メモリの完全消去は保証できません。")
                 }

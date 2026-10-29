@@ -41,6 +41,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable fun GeneratorScreen(model: PassgenModel, fold: FoldingFeature?, copy: (String) -> Boolean) {
+    var showPresets by remember { mutableStateOf(false) }
     var showResults by remember { mutableStateOf(false) }
     var showSymbols by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
@@ -61,19 +62,20 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showPresets = true }, modifier = Modifier.semantics { testTag = "presets" }) { Text("プリセット") }
                 Text("Passgen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                if (model.results.isNotEmpty() || model.busy) TextButton(onClick = { showResults = true }) {
-                    Text(if (model.busy) "${model.results.size}/${model.goal}件" else "結果 ${model.results.size}件")
-                }
                 TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
             }
         }, bottomBar = {
             if (!showResults) Surface(tonalElevation = 2.dp) {
                 val left = if (verticalFold == null) 12.dp else with(density) { verticalFold.bounds.right.toDp() } + 12.dp
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.End) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (model.results.isNotEmpty()) TextButton(onClick = { showResults = true }) { Text("結果 ${model.results.size}件") }
                     Button(onClick = ::generate, enabled = model.work != WorkState.CANCELLING,
                         modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
                         Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
+                    }
                     }
                 }
             }
@@ -108,6 +110,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             }
         }
     }
+    if (showPresets) PresetsSheet(model, verticalFold) { showPresets = false }
     if (showResults) ResultSheet(model, copy, verticalFold, { showResults = false }, ::generate)
     if (showSymbols) SymbolSheet(model) { showSymbols = false }
     if (showPrivacy) PrivacySheet(model, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
@@ -159,7 +162,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 }
             }
         }
-        if (model.isDigitsOnly) Text("数字は0–9を使用。短いコードは候補数が少なくなります。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (model.isDigitsOnly) Text("数字だけの短いパスワードは、候補数が少なくなります。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (model.estimate() == null) Text("有効な文字を各文字種で1つ以上選択してください。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -202,7 +205,6 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("文字セット", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 Text("大${if (model.uppercase) model.uppercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 小${if (model.lowercase) model.lowercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 数${if (model.digits) model.digitCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 記${if (model.symbolsEnabled) model.symbols.length else 0}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.5f).padding(start = 8.dp))
-                TextButton(onClick = { model.useDigitsOnly(); tab = CharacterTab.DIGITS }, enabled = !model.busy) { Text("数字のみ", fontSize = 12.sp) }
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 CharacterTab.entries.forEachIndexed { index, item ->

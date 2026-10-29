@@ -7058,8 +7058,9 @@ private actor ImportAnalysisGate {
         XCTAssertLessThan(model.results.count, model.goal)
     }
 
-    func testDigitsOnlyPresetUsesPasswordMode() async throws {
-        let model = GeneratorModel(); model.useDigitsOnly()
+    func testManualDigitsOnlySelectionUsesPasswordMode() async throws {
+        let model = GeneratorModel(); model.recipe.uppercase = false; model.recipe.lowercase = false
+        model.recipe.symbolsEnabled = false; model.recipe.digits = true; model.recipe.excludeSimilar = false
         XCTAssertEqual(model.recipe.mode, .password)
         XCTAssertTrue(model.isDigitsOnly); XCTAssertFalse(model.recipe.excludeSimilar)
         XCTAssertEqual(model.recipe.digitCharacters, "0123456789")
@@ -7106,5 +7107,70 @@ final class SecretPreviewLayoutTests: XCTestCase {
         let size = label.sizeThatFits(CGSize(width: 160, height: CGFloat.greatestFiniteMagnitude))
         XCTAssertGreaterThan(size.height, label.font.lineHeight * 10)
         XCTAssertEqual(label.text?.count, 100)
+    }
+}
+
+@MainActor final class GenerationPresetTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let name = "passgen.presets.tests.\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
+        return UserDefaults(suiteName: name)!
+    }
+    func testRoundTripRestoresAllGenerationSettingsOnly() async throws {
+        let store = defaults(); let model = GeneratorModel(preferences: store)
+        model.recipe.mode = .passphrase; model.recipe.words = 10; model.recipe.separator = "_"
+        model.recipe.lengthText = "64"; model.recipe.countText = "2"; model.recipe.uppercaseCharacters = "AZ"
+        model.recipe.lowercaseCharacters = "bm"; model.recipe.digitCharacters = "27"; model.recipe.symbols = "!@"
+        model.recipe.uppercase = false; model.recipe.symbolsEnabled = false; model.recipe.noAdjacent = true
+        model.recipe.requireEach = false; model.recipe.excludeSimilar = false; model.recipe.similarExclusions = "0"
+        let expected = model.recipe.sanitized()
+        model.generateOrStop()
+        for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
+        try model.savePreset(name: "  Mail  ")
+        let bytes = try XCTUnwrap(store.data(forKey: "generation.presets.v1"))
+        let text = try XCTUnwrap(String(data: bytes, encoding: .utf8))
+        for item in model.results { XCTAssertFalse(text.contains(item.value)) }
+        XCTAssertFalse(text.contains("revealed")); XCTAssertFalse(text.contains("security"))
+        model.recipe = Recipe(); model.revealed = true; model.security.protectCapture = false
+        let restored = GeneratorModel(preferences: store)
+        XCTAssertEqual(restored.presets.count, 1); XCTAssertEqual(restored.presets[0].name, "Mail")
+        XCTAssertEqual(restored.presets[0].recipe, expected)
+        try restored.applyPreset(restored.presets[0].id)
+        XCTAssertEqual(restored.recipe, expected); XCTAssertTrue(restored.results.isEmpty)
+        XCTAssertTrue(restored.revealed); XCTAssertFalse(restored.security.protectCapture)
+        XCTAssertEqual(restored.generationActionTitle, "生成")
+    }
+    func testRenameReplaceDeleteAndDuplicateProtectionPersist() throws {
+        let store = defaults(); let model = GeneratorModel(preferences: store)
+        try model.savePreset(name: "Mail"); let id = try XCTUnwrap(model.presets.first?.id)
+        XCTAssertThrowsError(try model.savePreset(name: " mail "))
+        model.recipe.lengthText = "64"; try model.replacePreset(id)
+        try model.renamePreset(id, to: "Work")
+        let next = GeneratorModel(preferences: store)
+        XCTAssertEqual(next.presets.first?.id, id); XCTAssertEqual(next.presets.first?.recipe.length, 64)
+        XCTAssertEqual(next.presets.first?.name, "Work")
+        try next.deletePreset(id)
+        XCTAssertTrue(GeneratorModel(preferences: store).presets.isEmpty)
+    }
+    func testBadNamesCapacityAndUnrecognizedStorageAreNotOverwritten() throws {
+        let store = defaults(); let model = GeneratorModel(preferences: store)
+        for name in ["", " \n ", "bad\nname", String(repeating: "a", count: 41)] { XCTAssertThrowsError(try model.savePreset(name: name)) }
+        for index in 0..<50 { try model.savePreset(name: "Preset \(index)") }
+        XCTAssertThrowsError(try model.savePreset(name: "Overflow")); XCTAssertEqual(model.presets.count, 50)
+        let future = Data("{\"version\":99,\"presets\":[]}".utf8)
+        store.set(future, forKey: "generation.presets.v1")
+        let blocked = GeneratorModel(preferences: store)
+        XCTAssertNotNil(blocked.presetStorageIssue); XCTAssertThrowsError(try blocked.savePreset(name: "New"))
+        XCTAssertEqual(store.data(forKey: "generation.presets.v1"), future)
+    }
+    func testLoadingRetainsResultsCopyMarksAndSecurityButChangesActionTitle() async throws {
+        let model = GeneratorModel(); model.recipe.lengthText = "64"; try model.savePreset(name: "Long")
+        model.recipe.lengthText = "24"; model.generateOrStop()
+        for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
+        model.copiedIDs = [0]; model.revealed = true
+        let previous = model.results.map(\.value)
+        try model.applyPreset(XCTUnwrap(model.presets.first?.id))
+        XCTAssertEqual(model.results.map(\.value), previous); XCTAssertEqual(model.copiedIDs, [0])
+        XCTAssertTrue(model.revealed); XCTAssertEqual(model.generationActionTitle, "生成")
     }
 }

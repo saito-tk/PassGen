@@ -3,6 +3,8 @@ package jp.passgen.app
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import org.json.JSONObject
+import org.json.JSONArray
+import java.util.UUID
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,15 +47,15 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var protectCapture by mutableStateOf(true)
     val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
     val clipboardSummary get() = if (autoClearClipboard) "コピーの消去は${clipboardSeconds}秒後が目安" else "コピーの時間による自動消去はオフ"
-    private var generatedConfiguration by mutableStateOf<List<Any>?>(null)
-    private fun generationConfiguration(): List<Any> = listOf(mode, length, count, words, separator,
-        uppercase, lowercase, digits, symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent,
-        uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
+    private var generatedConfiguration by mutableStateOf<PresetRecipe?>(null)
+    private fun generationConfiguration() = PresetRecipe.capture(this)
     val generationActionTitle: String get() = when (work) {
         WorkState.CANCELLING -> "停止中…"
         WorkState.RUNNING -> "停止"
         WorkState.IDLE -> if (results.isNotEmpty() && generatedConfiguration == generationConfiguration()) "再生成" else "生成"
     }
+    var presets by mutableStateOf<List<GeneratorPreset>>(emptyList()); private set
+    var presetStorageIssue by mutableStateOf<String?>(null); private set
     private var job: Job? = null
     private var cancel = AtomicBoolean(false)
     private var epoch = 0L
@@ -61,43 +63,80 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         preferences?.getString("generation.preferences.v1", null)?.takeIf { it.length <= 16_384 }?.let { json ->
             try { restorePreferences(JSONObject(json)) } catch (_: Exception) { /* Invalid non-secret settings use defaults. */ }
         }
+        loadPresets()
         if (preferences != null) viewModelScope.launch {
             snapshotFlow { preferencesJSON() }.collect { value -> preferences.edit { putString("generation.preferences.v1", value) } }
         }
     }
-    private fun preferencesJSON(): String = JSONObject().apply {
-        put("version", 1); put("mode", mode.name); put("length", length); put("count", count)
-        put("words", words.coerceIn(6, 12)); put("separator", separator.takeIf { it in listOf(" ", "-", "_", ".") } ?: " ")
-        put("uppercase", uppercase); put("lowercase", lowercase); put("digits", digits); put("symbolsEnabled", symbolsEnabled)
-        put("symbols", SymbolPolicy.recognized(symbols)); put("excludeSimilar", excludeSimilar); put("requireEach", requireEach)
-        put("noAdjacent", noAdjacent); put("revealed", revealed)
-        put("uppercaseCharacters", CharacterPolicy.canonical(uppercaseCharacters, CharacterPolicy.UPPERCASE))
-        put("lowercaseCharacters", CharacterPolicy.canonical(lowercaseCharacters, CharacterPolicy.LOWERCASE))
-        put("digitCharacters", CharacterPolicy.canonical(digitCharacters, CharacterPolicy.DIGITS))
-        put("similarExclusions", CharacterPolicy.canonical(similarExclusions, CharacterPolicy.SIMILAR))
-        put("autoClearClipboard", autoClearClipboard); put("clipboardSeconds", clipboardSeconds)
-        put("protectCapture", protectCapture)
+    private fun preferencesJSON(): String = PresetRecipe.capture(this).json().apply {
+        put("revealed", revealed); put("autoClearClipboard", autoClearClipboard)
+        put("clipboardSeconds", clipboardSeconds); put("protectCapture", protectCapture)
     }.toString()
     private fun restorePreferences(json: JSONObject) {
         if (json.optInt("version") != 1) return
-        fun text(key: String, fallback: String) = json.opt(key) as? String ?: fallback
+        PresetRecipe.decode(json).applyTo(this)
         fun flag(key: String, fallback: Boolean) = json.opt(key) as? Boolean ?: fallback
-        mode = GenerationMode.entries.firstOrNull { it.name == text("mode", "PASSWORD") } ?: GenerationMode.PASSWORD
-        lengthText = InputPolicy.normalizedInteger(json.opt("length")?.toString() ?: "24", 24, 4, InputPolicy.MAX_LENGTH).toString()
-        countText = InputPolicy.normalizedInteger(json.opt("count")?.toString() ?: "1", 1, 1, maxCount).toString()
-        words = json.optInt("words", 7).coerceIn(6, 12)
-        separator = text("separator", " ").takeIf { it in listOf(" ", "-", "_", ".") } ?: " "
-        uppercase = flag("uppercase", true); lowercase = flag("lowercase", true); digits = flag("digits", true)
-        symbolsEnabled = flag("symbolsEnabled", true); symbols = SymbolPolicy.recognized(text("symbols", symbols))
-        excludeSimilar = flag("excludeSimilar", true); requireEach = flag("requireEach", true); noAdjacent = flag("noAdjacent", false)
-        uppercaseCharacters = CharacterPolicy.canonical(text("uppercaseCharacters", uppercaseCharacters), CharacterPolicy.UPPERCASE)
-        lowercaseCharacters = CharacterPolicy.canonical(text("lowercaseCharacters", lowercaseCharacters), CharacterPolicy.LOWERCASE)
-        digitCharacters = CharacterPolicy.canonical(text("digitCharacters", digitCharacters), CharacterPolicy.DIGITS)
-        similarExclusions = CharacterPolicy.canonical(text("similarExclusions", similarExclusions), CharacterPolicy.SIMILAR)
-        revealed = flag("revealed", false)
-        autoClearClipboard = flag("autoClearClipboard", true)
+        revealed = flag("revealed", false); autoClearClipboard = flag("autoClearClipboard", true)
         clipboardSecondsText = json.optInt("clipboardSeconds", 30).coerceIn(5, 600).toString()
         protectCapture = flag("protectCapture", true)
+    }
+    fun presetNameError(value: String, excluding: String? = null): String? = try {
+        val name = normalizedPresetName(value)
+        if (presets.any { it.id != excluding && presetNameKey(it.name) == presetNameKey(name) })
+            "同じ名前のプリセットがあります。別の名前を入力してください。" else null
+    } catch (e: PresetException) { e.message }
+    private fun loadPresets() {
+        try {
+            val raw = preferences?.getString("generation.presets.v1", null) ?: return
+            if (raw.length > 131072) throw PresetException("size")
+            val root = JSONObject(raw)
+            if (root.getInt("version") != 1) throw PresetException("version")
+            val rows = root.getJSONArray("presets")
+            if (rows.length() > 50) throw PresetException("count")
+            val loaded = (0 until rows.length()).map { index ->
+                val item = rows.getJSONObject(index)
+                val recipe = item.getJSONObject("recipe")
+                if (recipe.getInt("version") != 1 || !recipe.keys().asSequence().toSet().containsAll(PresetRecipe.capture(this).json().keys().asSequence().toSet())) throw PresetException("version")
+                GenerationMode.valueOf(recipe.getString("mode"))
+                GeneratorPreset(UUID.fromString(item.getString("id")).toString(), normalizedPresetName(item.getString("name")), PresetRecipe.decode(recipe))
+            }
+            if (loaded.map { it.id }.toSet().size != loaded.size || loaded.map { presetNameKey(it.name) }.toSet().size != loaded.size)
+                throw PresetException("duplicate")
+            presets = loaded
+        } catch (_: Exception) { presetStorageIssue = "保存済みプリセットを読み込めませんでした。元のデータは変更していません。" }
+    }
+    private fun commitPresets(next: List<GeneratorPreset>) {
+        if (busy) throw PresetException("生成が終わってから操作してください。")
+        presetStorageIssue?.let { throw PresetException(it) }
+        if (next.size > 50) throw PresetException("保存できるプリセットは50件までです。")
+        val rows = JSONArray()
+        next.forEach { rows.put(JSONObject().put("id", it.id).put("name", it.name).put("recipe", it.recipe.json())) }
+        val data = JSONObject().put("version", 1).put("presets", rows).toString()
+        if (data.toByteArray(Charsets.UTF_8).size > 131072) throw PresetException("保存できる容量を超えています。")
+        preferences?.edit { putString("generation.presets.v1", data) }
+        presets = next
+    }
+    fun savePreset(value: String) {
+        presetNameError(value)?.let { throw PresetException(it) }
+        commitPresets(listOf(GeneratorPreset(UUID.randomUUID().toString(), normalizedPresetName(value), PresetRecipe.capture(this))) + presets)
+    }
+    fun applyPreset(id: String) {
+        if (busy) throw PresetException("生成が終わってから操作してください。")
+        val preset = presets.firstOrNull { it.id == id } ?: throw PresetException("プリセットが見つかりません。")
+        preset.recipe.applyTo(this)
+    }
+    fun renamePreset(id: String, value: String) {
+        presetNameError(value, id)?.let { throw PresetException(it) }
+        if (presets.none { it.id == id }) throw PresetException("プリセットが見つかりません。")
+        commitPresets(presets.map { if (it.id == id) it.copy(name = normalizedPresetName(value)) else it })
+    }
+    fun replacePreset(id: String) {
+        if (presets.none { it.id == id }) throw PresetException("プリセットが見つかりません。")
+        commitPresets(presets.map { if (it.id == id) it.copy(recipe = PresetRecipe.capture(this)) else it })
+    }
+    fun deletePreset(id: String) {
+        if (presets.none { it.id == id }) throw PresetException("プリセットが見つかりません。")
+        commitPresets(presets.filter { it.id != id })
     }
     val busy get() = work != WorkState.IDLE
     val isDigitsOnly get() = mode == GenerationMode.PASSWORD && digits && !uppercase && !lowercase && !symbolsEnabled
@@ -106,13 +145,6 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     val count get() = InputPolicy.normalizedInteger(countText, 1, 1, maxCount)
 
     fun normalize() { lengthText = length.toString(); countText = count.toString() }
-    fun useDigitsOnly() {
-        if (busy) return
-        mode = GenerationMode.PASSWORD
-        uppercase = false; lowercase = false; digits = true; symbolsEnabled = false
-        digitCharacters = CharacterPolicy.DIGITS; excludeSimilar = false
-        normalize()
-    }
     fun chooseMode(value: GenerationMode) {
         if (busy) return
         mode = value

@@ -96,10 +96,41 @@ struct SecuritySettings: Codable, Sendable {
     var clipboardSummary: String { autoClearClipboard ? "コピーは\(clipboardSeconds)秒後に期限切れ" : "コピーの時間による自動消去はオフ" }
 }
 
+struct GeneratorPreset: Identifiable, Codable, Equatable {
+    var id: UUID
+    var name: String
+    var recipe: Recipe
+}
+
+enum PresetError: LocalizedError {
+    case name, duplicate, full, unavailable, busy, missing
+    var errorDescription: String? {
+        switch self {
+        case .name: "名前は1〜40文字で入力してください。改行や制御文字は使用できません。"
+        case .duplicate: "同じ名前のプリセットがあります。別の名前を入力してください。"
+        case .full: "保存できるプリセットは50件までです。"
+        case .unavailable: "保存済みプリセットを読み込めませんでした。元のデータは変更していません。"
+        case .busy: "生成が終わってから操作してください。"
+        case .missing: "プリセットが見つかりません。"
+        }
+    }
+}
+
+extension Recipe {
+    var presetSummary: String {
+        mode == .password ? "パスワード · \(length)文字 · \(count)件" :
+            "パスフレーズ · \(words)単語 · \(count)件 · \(separator == " " ? "スペース区切り" : separator + "区切り")"
+    }
+}
+
 @MainActor @Observable final class GeneratorModel {
     var recipe = Recipe() { didSet { persistPreferences() } }
     private(set) var results: [SecretItem] = []
     private var generatedRecipe: Recipe?
+    private(set) var presets: [GeneratorPreset] = []
+    private(set) var presetStorageIssue: String?
+    private struct StoredPresets: Codable { let version: Int; let presets: [GeneratorPreset] }
+    private static let presetsKey = "generation.presets.v1"
     private(set) var state: GenerationState = .idle
     private(set) var goal = 1
     var revealed = false { didSet { persistPreferences() } }
@@ -124,6 +155,7 @@ struct SecuritySettings: Codable, Sendable {
             revealed = stored.revealed
             security = stored.security?.sanitized ?? SecuritySettings()
         }
+        loadPresets()
     }
     static func applicationModel() -> GeneratorModel {
         #if DEBUG
@@ -136,6 +168,72 @@ struct SecuritySettings: Codable, Sendable {
               let data = try? JSONEncoder().encode(StoredPreferences(version: 1, recipe: recipe.sanitized(), revealed: revealed, security: security.sanitized)) else { return }
         preferences.set(data, forKey: "generation.preferences.v1")
     }
+    private static func normalizedPresetName(_ value: String) throws -> String {
+        let name = value.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
+        guard !name.isEmpty, name.utf16.count <= 40,
+              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { throw PresetError.name }
+        return name
+    }
+    private static func nameKey(_ name: String) -> String { name.lowercased(with: Locale(identifier: "en_US_POSIX")) }
+    func presetNameError(_ value: String, excluding id: UUID? = nil) -> String? {
+        do {
+            let name = try Self.normalizedPresetName(value)
+            if presets.contains(where: { $0.id != id && Self.nameKey($0.name) == Self.nameKey(name) }) { return PresetError.duplicate.localizedDescription }
+            return nil
+        } catch { return error.localizedDescription }
+    }
+    private func loadPresets() {
+        guard let storedValue = preferences?.object(forKey: Self.presetsKey) else { return }
+        do {
+            guard let data = storedValue as? Data, data.count <= 131_072 else { throw PresetError.unavailable }
+            let stored = try JSONDecoder().decode(StoredPresets.self, from: data)
+            guard stored.version == 1, stored.presets.count <= 50,
+                  Set(stored.presets.map(\.id)).count == stored.presets.count else { throw PresetError.unavailable }
+            var names: Set<String> = []
+            var restored: [GeneratorPreset] = []
+            for var preset in stored.presets {
+                preset.name = try Self.normalizedPresetName(preset.name)
+                guard names.insert(Self.nameKey(preset.name)).inserted else { throw PresetError.unavailable }
+                preset.recipe = preset.recipe.sanitized(); restored.append(preset)
+            }
+            presets = restored
+        } catch { presetStorageIssue = PresetError.unavailable.localizedDescription }
+    }
+    private func commitPresets(_ next: [GeneratorPreset]) throws {
+        guard !busy else { throw PresetError.busy }
+        guard presetStorageIssue == nil else { throw PresetError.unavailable }
+        let data = try JSONEncoder().encode(StoredPresets(version: 1, presets: next))
+        guard next.count <= 50, data.count <= 131_072 else { throw PresetError.full }
+        preferences?.set(data, forKey: Self.presetsKey)
+        presets = next
+    }
+    func savePreset(name value: String) throws {
+        let name = try Self.normalizedPresetName(value)
+        guard !presets.contains(where: { Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }
+        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: recipe.sanitized())] + presets)
+    }
+    func applyPreset(_ id: UUID) throws {
+        guard !busy else { throw PresetError.busy }
+        guard let preset = presets.first(where: { $0.id == id }) else { throw PresetError.missing }
+        recipe = preset.recipe.sanitized()
+    }
+    func renamePreset(_ id: UUID, to value: String) throws {
+        let name = try Self.normalizedPresetName(value)
+        guard !presets.contains(where: { $0.id != id && Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }
+        var next = presets
+        guard let index = next.firstIndex(where: { $0.id == id }) else { throw PresetError.missing }
+        next[index].name = name; try commitPresets(next)
+    }
+    func replacePreset(_ id: UUID) throws {
+        var next = presets
+        guard let index = next.firstIndex(where: { $0.id == id }) else { throw PresetError.missing }
+        next[index].recipe = recipe.sanitized(); try commitPresets(next)
+    }
+    func deletePreset(_ id: UUID) throws {
+        guard presets.contains(where: { $0.id == id }) else { throw PresetError.missing }
+        try commitPresets(presets.filter { $0.id != id })
+    }
+
     var busy: Bool { state != .idle }
     var generationActionTitle: String {
         if state == .cancelling { return "停止中…" }
@@ -144,14 +242,6 @@ struct SecuritySettings: Codable, Sendable {
     }
     var isDigitsOnly: Bool { recipe.mode == .password && recipe.digits && !recipe.uppercase && !recipe.lowercase && !recipe.symbolsEnabled }
     var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
-
-    func useDigitsOnly() {
-        guard !busy else { return }
-        recipe.mode = .password
-        recipe.uppercase = false; recipe.lowercase = false; recipe.digits = true; recipe.symbolsEnabled = false
-        recipe.digitCharacters = "0123456789"; recipe.excludeSimilar = false
-        recipe.normalize()
-    }
 
     func chooseMode(_ mode: RecipeMode) {
         guard !busy else { return }

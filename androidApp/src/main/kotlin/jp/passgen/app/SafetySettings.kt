@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
             Text("オフにすると結果やアプリ切替時のプレビューが撮影・共有される可能性があります。生成結果は背景へ移ってもメモリ内に保持し、消去・再生成・アプリの終了で破棄します。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             Text("データの扱い", style = MaterialTheme.typography.titleMedium)
-            Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。生成結果は保存・送信しません。✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodyMedium)
+            Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件・名前付きプリセット・表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。生成結果は保存・送信しません。✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodyMedium)
             Text("OSの暗号学的乱数を使用します。推定エントロピーは生成候補数の目安です。侵害されたOSやコピー先アプリへの保護、メモリの完全消去は保証できません。", style = MaterialTheme.typography.bodySmall)
             Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0", style = MaterialTheme.typography.bodySmall)
             GuideLink("EFFの単語リスト", "https://www.eff.org/dice")

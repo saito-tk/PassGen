@@ -7,6 +7,8 @@ import android.graphics.Bitmap
 import android.view.WindowManager
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.cancel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
@@ -37,6 +39,79 @@ class GeneratorUiTest {
 
     @After fun restoreTestCaptureProtection() {
         rule.runOnIdle { model.protectCapture = true }
+    }
+
+    @Test fun namedPresetsRestoreGenerationSettingsWithoutSecretsOrSecurity() {
+        rule.runOnIdle {
+            val prefs = rule.activity.getSharedPreferences("test.presets.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+            val first = PassgenModel(prefs)
+            var second: PassgenModel? = null
+            try {
+                first.mode = jp.passgen.core.GenerationMode.PASSPHRASE; first.words = 10; first.separator = "_"
+                first.lengthText = "64"; first.countText = "2"; first.uppercaseCharacters = "AZ"; first.lowercaseCharacters = "bm"
+                first.digitCharacters = "27"; first.symbols = "!@"; first.uppercase = false; first.symbolsEnabled = false
+                first.requireEach = false; first.excludeSimilar = false; first.noAdjacent = true; first.similarExclusions = "0"
+                val expected = PresetRecipe.capture(first)
+                first.savePreset("  Mail  "); val id = first.presets.first().id
+                val raw = prefs.getString("generation.presets.v1", "")!!
+                assertFalse(raw.contains("revealed")); assertFalse(raw.contains("protectCapture")); assertFalse(raw.contains("results"))
+                first.lengthText = "24"; first.revealed = true; first.protectCapture = false; first.background()
+                val loaded = PassgenModel(prefs); second = loaded
+                assertEquals(expected, loaded.presets.first().recipe); assertEquals("Mail", loaded.presets.first().name)
+                loaded.applyPreset(id); assertEquals(expected, PresetRecipe.capture(loaded))
+                assertTrue(loaded.revealed); assertFalse(loaded.protectCapture); assertTrue(loaded.results.isEmpty())
+                loaded.lengthText = "80"; loaded.replacePreset(id); loaded.renamePreset(id, "Work")
+                val entry = org.json.JSONObject(prefs.getString("generation.presets.v1", "")!!).getJSONArray("presets").getJSONObject(0)
+                assertEquals("Work", entry.getString("name")); assertEquals(80, entry.getJSONObject("recipe").getInt("length"))
+                loaded.deletePreset(id); assertTrue(loaded.presets.isEmpty())
+            } finally { first.viewModelScope.cancel(); second?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
+        }
+    }
+    @Test fun presetValidationProtectsDuplicatesCapacityAndUnreadableData() {
+        rule.runOnIdle {
+            val prefs = rule.activity.getSharedPreferences("test.presets.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+            val model = PassgenModel(prefs)
+            var blocked: PassgenModel? = null
+            try {
+                for (name in listOf("", " ", "bad\nname", "a".repeat(41))) assertThrows(PresetException::class.java) { model.savePreset(name) }
+                model.savePreset("Mail"); assertThrows(PresetException::class.java) { model.savePreset(" mail ") }
+                for (index in 1..49) model.savePreset("Preset $index")
+                assertThrows(PresetException::class.java) { model.savePreset("Overflow") }; assertEquals(50, model.presets.size)
+                val future = """{"version":99,"presets":[]}"""
+                prefs.edit().putString("generation.presets.v1", future).apply()
+                val unreadable = PassgenModel(prefs); blocked = unreadable
+                assertNotNull(unreadable.presetStorageIssue)
+                assertThrows(PresetException::class.java) { unreadable.savePreset("New") }
+                assertEquals(future, prefs.getString("generation.presets.v1", null))
+            } finally { model.viewModelScope.cancel(); blocked?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
+        }
+    }
+    @Test fun presetsCanBeSavedLoadedRenamedAndDeletedFromTheLeftToolbar() {
+        val name = "UITest-${System.nanoTime()}"
+        var owned: String? = null
+        try {
+            rule.onNodeWithText("数字のみ").assertDoesNotExist()
+            rule.runOnIdle { model.lengthText = "64" }
+            rule.onNodeWithTag("presets").performClick()
+            rule.onNodeWithTag("preset-name").performTextInput(name)
+            rule.onNodeWithTag("preset-name").performImeAction()
+            rule.onNodeWithTag("preset-save").performClick()
+            rule.runOnIdle { owned = model.presets.first { it.name == name }.id }
+            rule.onNodeWithText("完了").performClick()
+            rule.runOnIdle { model.lengthText = "24" }
+            rule.onNodeWithTag("presets").performClick()
+            rule.onNodeWithContentDescription("${name}を読み込む").performClick()
+            rule.runOnIdle { assertEquals(64, model.length); assertTrue(model.results.isEmpty()) }
+            rule.onNodeWithTag("presets").performClick()
+            rule.onNodeWithContentDescription("${name}の編集").performClick(); rule.onNodeWithText("名前を変更").performClick()
+            rule.onNodeWithTag("preset-rename-name").performTextReplacement("${name}-new")
+            rule.onNodeWithTag("preset-confirm").performClick()
+            rule.onNodeWithContentDescription("${name}-newの編集").performClick(); rule.onNodeWithText("削除").performClick()
+            rule.onNodeWithTag("preset-confirm").performClick()
+            rule.runOnIdle { assertTrue(model.presets.none { it.id == owned }) }
+            rule.onNodeWithText("完了").performClick()
+            rule.onNodeWithTag("generate").assertIsDisplayed()
+        } finally { rule.runOnIdle { owned?.let { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
     }
 
     @Test fun onlySettingsAndRevealPreferenceSurviveNewModel() {
@@ -444,8 +519,9 @@ class GeneratorUiTest {
         rule.runOnIdle { assertTrue(model.results.first().value.all { it in "AZ" }) }
     }
 
-    @Test fun digitsOnlyIsACharacterPreset() {
-        rule.onNodeWithText("数字のみ").performClick()
+    @Test fun digitsOnlyCanBeConfiguredWithoutTheShortcut() {
+        rule.onNodeWithText("数字のみ").assertDoesNotExist()
+        rule.runOnIdle { model.uppercase = false; model.lowercase = false; model.symbolsEnabled = false; model.excludeSimilar = false }
         rule.runOnIdle {
             assertTrue(model.isDigitsOnly)
             assertEquals("0123456789", model.digitCharacters)

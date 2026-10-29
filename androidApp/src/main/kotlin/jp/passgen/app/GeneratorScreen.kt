@@ -45,6 +45,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     var showGuide by remember { mutableStateOf(false) }
     var showStorageLesson by remember { mutableStateOf(false) }
     var showAuthLesson by remember { mutableStateOf(false) }
+    var examplesTopic by remember { mutableStateOf<Int?>(null) }
     val focus = LocalFocusManager.current
     val density = LocalDensity.current
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -112,9 +113,11 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     if (showGuide) SecurityGuideSheet(
         dismiss = { showGuide = false },
         storageLesson = { showGuide = false; showStorageLesson = true },
-        authLesson = { showGuide = false; showAuthLesson = true })
+        authLesson = { showGuide = false; showAuthLesson = true },
+        examplesLesson = { topic -> showGuide = false; examplesTopic = topic })
     if (showStorageLesson) PasswordStorageLessonSheet(verticalFold) { showStorageLesson = false; showGuide = true }
     if (showAuthLesson) AuthenticationFactorsLessonSheet(verticalFold) { showAuthLesson = false; showGuide = true }
+    examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, verticalFold) { examplesTopic = null; showGuide = true } }
 }
 
 @Composable private fun Modifier.normalizeOnBlur(normalize: () -> Unit): Modifier {

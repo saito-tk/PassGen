@@ -224,6 +224,53 @@ class GeneratorUiTest {
         rule.runOnIdle { model.protectCapture = true }
     }
 
+    @Test fun passwordExamplesShowPatternsAndInteractiveComparisons() {
+        allowGuideScreenshots()
+        rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
+        rule.onNodeWithTag("password-examples-guide").performScrollTo().performClick()
+        val choices = (0..2).map { rule.onNodeWithTag("password-topic-$it").getUnclippedBoundsInRoot() }
+        assertEquals(choices[0].bottom - choices[0].top, choices[1].bottom - choices[1].top)
+        assertEquals(choices[0].bottom - choices[0].top, choices[2].bottom - choices[2].top)
+        for (sample in jp.passgen.core.SecurityGuideExamples.weakExamples) {
+            rule.onNodeWithTag("weak-value-${sample.key}").performScrollTo().assertTextEquals(sample.value)
+        }
+        rule.onNodeWithTag("weak-mutation-2").performScrollTo().assertTextEquals("P@ssw0rd1!")
+        saveGuideScreenshot("password-mutations.png")
+        rule.onNodeWithTag("weak-value-word").performScrollTo()
+        saveGuideScreenshot("password-weak-examples.png")
+        rule.onNodeWithTag("password-topic-1").performClick()
+        rule.onNodeWithTag("guide-length-count").assertTextEquals("1万通り")
+        rule.onNodeWithTag("guide-length-1").performClick()
+        rule.onNodeWithTag("guide-length-value").assertTextEquals("604839")
+        rule.onNodeWithTag("guide-length-count").assertTextEquals("100万通り")
+        rule.onNodeWithTag("guide-length-2").performClick()
+        rule.onNodeWithTag("guide-length-count").assertTextEquals("1億通り")
+        saveGuideScreenshot("password-length.png")
+        rule.onNodeWithTag("password-topic-2").performClick()
+        for ((index, separator) in listOf(" ", "-", "_").withIndex()) {
+            rule.onNodeWithTag("guide-separator-$index").performScrollTo().performClick()
+            rule.onNodeWithTag("guide-phrase-value").assertTextEquals(jp.passgen.core.SecurityGuideExamples.phrase(separator))
+        }
+        rule.onNodeWithTag("guide-phrase-value").performScrollTo()
+        saveGuideScreenshot("password-phrase.png")
+        rule.onNodeWithTag("password-examples-back").performClick()
+        rule.onNodeWithTag("password-length-guide").performScrollTo().performClick()
+        rule.onNodeWithTag("guide-length-value").assertTextEquals("4827")
+        rule.runOnIdle { assertTrue(model.results.isEmpty()) }
+    }
+
+    @Test fun guideShowsConcreteAccountAuthenticationAndLookalikeExamples() {
+        allowGuideScreenshots()
+        rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
+        rule.onNodeWithTag("guide-manager-password").performScrollTo().assertTextEquals(jp.passgen.core.SecurityGuideExamples.PASSWORD)
+        saveGuideScreenshot("guide-manager.png")
+        rule.onNodeWithText("482915（説明用）").performScrollTo().assertExists()
+        saveGuideScreenshot("guide-authentication.png")
+        rule.onNodeWithText("端末で本人確認").performScrollTo().assertExists()
+        rule.onNodeWithTag("guide-lookalike-url").performScrollTo().assertTextEquals(jp.passgen.core.SecurityGuideExamples.LOOKALIKE_URL)
+        saveGuideScreenshot("guide-lookalike.png")
+    }
+
     private fun allowGuideScreenshots() {
         // Dialog windows inherit FLAG_SECURE when opened. Disable it before opening
         // these test-only diagrams, which never generate or display credentials.

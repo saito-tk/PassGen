@@ -87,3 +87,18 @@ Google / JetBrains / Appleの保守されている標準・公式ライブラリ
 - ハッシュ例はArgon2idのPHC保存形式全文（バージョン・計算設定・16バイトのソルト・32バイトの計算結果を含む）を表示する。架空の同じ入力、同じメモリ/反復/並列設定で、共通ソルト・個別ソルトの違いを比較する。Argon2はソルトが必要なので、無ソルトのArgon2形式を創作しない。
 - Node.js標準のArgon2idでオフライン計算し、RFC 9106のベクトルと3つの例を開発用スクリプトで検証する。モバイルアプリの依存ライブラリは追加しない。設定例はOWASPの最小構成（m=19456 KiB, t=2, p=1）に合わせる。例示の値を利用者のパスワードとして推奨しない。
 - 参考: [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)、[RFC 9106 §5.3](https://www.rfc-editor.org/rfc/rfc9106.html#section-5.3)、[Node.js Argon2](https://nodejs.org/api/crypto.html#cryptoargon2syncalgorithm-parameters)。
+
+
+## 説明用の公開例
+
+`SecurityGuideExamples`は利用者の入力、生成器、クリップボードに接続しない読み取り用の教材。公開の24文字見本・7単語の形を安全な認証情報と評価しない。弱い例は攻撃で試されるパターンを示すためであり、例にない値の安全性を判定しない。数字の比較は0〜9を各位置で独立・一様に選ぶ条件（先頭0を含む）を固定する。候補数を解読時間に換算せず、生成ルールや利用先の攻撃制限による差も混同しない。固定の区切りに追加エントロピーは与えない。
+
+パスキーの例は本人確認を求めるサービスでの流れと明記し、常に2要素となると一般化しない。認証アプリのコードは公開の架空値。復旧準備はサインインの追加段階として数えない。紛らわしいURLはIANAの予約ドメインだけを使い、クリック可能にしない。URLの見た目やHTTPSだけで正規性を保証しない。
+
+教材見直し時の一次資料:
+- [NIST: 長さ・推測されやすいパターン](https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password)
+- [EFF: 無作為な単語と管理アプリ](https://ssd.eff.org/module/creating-strong-passwords)
+- [Google: パスキーの操作と本人確認](https://support.google.com/accounts/answer/13548313?hl=ja)
+- [IANA: 文書用の予約ドメイン](https://www.iana.org/help/example-domains)
+- [FBI: 偽サイトと情報の入力](https://www.fbi.gov/how-we-can-help-you/common-frauds-and-scams/spoofing-and-phishing)
+- [FBI: HTTPSを利用するフィッシング](https://www.ic3.gov/PSA/2019/PSA190610)

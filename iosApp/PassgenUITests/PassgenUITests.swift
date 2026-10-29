@@ -243,6 +243,94 @@ final class PassgenUITests: XCTestCase {
         let unique = XCTAttachment(screenshot: app.screenshot()); unique.name = "Unique passwords scenario"; unique.lifetime = .keepAlways; add(unique)
     }
 
+    @MainActor private func choosePasswordTopic(_ title: String, app: XCUIApplication) {
+        let segment = app.segmentedControls["password-example-topic"].buttons[title]
+        if segment.exists { segment.tap() }
+        else {
+            app.buttons["password-example-topic"].tap()
+            let options = app.buttons.matching(identifier: title).allElementsBoundByIndex
+            guard let option = options.first(where: { $0.isHittable }) else { XCTFail("Theme option must be reachable"); return }
+            option.tap()
+        }
+    }
+    @MainActor private func bringGuideElementIntoView(_ element: XCUIElement, surface: XCUIElement) {
+        for _ in 0..<45 {
+            var direction: CGFloat = -1
+            if element.exists {
+                let frame = element.frame
+                if element.isHittable && frame.minY >= surface.frame.minY && frame.maxY <= surface.frame.maxY { return }
+                if frame.midY < surface.frame.midY { direction = 1 }
+            }
+            let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+            start.press(forDuration: 0.15, thenDragTo: start.withOffset(CGVector(dx: 0, dy: direction * min(180, surface.frame.height * 0.3))))
+        }
+        XCTFail("Guide example must be visible: \(element.identifier)")
+    }
+    @MainActor private func saveGuideExampleScreenshot(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    @MainActor func testPasswordExamplesShowPatternsAndInteractiveComparisons() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        let guide = app.descendants(matching: .any).matching(identifier: "security-guide-list").firstMatch
+        let link = app.buttons["password-examples-guide"]
+        bringGuideElementIntoView(link, surface: guide); link.tap()
+        XCTAssertTrue(app.navigationBars["パスワードを例で見る"].waitForExistence(timeout: 3))
+        let scroll = app.scrollViews["password-examples-scroll"]
+        XCTAssertEqual(app.staticTexts["weak-value-word"].label, "password")
+        XCTAssertEqual(app.staticTexts["weak-value-sequence"].label, "12345678")
+        saveGuideExampleScreenshot(app, "Concrete weak passwords")
+        let mutation = app.staticTexts["weak-mutation-2"]
+        bringGuideElementIntoView(mutation, surface: scroll)
+        XCTAssertEqual(mutation.label, "P@ssw0rd1!")
+        saveGuideExampleScreenshot(app, "Predictable mutations")
+        choosePasswordTopic("長さ", app: app)
+        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "1万通り")
+        app.segmentedControls.buttons["6桁"].tap()
+        XCTAssertEqual(app.staticTexts["guide-length-value"].label, "604839")
+        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "100万通り")
+        app.segmentedControls.buttons["8桁"].tap()
+        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "1億通り")
+        saveGuideExampleScreenshot(app, "Numeric length comparison")
+        choosePasswordTopic("パスフレーズ", app: app)
+        let phrase = app.staticTexts["guide-phrase-value"]
+        let words = phrase.label.split(separator: " ").map(String.init)
+        XCTAssertEqual(words.count, 7)
+        for separator in ["-", "_"] {
+            app.segmentedControls.buttons[separator].tap()
+            XCTAssertEqual(phrase.label, words.joined(separator: separator))
+        }
+        XCTAssertGreaterThanOrEqual(phrase.frame.minX, scroll.frame.minX)
+        XCTAssertLessThanOrEqual(phrase.frame.maxX, scroll.frame.maxX)
+        saveGuideExampleScreenshot(app, "Seven words with selectable separators")
+        app.navigationBars["パスワードを例で見る"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(guide.waitForExistence(timeout: 3))
+        let lengthLink = app.buttons["password-length-guide"]
+        bringGuideElementIntoView(lengthLink, surface: guide); lengthLink.tap()
+        XCTAssertEqual(app.staticTexts["guide-length-value"].label, "4827")
+    }
+    @MainActor func testGuideShowsConcreteAccountAuthenticationAndLookalikeExamples() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        let guide = app.descendants(matching: .any).matching(identifier: "security-guide-list").firstMatch
+        let password = app.staticTexts["guide-manager-password"]
+        bringGuideElementIntoView(password, surface: guide)
+        XCTAssertEqual(password.label.count, 24)
+        saveGuideExampleScreenshot(app, "Password manager record example")
+        let code = app.staticTexts["482915（説明用）"]
+        bringGuideElementIntoView(code, surface: guide)
+        saveGuideExampleScreenshot(app, "Authenticator code example")
+        let passkey = app.descendants(matching: .any).matching(identifier: "guide-passkey-unlock").firstMatch
+        bringGuideElementIntoView(passkey, surface: guide)
+        let lookalike = app.staticTexts["guide-lookalike-url"]
+        bringGuideElementIntoView(lookalike, surface: guide)
+        XCTAssertEqual(lookalike.label, "https://account.example.com.login-check.example.net")
+        XCTAssertGreaterThanOrEqual(lookalike.frame.minX, guide.frame.minX)
+        XCTAssertLessThanOrEqual(lookalike.frame.maxX, guide.frame.maxX)
+        saveGuideExampleScreenshot(app, "Lookalike URL example")
+    }
+
     @MainActor func testAuthenticationLessonDistinguishesStepsFromFactors() {
         let app = launchApp()
         app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()

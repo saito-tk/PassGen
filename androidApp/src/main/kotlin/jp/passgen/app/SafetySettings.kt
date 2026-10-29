@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
             Text("オフにすると結果やアプリ切替時のプレビューが撮影・共有される可能性があります。背景へ移ると生成結果を消す処理は常に有効です。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             Text("データの扱い", style = MaterialTheme.typography.titleMedium)
-            Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。生成結果は保存・送信しません。✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodyMedium)
+            Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。生成結果は保存・送信しません。✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodyMedium)
             Text("OSの暗号学的乱数を使用します。推定エントロピーは生成候補数の目安です。侵害されたOSやコピー先アプリへの保護、メモリの完全消去は保証できません。", style = MaterialTheme.typography.bodySmall)
             Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0", style = MaterialTheme.typography.bodySmall)
             GuideLink("EFFの単語リスト", "https://www.eff.org/dice")
@@ -58,56 +58,82 @@ import androidx.compose.ui.unit.dp
     }
 }
 
-@Composable fun SecurityGuideSheet(dismiss: () -> Unit, storageLesson: () -> Unit, authLesson: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = dismiss) {
+@Composable fun SecurityGuideSheet(dismiss: () -> Unit, storageLesson: () -> Unit, authLesson: () -> Unit, examplesLesson: (Int) -> Unit) {
+    ModalBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("アカウントを守る", style = MaterialTheme.typography.headlineSmall)
             Text("長く、無作為に、サービスごとに", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Text("このアプリは生成専用です。作った値はサービスに登録し、管理アプリへ保存しましょう。")
-            OutlinedCard(onClick = storageLesson, modifier = Modifier.fillMaxWidth().semantics { testTag = "password-storage-guide" }) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("なぜ使い回しは危険？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る", style = MaterialTheme.typography.bodySmall)
-                }
+            Text("このアプリは生成専用です。作った値は利用先に登録し、管理アプリへ保存しましょう。", style = MaterialTheme.typography.bodyMedium)
+            GuideDestination("なぜ使い回しは危険？", "平文・ハッシュ化と、漏えいの広がり", "password-storage-guide", storageLesson)
+            GuideDestination("2要素と2段階、何が違う？", "手順と要素を、3つの例で見比べる", "authentication-guide", authLesson)
+            GuideCard("避けたいパスワード") {
+                GuideExampleValue("連番", "12345678")
+                GuideExampleValue("単語に文字を足しただけ", jp.passgen.core.SecurityGuideExamples.mutations[2])
+                TextButton({ examplesLesson(0) }, Modifier.semantics { testTag = "password-examples-guide" }) { Text("悪い例と、その理由を見る") }
+                Text(jp.passgen.core.SecurityGuideExamples.NOTICE, style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedCard(onClick = authLesson, modifier = Modifier.fillMaxWidth().semantics { testTag = "authentication-guide" }) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("2要素と2段階、何が違う？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("手順と要素を、3つの例で見比べる", style = MaterialTheme.typography.bodySmall)
-                }
+            GuideDestination("文字数で候補はどう変わる？", "数字4・6・8桁を切り替えて比較", "password-length-guide") { examplesLesson(1) }
+            GuideDestination("7単語をつないでみる", "半角スペース・ハイフン・アンダースコア", "passphrase-examples-guide") { examplesLesson(2) }
+            GuideCard("管理アプリへの保存例") {
+                GuideExampleValue("サービス", jp.passgen.core.SecurityGuideExamples.SERVICE)
+                GuideExampleValue("ユーザー名", jp.passgen.core.SecurityGuideExamples.USERNAME)
+                GuideExampleValue("パスワード（公開の24文字見本）", jp.passgen.core.SecurityGuideExamples.PASSWORD, "guide-manager-password")
+                GuideJourneyStep(1, "このアプリで生成", "サービスごとに、新しい値を作る")
+                GuideJourneyStep(2, "利用先で登録・変更", "作った値を、そのサービスに設定する")
+                GuideJourneyStep(3, "管理アプリへ保存", "次回は保存した項目から自動入力")
+                Text("Google パスワード マネージャー、Appleの「パスワード」、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。", style = MaterialTheme.typography.bodySmall)
+                Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。", style = MaterialTheme.typography.bodySmall)
+                GuideLink("Google パスワード マネージャー", "https://support.google.com/accounts/answer/6208650?hl=ja")
+                GuideLink("Apple「パスワード」", "https://support.apple.com/ja-jp/120758")
+                GuideLink("1Passwordの使い方", "https://support.1password.com/category/getting-started/")
             }
-            GuideCard("強いパスワードの特徴", "長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。初期値は24文字です。",
-                "パスフレーズは無作為な単語の組み合わせです。名言や歌詞をそのまま使う方法とは異なります。数字だけの短い値は候補が少なく、推測されやすくなります。")
-            GuideLink("NISTのパスワードガイド（英語）", "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")
-            GuideCard("弱くなりやすい例", "名前・誕生日・単語だけ・連番・キーボード順・有名なフレーズは避けましょう。末尾に1や!を足すだけ、aを@に置き換えるだけでは推測を防ぎにくいです。",
-                "使い回すと、ひとつのサービスから漏れた値で別のアカウントにも侵入されます。サービスごとに別の値を生成しましょう。長い値でも偽サイトへの入力やマルウェアは防げません。")
-            GuideCard("管理アプリに保存", "Google パスワード マネージャー、Appleの「パスワード」、1Passwordなどは、サービスごとのパスワードやパスキーを保存・自動入力できます。使う端末や復旧方法、同期範囲を確認して選びましょう。",
-                "管理アプリ自体のアカウントも保護し、復旧用情報を安全な場所へ。生成結果をスクリーンショットや平文メモで残すことは避けましょう。")
-            GuideLink("Google パスワード マネージャー", "https://support.google.com/accounts/answer/6208650?hl=ja")
-            GuideLink("Apple「パスワード」", "https://support.apple.com/ja-jp/120758")
-            GuideLink("1Passwordの使い方", "https://support.1password.com/category/getting-started/")
-            GuideCard("2要素認証を追加", "パスワードに加えて、認証アプリの一時コードやセキュリティキーなど、別の要素で本人を確認します。対応サービスのセキュリティ設定で有効にし、復旧コードも保管しましょう。",
-                "SMSにも保護効果はありますが、認証アプリやセキュリティキーが選べるなら検討してください。一時コードも偽サイトに入力すると盗まれます。")
-            GuideLink("Googleの2段階認証ガイド", "https://support.google.com/accounts/answer/185839?hl=ja")
-            GuideCard("パスキーを使う", "端末や管理アプリに保存した暗号鍵でサインインする仕組みです。対応するサイト・アプリで作成し、指紋や顔認証、端末のロック解除などで使用します。登録したサイトに結び付くため、偽サイトに認証情報を入力する攻撃を防ぎやすくなります。",
-                "同期・機種変更・復旧の方法も確認してください。このアプリはパスキー自体を作成しません。")
-            GuideLink("Googleのパスキーガイド", "https://support.google.com/accounts/answer/13548313?hl=ja")
-            GuideLink("Appleのパスキー解説", "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")
+            GuideCard("認証アプリを加えたサインイン例") {
+                GuideJourneyStep(1, "パスワードを入力", jp.passgen.core.SecurityGuideExamples.PASSWORD)
+                GuideJourneyStep(2, "認証アプリの一時コードを入力", "${jp.passgen.core.SecurityGuideExamples.CODE}（説明用）")
+                Text("知っているパスワード ＋ アプリの秘密鍵を使えること。この例は2段階・2要素です。一時コードも偽サイトへ入力すると盗まれます。", style = MaterialTheme.typography.bodySmall)
+                Text("機種変更の前に", style = MaterialTheme.typography.titleSmall)
+                Text("サービスの復旧コードなどを保管し、新端末での利用を確認", style = MaterialTheme.typography.bodySmall)
+                GuideLink("Googleの2段階認証ガイド", "https://support.google.com/accounts/answer/185839?hl=ja")
+            }
+            GuideCard("パスキーでのサインイン例") {
+                GuideJourneyStep(1, "対応サービスでパスキーを選ぶ", "事前に登録した鍵を使用")
+                GuideJourneyStep(2, "端末で本人確認", "指紋・顔認証・端末のロック解除など")
+                GuideJourneyStep(3, "サインイン", "パスワードや一時コードを入力せずに認証")
+                Text("本人確認を求めるサービスの例です。顔や指紋の情報をサイトへ送る仕組みではありません。登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。", style = MaterialTheme.typography.bodySmall)
+                Text("同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。", style = MaterialTheme.typography.bodySmall)
+                GuideLink("Googleのパスキーガイド", "https://support.google.com/accounts/answer/13548313?hl=ja")
+                GuideLink("Appleのパスキー解説", "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")
+            }
+            GuideCard("長いパスワードでも、入力先に注意") {
+                GuideExampleValue("登録先に見立てた架空URL", jp.passgen.core.SecurityGuideExamples.EXPECTED_URL)
+                GuideExampleValue("先頭を似せた、別のドメイン", jp.passgen.core.SecurityGuideExamples.LOOKALIKE_URL, "guide-lookalike-url")
+                Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。", style = MaterialTheme.typography.bodyMedium)
+                Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。", style = MaterialTheme.typography.bodySmall)
+            }
             TextButton(dismiss, Modifier.align(Alignment.End)) { Text("閉じる") }
         }
     }
 }
 
-@Composable private fun GuideCard(title: String, vararg paragraphs: String) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            paragraphs.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+@Composable private fun GuideDestination(title: String, detail: String, tag: String, action: () -> Unit) {
+    OutlinedCard(onClick = action, modifier = Modifier.fillMaxWidth().semantics { testTag = tag }) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(detail, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
-@Composable private fun GuideLink(title: String, url: String) {
+@Composable private fun GuideCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            content()
+        }
+    }
+}
+
+@Composable internal fun GuideLink(title: String, url: String) {
     val uri = LocalUriHandler.current
     TextButton({ uri.openUri(url) }, contentPadding = PaddingValues(horizontal = 0.dp)) { Text(title) }
 }

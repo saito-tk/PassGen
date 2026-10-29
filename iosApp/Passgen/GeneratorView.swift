@@ -496,7 +496,7 @@ struct PrivacyView: View {
                 } header: { Label("画面の保護", systemImage: "record.circle") }
                 footer: { Text("画面を隠す設定をオフにすると、アプリ切替画面などに内容が映る場合があります。収録中の保護は別に設定できます。背景移行時の生成結果の消去は常に有効です。") }
                 Section("データの扱い") {
-                    Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。パスワード・画像・読み取りテキストは保存しません。")
+                    Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。パスワード・画像・読み取りテキストは保存しません。")
                     Text("画像はVisionと、対応するiOS 27端末ではApple Intelligenceの画像モデルで端末内処理します。読み取り候補は画像と照合して適用してください。iCloud写真を選ぶ際はOSが元画像を取得することがあります。")
                     Text("侵害されたOS・コピー先のアプリ・外部カメラへの保護や、メモリの完全消去は保証できません。")
                 }
@@ -513,55 +513,220 @@ struct PrivacyView: View {
 }
 
 struct SecurityGuideView: View {
+    private let examples = SecurityGuideExamples.shared
     var body: some View {
         List {
             Section {
                 Label("長く、無作為に、サービスごとに", systemImage: "key.horizontal")
                     .font(.headline).foregroundStyle(Color.passgenAccent)
-                Text("このアプリは生成専用です。作った値はサービスに登録し、管理アプリへ保存してください。サービスの条件を満たす長さでも、安全性が同じとは限りません。")
+                Text("このアプリは生成専用です。作った値は利用先に登録し、管理アプリへ保存しましょう。")
+                    .font(.subheadline)
             }
             Section {
                 NavigationLink { PasswordStorageLessonView() } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("なぜ使い回しは危険？").font(.headline).foregroundStyle(Color.passgenAccent)
-                        Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る").font(.caption).foregroundStyle(.secondary)
-                    }.padding(.vertical, 6)
+                    GuideDestination(title: "なぜ使い回しは危険？", detail: "平文・ハッシュ化と、漏えいの広がり")
                 }.accessibilityIdentifier("password-storage-guide")
                 NavigationLink { AuthenticationFactorsLessonView() } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("2要素と2段階、何が違う？").font(.headline).foregroundStyle(Color.passgenAccent)
-                        Text("手順と要素を、3つの例で見比べる").font(.caption).foregroundStyle(.secondary)
-                    }.padding(.vertical, 6)
+                    GuideDestination(title: "2要素と2段階、何が違う？", detail: "手順と要素を、3つの例で見比べる")
                 }.accessibilityIdentifier("authentication-guide")
             }
-            Section("強いパスワードの特徴") {
-                Text("長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。このアプリの初期値は24文字です。")
-                Text("パスフレーズは無作為な単語を複数組み合わせます。好きな名言や歌詞をそのまま使う方法とは異なります。数字だけの短い値は候補が少なく、英数字の長いパスワードより推測されやすくなります。")
-                Link("NISTのパスワードガイド（英語）", destination: URL(string: "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")!)
+            Section {
+                GuideExampleValue(caption: "連番", value: "12345678")
+                GuideExampleValue(caption: "単語に文字を足しただけ", value: examples.mutations[2])
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 0) } label: {
+                    GuideDestination(title: "悪い例と、その理由を見る", detail: "単語・名前と日付・繰り返し・置き換え")
+                }.accessibilityIdentifier("password-examples-guide")
+            } header: { Text("避けたいパスワード") } footer: { Text(examples.NOTICE) }
+            Section("長さとパスフレーズ") {
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 1) } label: {
+                    GuideDestination(title: "文字数で候補はどう変わる？", detail: "数字4・6・8桁を切り替えて比較")
+                }.accessibilityIdentifier("password-length-guide")
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 2) } label: {
+                    GuideDestination(title: "7単語をつないでみる", detail: "半角スペース・ハイフン・アンダースコア")
+                }.accessibilityIdentifier("passphrase-examples-guide")
             }
-            Section("弱くなりやすい例") {
-                Text("名前・誕生日・辞書の単語だけ・連番・キーボード順・有名なフレーズは避けましょう。末尾に1や!を足すだけ、aを@に置き換えるだけでは推測を防ぎにくいです。")
-                Text("使い回すと、ひとつのサービスから漏れた値で別のアカウントにも侵入されます。サービスごとに別の値を生成しましょう。長いパスワードでも、偽サイトへの入力やマルウェアは防げません。")
-            }
-            Section("管理アプリへ保存する") {
-                Text("Appleの「パスワード」、Google パスワード マネージャー、1Passwordなどは、サービスごとのパスワードやパスキーを保存・自動入力できます。使う端末や復旧方法、同期範囲を確認して選びましょう。")
-                Text("管理アプリ自体のアカウントも保護し、復旧用情報を安全な場所へ保存してください。生成結果をスクリーンショットや平文のメモで残すことは避けましょう。")
+            Section("管理アプリへの保存例") {
+                GuideExampleValue(caption: "サービス", value: examples.SERVICE)
+                GuideExampleValue(caption: "ユーザー名", value: examples.USERNAME)
+                GuideExampleValue(caption: "パスワード（公開の24文字見本）", value: examples.PASSWORD, identifier: "guide-manager-password")
+                GuideJourneyStep(number: 1, title: "このアプリで生成", value: "サービスごとに、新しい値を作る")
+                GuideJourneyStep(number: 2, title: "利用先で登録・変更", value: "作った値を、そのサービスに設定する")
+                GuideJourneyStep(number: 3, title: "管理アプリへ保存", value: "次回は保存した項目から自動入力")
+                Text("Appleの「パスワード」、Google パスワード マネージャー、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。")
+                    .font(.footnote).foregroundStyle(.secondary)
                 Link("Apple「パスワード」の使い方", destination: URL(string: "https://support.apple.com/ja-jp/120758")!)
                 Link("Google パスワード マネージャー", destination: URL(string: "https://support.google.com/accounts/answer/6208650?hl=ja")!)
                 Link("1Passwordの使い方", destination: URL(string: "https://support.1password.com/category/getting-started/")!)
             }
-            Section("2要素認証を追加する") {
-                Text("パスワードに加え、認証アプリの一時コードやセキュリティキーなど、別の要素で本人を確認します。対応サービスのセキュリティ設定から有効にし、復旧コードも保管しましょう。")
-                Text("SMSにも保護効果はありますが、認証アプリやセキュリティキーが選べるなら検討してください。一時コードも偽サイトに入力すると盗まれます。")
+            Section("認証アプリを加えたサインイン例") {
+                GuideJourneyStep(number: 1, title: "パスワードを入力", value: examples.PASSWORD)
+                GuideJourneyStep(number: 2, title: "認証アプリの一時コードを入力", value: "\(examples.CODE)（説明用）")
+                Text("知っているパスワード ＋ アプリの秘密鍵を使えること。この例は2段階・2要素です。一時コードも偽サイトへ入力すると盗まれます。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("機種変更の前に").font(.subheadline.weight(.semibold))
+                    Text("サービスの復旧コードなどを保管し、新端末での利用を確認").font(.footnote).foregroundStyle(.secondary)
+                }
                 Link("Googleの2段階認証ガイド", destination: URL(string: "https://support.google.com/accounts/answer/185839?hl=ja")!)
             }
-            Section("パスキーを使う") {
-                Text("パスキーは、端末や管理アプリに保存した暗号鍵でサインインする仕組みです。対応するサイト・アプリで作成し、Face IDや指紋、端末のロック解除などで使用します。")
-                Text("登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。")
+            Section("パスキーでのサインイン例") {
+                GuideJourneyStep(number: 1, title: "対応サービスでパスキーを選ぶ", value: "事前に登録した鍵を使用")
+                GuideJourneyStep(number: 2, title: "端末で本人確認", value: "Face ID・Touch ID・端末のロック解除など")
+                    .accessibilityIdentifier("guide-passkey-unlock")
+                GuideJourneyStep(number: 3, title: "サインイン", value: "パスワードや一時コードを入力せずに認証")
+                Text("本人確認を求めるサービスの例です。顔や指紋の情報をサイトへ送る仕組みではありません。登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。")
+                    .font(.footnote).foregroundStyle(.secondary)
                 Link("Appleのパスキー解説", destination: URL(string: "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")!)
                 Link("Googleのパスキーガイド", destination: URL(string: "https://support.google.com/accounts/answer/13548313?hl=ja")!)
             }
+            Section {
+                GuideExampleValue(caption: "登録先に見立てた架空URL", value: examples.EXPECTED_URL)
+                GuideExampleValue(caption: "先頭を似せた、別のドメイン", value: examples.LOOKALIKE_URL, identifier: "guide-lookalike-url")
+                Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } header: { Text("長いパスワードでも、入力先に注意") } footer: { Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。") }
         }.navigationTitle("アカウントを守る").navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("security-guide-list")
+    }
+}
+
+private struct GuideDestination: View {
+    let title: String
+    let detail: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.headline).foregroundStyle(Color.passgenAccent)
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }.padding(.vertical, 4)
+    }
+}
+
+private struct GuideExampleValue: View {
+    let caption: String
+    let value: String
+    var identifier = ""
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !caption.isEmpty { Text(caption).font(.caption).foregroundStyle(.secondary) }
+            Text(value).font(.system(.body, design: .monospaced, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct GuideJourneyStep: View {
+    let number: Int
+    let title: String
+    let value: String
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(number)").font(.caption.bold()).foregroundStyle(Color.passgenAccent)
+                .padding(8).background(Color.passgenAccent.opacity(0.1), in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(value).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct PasswordExamplesLessonView: View {
+    @State private var topic: Int
+    @State private var numberIndex = 0
+    @State private var separator = " "
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private let examples = SecurityGuideExamples.shared
+    private let topics = ["避けたい例", "長さ", "パスフレーズ"]
+    init(initialTopic: Int) { _topic = State(initialValue: initialTopic) }
+    var body: some View {
+        VStack(spacing: 0) {
+            Group {
+                if typeSize.isAccessibilitySize { topicPicker.pickerStyle(.menu) }
+                else { topicPicker.pickerStyle(.segmented) }
+            }.padding(.horizontal, 16).padding(.vertical, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(examples.NOTICE).font(.caption).foregroundStyle(.secondary)
+                    if topic == 0 { weakContent }
+                    else if topic == 1 { lengthContent }
+                    else { phraseContent }
+                }.padding(16).frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }.id(topic).accessibilityIdentifier("password-examples-scroll")
+        }.background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("パスワードを例で見る").navigationBarTitleDisplayMode(.inline)
+    }
+    private var topicPicker: some View {
+        Picker("例のテーマ", selection: $topic) {
+            ForEach(topics.indices, id: \.self) { Text(topics[$0]).tag($0) }
+        }.accessibilityIdentifier("password-example-topic")
+    }
+    private var weakContent: some View {
+        Group {
+            ForEach(examples.weakExamples, id: \.key) { example in
+                LessonPanel(title: example.title) {
+                    GuideExampleValue(caption: "", value: example.value, identifier: "weak-value-\(example.key)")
+                    Text(example.reason).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            LessonPanel(title: "よくある置き換えも、推測されます") {
+                ForEach(Array(examples.mutations.enumerated()), id: \.offset) { index, value in
+                    if index > 0 { Text("↓").foregroundStyle(.secondary) }
+                    Text(value).font(.system(.body, design: .monospaced, weight: .semibold))
+                        .accessibilityIdentifier("weak-mutation-\(index)")
+                }
+                Text("大文字にする・末尾に1!を足す・aを@に置き換える。この変形も攻撃で試される候補です。文字種が揃っていても、無作為とは限りません。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+    }
+    private var lengthContent: some View {
+        let item = examples.numericExamples[numberIndex]
+        return Group {
+            LessonPanel(title: "同じ数字でも、長さで変わる") {
+                Picker("数字の桁数", selection: $numberIndex) {
+                    ForEach(examples.numericExamples.indices, id: \.self) { index in
+                        Text("\(examples.numericExamples[index].length)桁").tag(index)
+                    }
+                }.pickerStyle(.segmented)
+                GuideExampleValue(caption: "数字だけの形の例", value: item.value, identifier: "guide-length-value")
+                Text(item.candidateLabel).font(.title2.bold()).foregroundStyle(Color.passgenAccent)
+                    .accessibilityIdentifier("guide-length-count")
+                Text("各桁を0〜9から独立に無作為に選ぶ場合です。先頭の0も含みます。4桁から2桁増えるごとに、候補数は100倍になります。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("数字だけの短いパスワードは候補が限られます。候補数は安全性や解読時間の保証ではなく、文字種とルールでも変わります。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            LessonPanel(title: "24文字のパスワードの形") {
+                GuideExampleValue(caption: "英大文字・小文字・数字・記号の見本", value: examples.PASSWORD, identifier: "guide-password-shape")
+                Text("まず15文字以上を目安に、利用先が許す範囲で長く。このアプリの初期値は24文字です。長いだけ・複雑に見えるだけでは足りず、無作為に新しく作ることが大切です。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Link("NISTのパスワードガイド（英語）", destination: URL(string: "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")!)
+                    .font(.footnote)
+            }
+        }
+    }
+    private var phraseContent: some View {
+        Group {
+            LessonPanel(title: "無作為に選んだ7単語の形") {
+                Picker("単語の区切り", selection: $separator) {
+                    Text("半角スペース").tag(" "); Text("-").tag("-"); Text("_").tag("_")
+                }.pickerStyle(.segmented)
+                GuideExampleValue(caption: "区切りを変えて見比べる", value: examples.phrase(separator: separator), identifier: "guide-phrase-value")
+                Text("このアプリはEFFの7,776語から単語ごとに無作為に選びます。区切りは入力しやすさや利用先の条件で選びます。固定の区切り自体が推測しにくさを増やすわけではありません。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            LessonPanel(title: "長いフレーズでも、避けたい例") {
+                GuideExampleValue(caption: "知られた言い回し", value: "iloveyouforever")
+                Text("好きな文・歌詞・名言をそのままつなぐ方法は、無作為な単語選びと異なります。上の7単語も公開済みなので、そのまま使わず新しく生成しましょう。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Link("EFF：パスフレーズの作り方（英語）", destination: URL(string: "https://ssd.eff.org/module/creating-strong-passwords")!)
+                    .font(.footnote)
+            }
+        }
     }
 }
 

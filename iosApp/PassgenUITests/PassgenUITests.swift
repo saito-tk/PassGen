@@ -42,6 +42,33 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(value.count == 4 && value.allSatisfy { "0123456789".contains($0) })
         app.buttons["完了"].tap()
     }
+    @MainActor private func nativeSwitch(_ element: XCUIElement) -> XCUIElement {
+        let control = element.switches.firstMatch
+        return control.exists ? control : element
+    }
+    @MainActor func testBackgroundCoverPreferenceIsIndependentAndSurvivesBackground() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap()
+        let cover = app.switches["protect-app-switcher"]
+        for _ in 0..<6 { if nativeSwitch(cover).isHittable { break }; app.swipeUp() }
+        XCTAssertEqual(cover.value as? String, "1")
+        nativeSwitch(cover).tap(); XCTAssertEqual(cover.value as? String, "0")
+        let capture = app.switches["protect-capture"]
+        XCTAssertEqual(capture.value as? String, "1")
+        let disabled = XCTAttachment(screenshot: app.screenshot()); disabled.name = "Background cover disabled"; disabled.lifetime = .keepAlways; add(disabled)
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertEqual(cover.value as? String, "0"); XCTAssertEqual(capture.value as? String, "1")
+        app.buttons["閉じる"].tap()
+        let settings = app.buttons["安全性とプライバシー"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: settings)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+        settings.tap()
+        for _ in 0..<6 { if nativeSwitch(cover).isHittable { break }; app.swipeUp() }
+        XCTAssertEqual(cover.value as? String, "0")
+        nativeSwitch(capture).tap(); nativeSwitch(cover).tap()
+        XCTAssertEqual(cover.value as? String, "1"); XCTAssertEqual(capture.value as? String, "0")
+        nativeSwitch(capture).tap(); app.buttons["閉じる"].tap()
+    }
     @MainActor func testNativeRecipeEditorAndSymbols() {
         let app = launchApp()
         XCTAssertTrue(app.textFields["length"].waitForExistence(timeout: 3))

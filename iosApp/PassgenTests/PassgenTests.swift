@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import SwiftUI
 import FoundationModels
 @testable import Passgen
 
@@ -5915,6 +5916,58 @@ private actor ImportAnalysisGate {
     }
 }
 
+@MainActor final class PrivacyCoverTests: XCTestCase {
+    private struct Harness: View {
+        @Bindable var model: GeneratorModel
+        let phase: ScenePhase
+        var body: some View {
+            Color.red.ignoresSafeArea()
+                .sensitiveScene(enabled: model.security.protectAppSwitcher)
+                .environment(\.scenePhase, phase)
+        }
+    }
+    func testEntireCoverFollowsPreferenceWhileInactiveAndInBackground() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.overrideUserInterfaceStyle = .light
+        let model = GeneratorModel()
+        let controller = UIHostingController(rootView: Harness(model: model, phase: .active))
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; previous?.makeKey() }
+        for phase in [ScenePhase.active, .inactive, .background, .active] {
+            controller.rootView = Harness(model: model, phase: phase)
+            for enabled in [true, false, true] {
+                model.security.protectAppSwitcher = enabled
+                try await Task.sleep(for: .milliseconds(40))
+                controller.view.layoutIfNeeded()
+                let rendered = UIGraphicsImageRenderer(bounds: controller.view.bounds).image { _ in
+                    controller.view.drawHierarchy(in: controller.view.bounds, afterScreenUpdates: true)
+                }
+                let sample = try XCTUnwrap(rendered.cgImage?.cropping(to: CGRect(x: 20, y: 20, width: 1, height: 1)))
+                var pixel = [UInt8](repeating: 0, count: 4)
+                try pixel.withUnsafeMutableBytes { buffer in
+                    let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: 1, height: 1,
+                        bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+                    context.draw(sample, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+                }
+                if enabled && phase != .active {
+                    XCTAssertGreaterThan(pixel[1], 220); XCTAssertGreaterThan(pixel[2], 220)
+                } else {
+                    XCTAssertLessThan(pixel[1], 120); XCTAssertLessThan(pixel[2], 120)
+                }
+                if phase == .inactive {
+                    let image = XCTAttachment(image: rendered)
+                    image.name = enabled ? "Inactive cover on" : "Inactive cover off"
+                    image.lifetime = .keepAlways; add(image)
+                }
+                XCTAssertTrue(model.security.protectCapture)
+            }
+        }
+    }
+}
+
 @MainActor final class GeneratorLifecycleTests: XCTestCase {
     func testSettingsAndRevealPreferenceSurviveNewModelButSecretsDoNot() async throws {
         let suite = "passgen.tests.\(UUID().uuidString)"
@@ -5957,15 +6010,36 @@ private actor ImportAnalysisGate {
         first.security.protectCapture = false; first.security.autoClearClipboard = false
         var object = try JSONSerialization.jsonObject(with: defaults.data(forKey: "generation.preferences.v1")!) as! [String: Any]
         var security = object["security"] as! [String: Any]
-        security["clearClipboardOnBackground"] = true; object["security"] = security
+        security["clearClipboardOnBackground"] = true
+        security.removeValue(forKey: "protectAppSwitcher")
+        object["security"] = security
         defaults.set(try JSONSerialization.data(withJSONObject: object), forKey: "generation.preferences.v1")
         let restored = GeneratorModel(preferences: defaults)
         XCTAssertEqual(restored.recipe.length, 48); XCTAssertTrue(restored.revealed)
         XCTAssertEqual(restored.security.clipboardSeconds, 90); XCTAssertTrue(restored.security.allowUniversalClipboard)
         XCTAssertFalse(restored.security.protectCapture); XCTAssertFalse(restored.security.autoClearClipboard)
+        XCTAssertTrue(restored.security.protectAppSwitcher)
         restored.recipe.lengthText = "49"
         let saved = try JSONSerialization.jsonObject(with: defaults.data(forKey: "generation.preferences.v1")!) as! [String: Any]
         XCTAssertNil((saved["security"] as! [String: Any])["clearClipboardOnBackground"])
+    }
+
+    func testAppSwitcherPreferenceSurvivesReloadWithoutChangingCaptureProtection() {
+        let suite = "passgen.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let first = GeneratorModel(preferences: defaults)
+        XCTAssertTrue(first.security.protectAppSwitcher)
+        first.recipe.lengthText = "48"; first.security.clipboardSeconds = 90
+        first.security.protectAppSwitcher = false
+        let restored = GeneratorModel(preferences: defaults)
+        XCTAssertFalse(restored.security.protectAppSwitcher); XCTAssertTrue(restored.security.protectCapture)
+        XCTAssertEqual(restored.recipe.length, 48); XCTAssertEqual(restored.security.clipboardSeconds, 90)
+        let capture = ScreenProtectionState(); capture.update(true)
+        XCTAssertFalse(capture.allowsSecret(revealed: true, protectCapture: restored.security.protectCapture))
+        restored.security.protectCapture = false; restored.security.protectAppSwitcher = true
+        let reloaded = GeneratorModel(preferences: defaults)
+        XCTAssertTrue(reloaded.security.protectAppSwitcher); XCTAssertFalse(reloaded.security.protectCapture)
     }
 
     func testRevealPreferenceSurvivesRegenerationAndBackground() async throws {

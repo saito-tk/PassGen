@@ -75,6 +75,21 @@ struct SecuritySettings: Codable, Sendable {
     var autoClearClipboard = true
     var clipboardSeconds = 30
     var protectCapture = true
+    var protectAppSwitcher = true
+
+    init() {}
+    private enum CodingKeys: String, CodingKey {
+        case allowUniversalClipboard, autoClearClipboard, clipboardSeconds, protectCapture, protectAppSwitcher
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        allowUniversalClipboard = try values.decodeIfPresent(Bool.self, forKey: .allowUniversalClipboard) ?? false
+        autoClearClipboard = try values.decodeIfPresent(Bool.self, forKey: .autoClearClipboard) ?? true
+        clipboardSeconds = try values.decodeIfPresent(Int.self, forKey: .clipboardSeconds) ?? 30
+        protectCapture = try values.decodeIfPresent(Bool.self, forKey: .protectCapture) ?? true
+        // Older preferences have no app-switcher option; preserve their protection.
+        protectAppSwitcher = try values.decodeIfPresent(Bool.self, forKey: .protectAppSwitcher) ?? true
+    }
     var sanitized: SecuritySettings {
         var value = self; value.clipboardSeconds = min(600, max(5, clipboardSeconds)); return value
     }

@@ -111,14 +111,14 @@ struct GeneratorView: View {
                     Button { showPrivacy = true } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
                 }
             }
-            .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene() }
-            .sheet(isPresented: $showPrivacy) { PrivacyView(model: model).sensitiveScene() }
+            .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher) }
+            .sheet(isPresented: $showPrivacy) { PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher) }
             .sheet(isPresented: $showResults) {
-                ResultsList(model: model, copy: copy).sensitiveScene()
+                ResultsList(model: model, copy: copy).sensitiveScene(enabled: model.security.protectAppSwitcher)
                     .presentationDetents([.height(CGFloat(220 + min(model.busy ? model.goal : model.results.count, 5) * 76)), .large])
                     .presentationDragIndicator(.visible)
             }
-            .sensitiveScene()
+            .sensitiveScene(enabled: model.security.protectAppSwitcher)
         }
         .environment(protection)
         .background { CaptureStateReader(onChange: protection.update).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
@@ -487,12 +487,14 @@ struct PrivacyView: View {
                 } header: { Label("コピーの消去", systemImage: "timer") }
                 footer: { Text("他の内容に置き換わったコピーは消しません。背景へ移ってもコピーは保持し、設定した期限で消去します。設定変更は次のコピーから適用します。✓はこの一覧でコピーした印です。") }
                 Section {
+                    Toggle("アプリ切替時に画面を隠す", isOn: $model.security.protectAppSwitcher)
+                        .accessibilityIdentifier("protect-app-switcher")
                     Toggle("画面収録中は結果を保護", isOn: $model.security.protectCapture)
                         .accessibilityIdentifier("protect-capture")
                     Text("iOSでは静止画のスクリーンショットを禁止できません。収録の停止後は選んでいた表示状態に戻ります。")
                         .font(.footnote).foregroundStyle(.secondary)
                 } header: { Label("画面の保護", systemImage: "record.circle") }
-                footer: { Text("オフにすると収録や画面共有に結果・読み取り画像が映ります。非アクティブ時の覆いと背景移行時の結果消去は常に有効です。") }
+                footer: { Text("画面を隠す設定をオフにすると、アプリ切替画面などに内容が映る場合があります。収録中の保護は別に設定できます。背景移行時の生成結果の消去は常に有効です。") }
                 Section("データの扱い") {
                     Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。パスワード・画像・読み取りテキストは保存しません。")
                     Text("画像はVisionと、対応するiOS 27端末ではApple Intelligenceの画像モデルで端末内処理します。読み取り候補は画像と照合して適用してください。iCloud写真を選ぶ際はOSが元画像を取得することがあります。")
@@ -902,10 +904,11 @@ private struct AuthStepCard: View {
 }
 
 private struct SensitiveScene: ViewModifier {
+    let enabled: Bool
     @Environment(\.scenePhase) private var phase
     func body(content: Content) -> some View {
         content.overlay {
-            if phase != .active {
+            if enabled && phase != .active {
                 ZStack {
                     Color(uiColor: .systemBackground).ignoresSafeArea()
                     VStack(spacing: 16) {
@@ -914,8 +917,9 @@ private struct SensitiveScene: ViewModifier {
                         Text("秘密を保護しています").font(.caption).foregroundStyle(.secondary)
                     }
                 }.transition(.identity).accessibilityElement(children: .combine).allowsHitTesting(false)
+                    .accessibilityIdentifier("background-privacy-cover")
             }
         }
     }
 }
-extension View { func sensitiveScene() -> some View { modifier(SensitiveScene()) } }
+extension View { func sensitiveScene(enabled: Bool) -> some View { modifier(SensitiveScene(enabled: enabled)) } }

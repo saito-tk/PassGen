@@ -4,6 +4,64 @@ final class PassgenUITests: XCTestCase {
     @MainActor private func launchApp() -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--uitest-ephemeral-settings"]; app.launch(); return app
     }
+    @MainActor func testPeekSheetAllowsSettingsAndMovesGenerationToHeader() {
+        let app = launchApp()
+        let generate = app.buttons["generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["results-visibility"].exists)
+        let length = app.textFields["length"]; XCTAssertTrue(length.isHittable)
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap()
+        generate.tap()
+        XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        let visibility = app.buttons["results-visibility"]
+        XCTAssertEqual(visibility.value as? String, "非表示")
+        visibility.tap(); XCTAssertEqual(visibility.value as? String, "表示中")
+        let expanded = XCTAttachment(screenshot: app.screenshot()); expanded.name = "Full 64-character result"; expanded.lifetime = .keepAlways; add(expanded)
+        XCTAssertEqual(generate.label, "再生成")
+        XCTAssertFalse(app.buttons["閉じる"].exists)
+        XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+        generate.tap()
+        XCTAssertEqual(visibility.value as? String, "表示中")
+        let bar = app.navigationBars.matching(identifier: "生成結果 1件").firstMatch
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.93)))
+        let collapsed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: visibility)
+        XCTAssertEqual(XCTWaiter.wait(for: [collapsed], timeout: 5), .completed)
+        XCTAssertTrue(length.isHittable)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Interactive minimal result sheet"; image.lifetime = .keepAlways; add(image)
+    }
+    @MainActor func testWideLayoutUsesCompactGenerateAndModalResults() throws {
+        let app = launchApp()
+        guard app.windows.firstMatch.frame.width > 700 else { throw XCTSkip("Wide-layout simulator required") }
+        let generate = app.buttons["generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 5))
+        XCTAssertLessThan(generate.frame.width, 150)
+        generate.tap()
+        XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+        XCTAssertEqual(generate.label, "再生成")
+        XCTAssertFalse(app.buttons["閉じる"].exists)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Modal results on wide layout"; image.lifetime = .keepAlways; add(image)
+    }
+    @MainActor func testHundredSixtyFourCharacterResultsKeepVisibilityOnRegeneration() {
+        let app = launchApp()
+        let length = app.textFields["length"]
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap()
+        let count = app.textFields["count"]
+        count.tap(); count.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "100")
+        app.buttons["完了"].tap(); app.buttons["generate"].tap()
+        let title = app.navigationBars["生成結果 100件"]
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        let visibility = app.buttons["results-visibility"]
+        visibility.tap(); XCTAssertEqual(visibility.value as? String, "表示中")
+        XCTAssertGreaterThan(app.staticTexts.matching(identifier: "secret").firstMatch.frame.height, 35)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "100 results of 64 characters"; image.lifetime = .keepAlways; add(image)
+        app.buttons["generate"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        XCTAssertEqual(visibility.value as? String, "表示中")
+    }
     @MainActor func testGenerateAndBackgroundClear() {
         let app = launchApp()
         XCTAssertFalse(app.staticTexts["secret"].exists)
@@ -18,6 +76,7 @@ final class PassgenUITests: XCTestCase {
         app.buttons["数字のみ"].tap()
         let length = app.textFields["length"]; length.tap()
         length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "4")
+        app.buttons["完了"].tap()
         app.buttons["generate"].tap()
         let copy = app.buttons["copy-0"]; XCTAssertTrue(copy.waitForExistence(timeout: 5)); copy.tap()
         XCUIDevice.shared.press(.home); app.activate()
@@ -420,12 +479,15 @@ final class PassgenUITests: XCTestCase {
     @MainActor func testCopyMarksRemainOnBothRowsAndGuideOpens() {
         let app = launchApp()
         let count = app.textFields["count"]; count.tap(); count.typeText(XCUIKeyboardKey.delete.rawValue + "2")
+        app.buttons["完了"].tap()
         app.buttons["generate"].tap()
         let first = app.buttons["copy-0"]; XCTAssertTrue(first.waitForExistence(timeout: 5)); first.tap()
         let second = app.buttons["copy-1"]; second.tap()
         XCTAssertEqual(first.label, "コピー済み。もう一度コピー"); XCTAssertEqual(second.label, "コピー済み。もう一度コピー")
         let result = XCTAttachment(screenshot: app.screenshot()); result.name = "Copied result marks"; result.lifetime = .keepAlways; add(result)
-        app.buttons["閉じる"].tap()
+        let bar = app.navigationBars["生成結果 2件"]
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.93)))
         app.buttons["安全性とプライバシー"].tap()
         XCTAssertTrue(app.switches["allow-universal-clipboard"].exists)
         app.buttons["security-guide"].tap()

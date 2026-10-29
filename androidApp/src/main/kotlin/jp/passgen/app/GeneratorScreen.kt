@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.window.layout.FoldingFeature
@@ -69,12 +68,11 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
             }
         }, bottomBar = {
-            Surface(tonalElevation = 2.dp) {
+            if (!showResults) Surface(tonalElevation = 2.dp) {
                 val left = if (verticalFold == null) 12.dp else with(density) { verticalFold.bounds.right.toDp() } + 12.dp
-                Column(Modifier.navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
+                Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.End) {
                     Button(onClick = ::generate, enabled = model.work != WorkState.CANCELLING,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp).semantics { testTag = "generate" },
-                        shape = RoundedCornerShape(16.dp)) {
+                        modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
                         Text(when (model.work) { WorkState.IDLE -> "生成"; WorkState.RUNNING -> "停止"; WorkState.CANCELLING -> "停止中…" }, style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -333,10 +331,12 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         sheetMaxWidth = if (fold == null) 640.dp else androidx.compose.ui.unit.Dp.Unspecified) {
         Column(Modifier.fillMaxWidth().height(desiredHeight).padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty(),
+                    modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (model.revealed) "表示中" else "非表示" }) { Text(if (model.revealed) "隠す" else "表示") }
                 Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty()) { Text(if (model.revealed) "隠す" else "表示") }
-                TextButton(onClick = model::clear, enabled = !model.busy && model.results.isNotEmpty()) { Text("消去") }
-                TextButton(onClick = dismiss) { Text("閉じる") }
+                TextButton(onClick = generate, enabled = model.work != WorkState.CANCELLING, modifier = Modifier.semantics { testTag = "regenerate" }) {
+                    Text(when (model.work) { WorkState.IDLE -> "再生成"; WorkState.RUNNING -> "停止"; WorkState.CANCELLING -> "停止中…" })
+                }
             }
             model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (model.busy) {
@@ -351,9 +351,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("${row.index + 1} · ${row.value.length}文字${if (row.value.length > 100) " / 先頭100文字" else ""}", style = MaterialTheme.typography.labelSmall)
-                                Text(if (model.revealed) row.value.take(100) else SecretPresentation.MASK, fontFamily = FontFamily.Monospace,
-                                    maxLines = 3, overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています" })
+                                Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
                             }
                             TextButton(onClick = {
                                 if (copy(row.value)) model.copiedIndices = model.copiedIndices + row.index
@@ -376,9 +375,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     }
                 }
             }
-            Button(onClick = generate, enabled = model.work != WorkState.CANCELLING, modifier = Modifier.fillMaxWidth()) {
-                Text(when (model.work) { WorkState.IDLE -> "再生成"; WorkState.RUNNING -> "停止"; WorkState.CANCELLING -> "停止中…" })
-            }
+            TextButton(onClick = model::clear, enabled = !model.busy && model.results.isNotEmpty()) { Text("消去") }
         }
     }
 }
@@ -409,3 +406,6 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         }
     }
 }
+
+internal fun resultPreview(value: String, revealed: Boolean): String =
+    if (revealed) value.take(100).toList().joinToString("\u200B") else SecretPresentation.MASK

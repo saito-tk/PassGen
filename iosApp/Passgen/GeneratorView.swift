@@ -63,12 +63,19 @@ private enum CharacterGroup: String, CaseIterable, Identifiable {
     }
 }
 
+private enum GeneratorSheet: Identifiable { case results, symbols, privacy; var id: Self { self } }
+
 struct GeneratorView: View {
     @State private var model = GeneratorModel.applicationModel()
     @State private var clipboard = SecureClipboard()
-    @State private var showSymbols = false
-    @State private var showPrivacy = false
-    @State private var showResults = false
+    @State private var activeSheet: GeneratorSheet?
+    @State private var resultDetent: PresentationDetent = .height(88)
+    @Environment(\.verticalSizeClass) private var verticalSize
+    private let peekHeight: CGFloat = 88
+    private var usesPersistentResults: Bool { UIDevice.current.userInterfaceIdiom == .phone && verticalSize != .compact }
+    private var symbolPresentation: Binding<Bool> {
+        Binding(get: { activeSheet == .symbols }, set: { if $0 { activeSheet = .symbols } })
+    }
     @State private var protection = ScreenProtectionState()
     @Environment(\.scenePhase) private var phase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -83,14 +90,14 @@ struct GeneratorView: View {
                                 VStack(spacing: 12) { modePicker; QuantityEditor(model: model); RulesEditor(model: model) }
                                     .padding(12)
                             }.frame(width: min(360, geometry.size.width * 0.42))
-                            ScrollView { VStack(spacing: 12) { CharacterEditor(model: model, showSymbols: $showSymbols); CharacterOverview(model: model) }.padding(12) }
+                            ScrollView { VStack(spacing: 12) { CharacterEditor(model: model, showSymbols: symbolPresentation); CharacterOverview(model: model) }.padding(12) }
                         }
                     } else {
                         ScrollView {
                             VStack(spacing: 12) {
                                 modePicker
                                 QuantityEditor(model: model)
-                                CharacterEditor(model: model, showSymbols: $showSymbols)
+                                CharacterEditor(model: model, showSymbols: symbolPresentation)
                                 CharacterOverview(model: model)
                                 RulesEditor(model: model)
                             }.padding(12)
@@ -98,25 +105,35 @@ struct GeneratorView: View {
                     }
                 }
                 .background(Color(uiColor: .systemGroupedBackground))
-                .safeAreaInset(edge: .bottom, spacing: 0) { generateDock }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if usesPersistentResults { Color.clear.frame(height: peekHeight) }
+                    else if activeSheet != .results { generateDock }
+                }
             }
             .navigationTitle("Passgen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if !model.results.isEmpty || model.busy {
-                        Button("結果 \(model.results.count)件") { showResults = true }.font(.subheadline)
+                        Button("結果 \(model.results.count)件") { resultDetent = .large; activeSheet = .results }.font(.subheadline)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showPrivacy = true } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
+                    Button { activeSheet = .privacy } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
                 }
             }
-            .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher) }
-            .sheet(isPresented: $showPrivacy) { PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher) }
-            .sheet(isPresented: $showResults) {
-                ResultsList(model: model, copy: copy).sensitiveScene(enabled: model.security.protectAppSwitcher)
-                    .presentationDetents([.height(CGFloat(220 + min(model.busy ? model.goal : model.results.count, 5) * 76)), .large])
-                    .presentationDragIndicator(.visible)
+            .sheet(item: $activeSheet, onDismiss: restoreResultDock) { sheet in
+                switch sheet {
+                case .symbols: SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
+                case .privacy: PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
+                case .results:
+                    ResultsList(model: model, copy: copy,
+                        collapsed: usesPersistentResults && resultDetent == .height(peekHeight), generate: generate)
+                        .sensitiveScene(enabled: model.security.protectAppSwitcher)
+                        .presentationDetents(usesPersistentResults ? [.height(peekHeight), .medium, .large] : [.medium, .large], selection: $resultDetent)
+                        .presentationBackgroundInteraction(usesPersistentResults ? .enabled(upThrough: .height(peekHeight)) : .disabled)
+                        .presentationDragIndicator(.visible)
+                        .interactiveDismissDisabled(usesPersistentResults)
+                }
             }
             .sensitiveScene(enabled: model.security.protectAppSwitcher)
         }
@@ -124,7 +141,17 @@ struct GeneratorView: View {
         .background { CaptureStateReader(onChange: protection.update).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
         .tint(.passgenAccent)
         .onChange(of: phase) { _, value in
-            if value == .background { model.background(); showResults = false }
+            if value == .background {
+                model.background()
+                if activeSheet == .results {
+                    if usesPersistentResults { resultDetent = .height(peekHeight) } else { activeSheet = nil }
+                }
+            } else if value == .active { restoreResultDock() }
+        }
+        .onAppear { restoreResultDock() }
+        .onChange(of: usesPersistentResults) { _, persistent in
+            resultDetent = persistent ? .height(peekHeight) : .large
+            restoreResultDock()
         }
         .onChange(of: protection.isCaptured) { _, value in if value && model.security.protectCapture { clipboard.clearOwned() } }
         .onChange(of: model.security.protectCapture) { _, value in if value && protection.isCaptured { clipboard.clearOwned() } }
@@ -147,15 +174,25 @@ struct GeneratorView: View {
                     .foregroundStyle((model.estimate ?? 0) < 80 ? Color.orange : Color.primary)
             }
             Spacer(minLength: 0)
-            Button {
-                if !model.busy { showResults = true }
-                model.generateOrStop()
-            } label: {
+            Button(action: generate) {
                 Text(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "生成")
-                    .font(.headline).frame(minWidth: 100, minHeight: 36)
-            }.modifier(PrimaryActionStyle()).controlSize(.large)
+                    .font(.headline)
+            }.modifier(PrimaryActionStyle()).controlSize(.regular)
                 .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
         }.padding(.horizontal, 16).padding(.vertical, 8).background(.bar)
+    }
+    private func restoreResultDock() {
+        if usesPersistentResults, activeSheet == nil, phase == .active {
+            resultDetent = .height(peekHeight); activeSheet = .results
+        }
+    }
+    private func generate() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        if !model.busy {
+            resultDetent = usesPersistentResults && model.recipe.count <= 3 && !typeSize.isAccessibilitySize ? .medium : .large
+            activeSheet = .results
+        }
+        model.generateOrStop()
     }
     private func copy(_ item: SecretItem) {
         guard !(protection.isCaptured && model.security.protectCapture), phase == .active else { return }
@@ -400,64 +437,102 @@ private struct RulesEditor: View {
     }
 }
 
+final class SecretPreviewLabel: UILabel {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        numberOfLines = 0; lineBreakMode = .byCharWrapping
+        backgroundColor = .clear; textColor = .label
+        font = UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular))
+        adjustsFontForContentSizeCategory = true
+        setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        setContentHuggingPriority(.defaultLow, for: .horizontal)
+        isAccessibilityElement = true
+        accessibilityLabel = "パスワード。読み上げを保護しています"; accessibilityIdentifier = "secret"
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+}
+
+private struct SecretPreview: UIViewRepresentable {
+    let value: String
+    func makeUIView(context: Context) -> SecretPreviewLabel { SecretPreviewLabel() }
+    func updateUIView(_ view: SecretPreviewLabel, context: Context) {
+        view.text = value
+        view.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular))
+    }
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: SecretPreviewLabel, context: Context) -> CGSize? {
+        guard let width = proposal.width, width > 0 else { return nil }
+        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: ceil(size.height))
+    }
+}
+
 struct ResultsList: View {
     @Bindable var model: GeneratorModel
     var copy: (SecretItem) -> Void
-    @Environment(\.dismiss) private var dismiss
+    var collapsed = false
+    var generate: () -> Void
     @Environment(ScreenProtectionState.self) private var protection
     var body: some View {
         NavigationStack {
-            List {
-                if protection.isCaptured && model.security.protectCapture {
-                    Label("画面収録中は結果の表示・コピーを制限します。停止すると復帰します。", systemImage: "record.circle")
-                        .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("capture-protection")
-                }
-                if model.busy {
-                    Section {
-                        ProgressView(value: Double(model.results.count), total: Double(model.goal))
-                        Text("\(model.results.count) / \(model.goal)件").font(.caption.monospacedDigit())
+            Group {
+                if collapsed { Color.clear }
+                else {
+                    List {
+                        if protection.isCaptured && model.security.protectCapture {
+                            Label("画面収録中は結果の表示・コピーを制限します。停止すると復帰します。", systemImage: "record.circle")
+                                .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("capture-protection")
+                        }
+                        if model.busy {
+                            Section {
+                                ProgressView(value: Double(model.results.count), total: Double(model.goal))
+                                Text("\(model.results.count) / \(model.goal)件").font(.caption.monospacedDigit())
+                            }
+                        }
+                        if let message = model.message { Text(message).font(.caption).foregroundStyle(.red) }
+                        if model.results.isEmpty && !model.busy { Text("生成結果はありません。").foregroundStyle(.secondary) }
+                        Section {
+                            ForEach(model.results) { item in
+                                HStack(spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字" : "")").font(.caption2).foregroundStyle(.secondary)
+                                        SecretPreview(value: protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture) ? String(item.value.prefix(100)) : SecretPresentation.shared.MASK)
+                                            .privacySensitive()
+                                    }.frame(maxWidth: .infinity, alignment: .leading)
+                                    Button { copy(item) } label: {
+                                        Image(systemName: "doc.on.doc").frame(width: 36, height: 36)
+                                            .overlay(alignment: .topTrailing) {
+                                                if model.copiedIDs.contains(item.id) {
+                                                    Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold))
+                                                        .foregroundStyle(Color.passgenAccent).background(.background, in: Circle())
+                                                }
+                                            }
+                                    }.buttonStyle(.bordered).disabled(protection.isCaptured && model.security.protectCapture).accessibilityLabel(model.copiedIDs.contains(item.id) ? "コピー済み。もう一度コピー" : "コピー").accessibilityIdentifier("copy-\(item.id)")
+                                }.padding(.vertical, 3)
+                            }
+                        } footer: {
+                            if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · \(model.security.clipboardSummary)") }
+                        }
                     }
-                }
-                if let message = model.message { Text(message).font(.caption).foregroundStyle(.red) }
-                if model.results.isEmpty && !model.busy { Text("生成結果はありません。").foregroundStyle(.secondary) }
-                Section {
-                    ForEach(model.results) { item in
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字" : "")").font(.caption2).foregroundStyle(.secondary)
-                                Text(protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture) ? String(item.value.prefix(100)) : SecretPresentation.shared.MASK)
-                                    .font(.system(.body, design: .monospaced)).lineLimit(3).privacySensitive()
-                                    .accessibilityLabel("パスワード。読み上げを保護しています").accessibilityIdentifier("secret")
-                            }.frame(maxWidth: .infinity, alignment: .leading)
-                            Button { copy(item) } label: {
-                                Image(systemName: "doc.on.doc").frame(width: 36, height: 36)
-                                    .overlay(alignment: .topTrailing) {
-                                        if model.copiedIDs.contains(item.id) {
-                                            Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold))
-                                                .foregroundStyle(Color.passgenAccent).background(.background, in: Circle())
-                                        }
-                                    }
-                            }.buttonStyle(.bordered).disabled(protection.isCaptured && model.security.protectCapture).accessibilityLabel(model.copiedIDs.contains(item.id) ? "コピー済み。もう一度コピー" : "コピー").accessibilityIdentifier("copy-\(item.id)")
-                        }.padding(.vertical, 3)
-                    }
-                } footer: {
-                    if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · \(model.security.clipboardSummary)") }
                 }
             }
             .navigationTitle("生成結果 \(model.results.count)件").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { model.revealed.toggle() } label: { Image(systemName: model.revealed ? "eye.slash" : "eye") }
-                        .disabled((protection.isCaptured && model.security.protectCapture) || model.results.isEmpty).accessibilityLabel(model.revealed ? "隠す" : "表示")
+                if !collapsed {
+                    ToolbarItem(placement: .topBarLeading) {
+                        let visible = protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture)
+                        Button { model.revealed.toggle() } label: { Image(systemName: visible ? "eye" : "eye.slash") }
+                            .disabled((protection.isCaptured && model.security.protectCapture) || model.results.isEmpty)
+                            .accessibilityLabel(model.revealed ? "隠す" : "表示")
+                            .accessibilityValue(visible ? "表示中" : "非表示").accessibilityIdentifier("results-visibility")
+                    }
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("消去", role: .destructive, action: model.clear).disabled(model.busy || model.results.isEmpty)
+                    }
+                    ToolbarItem(placement: .bottomBar) { Spacer() }
                 }
-                ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
-                ToolbarItem(placement: .bottomBar) {
-                    Button("消去", role: .destructive, action: model.clear).disabled(model.busy || model.results.isEmpty)
-                }
-                ToolbarItem(placement: .bottomBar) { Spacer() }
-                ToolbarItem(placement: .bottomBar) {
-                    Button(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "再生成", action: model.generateOrStop)
-                        .disabled(model.state == .cancelling)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : model.results.isEmpty ? "生成" : "再生成", action: generate)
+                        .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
                 }
             }
         }

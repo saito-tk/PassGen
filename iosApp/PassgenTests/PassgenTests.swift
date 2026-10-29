@@ -7044,3 +7044,28 @@ private actor ImportAnalysisGate {
         XCTAssertEqual(model.results.first?.value.split(separator: "_").count, 7)
     }
 }
+
+final class SecretPreviewLayoutTests: XCTestCase {
+    @MainActor func testSixtyFourCharactersWrapAtCharactersWithoutThreeLineTruncation() {
+        let value = String(repeating: "abcd/", count: 12) + "wxyz"
+        let label = SecretPreviewLabel()
+        label.text = value
+        let advance = ("M" as NSString).size(withAttributes: [.font: label.font!]).width
+        let width = advance * 18 + 0.5
+        let size = label.sizeThatFits(CGSize(width: width, height: CGFloat.greatestFiniteMagnitude))
+        XCTAssertEqual(value.count, 64)
+        XCTAssertEqual(label.numberOfLines, 0)
+        XCTAssertEqual(label.lineBreakMode, .byCharWrapping)
+        XCTAssertEqual(size.height, ceil(label.font.lineHeight * 4), accuracy: 1)
+        XCTAssertEqual(label.text, value)
+        XCTAssertFalse(label.accessibilityLabel?.contains(value) ?? true)
+    }
+    @MainActor func testHundredCharacterPreviewAndLargeTypeHaveEnoughHeight() {
+        let label = SecretPreviewLabel()
+        label.font = UIFont.monospacedSystemFont(ofSize: 34, weight: .regular)
+        label.text = String(repeating: "a/", count: 50)
+        let size = label.sizeThatFits(CGSize(width: 160, height: CGFloat.greatestFiniteMagnitude))
+        XCTAssertGreaterThan(size.height, label.font.lineHeight * 10)
+        XCTAssertEqual(label.text?.count, 100)
+    }
+}

@@ -118,6 +118,29 @@ class GeneratorUiTest {
         rule.onNodeWithTag("generate").assertIsEnabled()
     }
 
+    @Test fun resultPreviewBreaksAtEveryCharacterAndPreservesCopyValue() {
+        val original = "abcd/".repeat(12) + "wxyz"
+        assertEquals(64, original.length)
+        assertEquals(original, resultPreview(original, true).replace("\u200B", ""))
+        assertEquals(100, resultPreview("a/".repeat(80), true).replace("\u200B", "").length)
+        rule.runOnIdle { model.lengthText = "64"; model.revealed = true }
+        rule.onNodeWithTag("generate").performClick()
+        rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
+        rule.onNodeWithTag("generate").assertDoesNotExist()
+        rule.onNodeWithTag("regenerate").assertIsEnabled()
+        rule.onNodeWithText("閉じる").assertDoesNotExist()
+        rule.onNodeWithTag("copy-0").performClick()
+        rule.runOnIdle {
+            val copied = rule.activity.getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.text?.toString()
+            assertEquals(model.results.first().value, copied)
+            assertEquals(64, copied?.length)
+            assertFalse(copied?.contains('\u200B') ?: true)
+        }
+        rule.onNodeWithTag("regenerate").performClick()
+        rule.waitUntil(5000) { !model.busy }
+        rule.runOnIdle { assertTrue(model.revealed) }
+    }
+
     @Test fun generationStartsMaskedAndCopiesFullValue() {
         rule.onNodeWithTag("generate").performClick()
         rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }

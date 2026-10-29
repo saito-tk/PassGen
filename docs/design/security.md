@@ -6,7 +6,8 @@
 - AndroidはJetpack Compose / Material 3、iOSはSwiftUI。ComposeによるiOS画面の共有は行わない。
 - オフラインの生成専用アプリ。アカウント、履歴、同期、広告、解析SDK、サーバーを持たない。
 - パスワード・画像・OCRテキストをディスク、設定、ログ、バックアップへ保存しない。
-- 生成した秘密はメモリ中だけに保持し、背景移行時に結果を破棄する。
+- 生成条件・表示状態・保護設定だけをUserDefaults / アプリ専用SharedPreferencesに保存し、サイズ・バージョン・許可集合を検証して復元する。
+- 生成した秘密とコピー済みの行IDはメモリ中だけに保持し、背景移行時に結果を破棄する。
 - JVM / Swiftの文字列とOSクリップボードは完全なメモリ消去を保証できない。root化・脱獄・侵害されたOS、外部カメラによる撮影は防御範囲外。
 
 ## 生成
@@ -25,17 +26,17 @@
 
 ## OS保護
 
-- AndroidはINTERNET権限なし、backup無効、FLAG_SECURE、オーバーレイ対策、機密クリップボード印を使う。
-- iOSは非アクティブ時の画面を覆い、画面収録時に秘密を隠す。iOSの静止画スクリーンショットを完全に禁止できるとは表現しない。
-- コピーは明示操作のみ。Androidは所有を識別し、前景中30秒で消去・背景移行時消去。iOSはlocalOnlyと30秒のOS expirationを指定する。
+- AndroidはINTERNET権限なし、backup無効、オーバーレイ対策、機密クリップボード印を使う。FLAG_SECUREは初期状態で有効。撮影・収録防止を設定で変更できる。
+- iOSは非アクティブ時の画面を覆う。UIKitのsceneCaptureStateを開始・停止・再アクティブ化時に読み、収録中の保護が有効な場合は秘密と画像の表示・コピーを制限する。停止時に解除し、ユーザーの表示設定自体は変更しない。iOSの静止画スクリーンショットを完全に禁止できるとは表現しない。
+- コピーは明示操作のみ。初期値は端末内限定（iOS localOnly）・30秒・背景消去。期限5〜600秒、自動消去と背景消去の無効化、iOSのUniversal Clipboard許可を選べる。設定変更は次のコピーから適用する。iOSはOS expiration、Androidは所有識別付きタイマーを使い、OSが先に消去し得ることを示す。Androidには共通のlocalOnly APIがないため端末側の共有設定を案内する。
 - クリップボードの他アプリによる置換は削除しない。アクセシビリティは秘密を読み上げず、明示した表示操作だけで視覚表示する。
 
 ## スクリーンショットの記号取り込み
 
 - iOS標準PhotosPickerで利用者が選択した画像だけを処理する。写真ライブラリ全体への権限を要求しない。
-- VisionでOCR。iOS 27以降の対応端末でFoundation ModelsのSystemLanguageModelを明示し、ローカルモデルで許可記号の候補を抽出する。
+- Visionで許可文と記号行を特定。記号行だけを英語OCRで再読取し、連結した字形は元の字形を保った間隔追加でも認識する。iOS 27以降の対応端末でSystemLanguageModelを明示し、記号行の画像を直接入力する。日本語の誤認文字から括弧を機械的に推測しない。
 - クラウドモデル・ネットワーク・ツール呼び出しへフォールバックしない。
-- モデルは不確実な提案器。OCRに存在しない記号、未対応記号、禁止/許可の曖昧さは適用しない。
+- モデルは不確実な提案器。画像出力はASCII32記号と空白だけに制限し、明示された許可文を必須にする。OCRと画像モデルを併用しても誤認・欠落は残るため、元画像を確認画面に出し、全32記号から修正して明示適用する。標準ASCII並びからの穴埋めは禁止する。複数の許可ブロックは自動で合成しない。
 - 読み取り内容は信頼しないデータとして扱う。ユーザーが根拠と記号を確認し、適用するまで生成条件を変更しない。
 - 利用不可・失敗時は理由を示し、手入力と記号パレットを使えるようにする。
 
@@ -54,3 +55,12 @@ Google / JetBrains / Appleの保守されている標準・公式ライブラリ
 - https://developer.apple.com/documentation/security/secrandomcopybytes(_:_:_:)
 - https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel
 - https://www.eff.org/dice
+
+## ガイドの出典
+
+- NIST: https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password
+- Apple: https://support.apple.com/ja-jp/120758 、 https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios
+- Google: https://support.google.com/accounts/answer/6208650 、 https://support.google.com/accounts/answer/185839 、 https://support.google.com/accounts/answer/13548313
+- 1Password: https://support.1password.com/category/getting-started/
+- Clipboard localOnly: https://developer.apple.com/documentation/uikit/uipasteboard/optionskey/localonly
+- Foundation Models image attachment: https://developer.apple.com/documentation/foundationmodels/attachment

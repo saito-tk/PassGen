@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalUriHandler
@@ -26,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -384,11 +387,18 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     var text by remember { mutableStateOf("") }
     var info by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = dismiss) {
+        val focus = LocalFocusManager.current
+        val keyboard = LocalSoftwareKeyboardController.current
+        fun finishInput() { focus.clearFocus(); keyboard?.hide() }
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("記号一覧を反映", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(text, { text = it; info = null }, label = { Text("使える記号の一覧を貼り付け") }, modifier = Modifier.fillMaxWidth(), minLines = 2, enabled = !model.busy)
+            OutlinedTextField(text, { text = it; info = null }, label = { Text("使える記号の一覧を貼り付け") },
+                modifier = Modifier.fillMaxWidth().semantics { testTag = "symbol-paste-input" }, singleLine = true, enabled = !model.busy,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { finishInput() }))
             Text("含まれる対応記号を選択します。説明文の句読点も対象です。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = {
+                finishInput()
                 val found = SymbolPolicy.recognized(text)
                 model.symbols = SymbolPolicy.applyPasted(text, model.symbols)
                 info = if (found.isEmpty()) "対応する記号がないため、選択は変更していません。" else "${found.length}種類を反映しました。"

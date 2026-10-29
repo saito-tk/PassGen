@@ -331,6 +331,29 @@ class GeneratorUiTest {
         }
     }
 
+    @Test fun symbolPasteDoneClearsFocusWithoutApplying() {
+        allowGuideScreenshots()
+        rule.runOnIdle { model.symbols = "!@#" }
+        rule.onAllNodesWithText("記号")[0].performClick()
+        rule.onNodeWithText("記号一覧を貼り付け").performScrollTo().performClick()
+        val field = rule.onNodeWithTag("symbol-paste-input")
+        field.performClick().performTextInput("@#%")
+        field.assertIsFocused().assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.ImeAction, androidx.compose.ui.text.input.ImeAction.Done))
+        field.performImeAction()
+        field.assertIsNotFocused().assertTextContains("@#%")
+        rule.runOnIdle { assertEquals("!@#", model.symbols) }
+        rule.waitUntil(3000) {
+            var visible = false
+            rule.runOnIdle {
+                visible = androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+            }
+            !visible
+        }
+        saveGuideScreenshot("outlined-symbol-input.png")
+        rule.onNodeWithText("記号に反映").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(setOf('@', '#', '%'), model.symbols.toSet()) }
+    }
+
     @Test fun symbolPasteWithoutSupportedCharactersPreservesSelection() {
         rule.runOnIdle { model.symbols = "@" }
         rule.onAllNodesWithText("記号")[0].performClick()

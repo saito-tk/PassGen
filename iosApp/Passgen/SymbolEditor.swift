@@ -8,6 +8,7 @@ struct SymbolEditor: View {
     @Environment(\.scenePhase) private var phase
     @Environment(ScreenProtectionState.self) private var protection
     @State private var pasted = ""
+    @FocusState private var pasteFocused: Bool
     @State private var feedback: String?
     @State private var selection: PhotosPickerItem?
     @State private var session: ScreenshotImportSession = {
@@ -52,20 +53,28 @@ struct SymbolEditor: View {
                     }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     VStack(alignment: .leading, spacing: 12) {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)
-                        TextField("例: ! @ # $ %", text: $pasted, axis: .vertical)
-                            .lineLimit(2...5).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        TextField("例: ! @ # $ %", text: $pasted)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .focused($pasteFocused).submitLabel(.done)
+                            .onSubmit { pasteFocused = false }
                             .accessibilityIdentifier("symbol-paste-input")
-                            .padding(16).background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                            .padding(12).background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(pasteFocused ? Color.passgenAccent : Color.secondary, lineWidth: pasteFocused ? 2 : 1)
+                            }
                             .onChange(of: pasted) { _, _ in feedback = nil }
                             .redacted(reason: (protection.isCaptured && model.security.protectCapture) ? .privacy : []).disabled((protection.isCaptured && model.security.protectCapture))
                         Text("入力内の対応記号をそのまま反映します。説明文の句読点も選択対象です。対応記号がない場合は選択を維持します。")
                             .font(.caption).foregroundStyle(.secondary)
                         Button("記号に反映") {
+                            pasteFocused = false
                             let found = SymbolPolicy.shared.recognized(text: pasted)
                             model.recipe.symbols = SymbolPolicy.shared.applyPasted(text: pasted, current: model.recipe.symbols)
                             pasted = ""
                             feedback = found.isEmpty ? "対応する記号がないため、選択は変更していません。" : "\(found.count)種類を反映しました。"
                         }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(pasted.isEmpty)
+                            .accessibilityIdentifier("apply-pasted-symbols")
                         if let feedback { Text(feedback).font(.caption).foregroundStyle(.secondary).accessibilityAddTraits(.updatesFrequently) }
                     }
                     Divider()

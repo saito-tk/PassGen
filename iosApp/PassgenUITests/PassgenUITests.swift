@@ -40,7 +40,7 @@ final class PassgenUITests: XCTestCase {
         paste.tap()
         let value = field.value as? String ?? ""
         XCTAssertTrue(value.count == 4 && value.allSatisfy { "0123456789".contains($0) })
-        app.buttons["完了"].tap()
+        app.navigationBars["使える記号"].buttons["完了"].tap()
     }
     @MainActor private func nativeSwitch(_ element: XCUIElement) -> XCUIElement {
         let control = element.switches.firstMatch
@@ -69,6 +69,32 @@ final class PassgenUITests: XCTestCase {
         XCTAssertEqual(cover.value as? String, "1"); XCTAssertEqual(capture.value as? String, "0")
         nativeSwitch(capture).tap(); app.buttons["閉じる"].tap()
     }
+    @MainActor func testSymbolPasteDoneDismissesKeyboardWithoutApplying() {
+        let app = launchApp()
+        app.segmentedControls.buttons["記号"].tap(); app.swipeUp()
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        let field = app.textFields["symbol-paste-input"]
+        let scroll = app.scrollViews["symbol-editor-scroll"]
+        for _ in 0..<6 { if field.isHittable { break }; scroll.swipeUp() }
+        field.tap(); field.typeText("@#%")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        XCTAssertTrue(app.keyboards.buttons["Done"].exists || app.keyboards.buttons["完了"].exists)
+        // Send Return through the focused field. This also covers a hardware
+        // Enter key without depending on cached keyboard-plane coordinates.
+        field.typeText("\n")
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 3), .completed)
+        XCTAssertEqual(field.value as? String, "@#%")
+        XCTAssertTrue(scroll.buttons["記号 !"].isSelected, "Done must only dismiss the keyboard")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Outlined single-line symbol input"; image.lifetime = .keepAlways; add(image)
+        let apply = app.buttons["apply-pasted-symbols"]
+        for _ in 0..<4 { if apply.isHittable { break }; scroll.swipeUp() }
+        apply.tap()
+        XCTAssertFalse(scroll.buttons["記号 !"].isSelected)
+        for symbol in ["@", "#", "%"] { XCTAssertTrue(scroll.buttons["記号 " + symbol].isSelected) }
+        app.buttons["完了"].tap()
+    }
+
     @MainActor func testNativeRecipeEditorAndSymbols() {
         let app = launchApp()
         XCTAssertTrue(app.textFields["length"].waitForExistence(timeout: 3))

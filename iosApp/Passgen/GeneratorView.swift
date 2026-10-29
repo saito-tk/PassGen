@@ -760,7 +760,7 @@ private struct PasswordStorageLessonView: View {
     private var storageContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("サーバーのDBには、何が残る？").font(.title2.weight(.semibold))
-            Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、平文で保存されている可能性も外からは確かめにくい部分です。").font(.subheadline)
+            Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、実際にどう保存されているかは、利用者には外から確かめられません。").font(.subheadline)
             Text("説明用の架空の例です。実際のパスワードには使わないでください。").font(.caption).foregroundStyle(.secondary)
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {

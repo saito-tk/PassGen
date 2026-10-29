@@ -44,7 +44,7 @@ import jp.passgen.core.StorageLessonExamples
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (topic == 0) {
                         Text("サーバーのDBには、何が残る？", style = MaterialTheme.typography.headlineSmall)
-                        Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、平文で保存されている可能性も外からは確かめにくい部分です。", style = MaterialTheme.typography.bodyMedium)
+                        Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、実際にどう保存されているかは、利用者には外から確かめられません。", style = MaterialTheme.typography.bodyMedium)
                         Text("説明用の架空の例です。実際のパスワードには使わないでください。", style = MaterialTheme.typography.bodySmall)
                         BoxWithConstraints {
                             if (maxWidth >= 560.dp && density.fontScale < 2f) {

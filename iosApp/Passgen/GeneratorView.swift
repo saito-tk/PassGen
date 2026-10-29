@@ -124,7 +124,7 @@ struct GeneratorView: View {
         .background { CaptureStateReader(onChange: protection.update).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
         .tint(.passgenAccent)
         .onChange(of: phase) { _, value in
-            if value == .background { model.background(); if model.security.clearClipboardOnBackground { clipboard.clearOwned() } }
+            if value == .background { model.background(); showResults = false }
         }
         .onChange(of: protection.isCaptured) { _, value in if value && model.security.protectCapture { clipboard.clearOwned() } }
         .onChange(of: model.security.protectCapture) { _, value in if value && protection.isCaptured { clipboard.clearOwned() } }
@@ -484,9 +484,8 @@ struct PrivacyView: View {
                     if model.security.autoClearClipboard {
                         Stepper("\(model.security.clipboardSeconds)秒後", value: $model.security.clipboardSeconds, in: 5...600, step: 5)
                     }
-                    Toggle("背景へ移るとコピーを消去", isOn: $model.security.clearClipboardOnBackground)
                 } header: { Label("コピーの消去", systemImage: "timer") }
-                footer: { Text("他の内容に置き換わったコピーは消しません。他アプリや別端末へ移って貼り付けたい場合は、背景での消去をオフにしてください。設定変更は次のコピーから適用します。✓はこの一覧でコピーした印です。") }
+                footer: { Text("他の内容に置き換わったコピーは消しません。背景へ移ってもコピーは保持し、設定した期限で消去します。設定変更は次のコピーから適用します。✓はこの一覧でコピーした印です。") }
                 Section {
                     Toggle("画面収録中は結果を保護", isOn: $model.security.protectCapture)
                         .accessibilityIdentifier("protect-capture")

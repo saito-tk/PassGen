@@ -23,7 +23,7 @@ class GeneratorUiTest {
 
     @Before fun resetTestOwnedConfiguration() {
         rule.runOnIdle {
-            model.background(); model.autoClearClipboard = true; model.clipboardSecondsText = "30"; model.clearClipboardOnBackground = true; model.protectCapture = true; model.revealed = false; model.mode = jp.passgen.core.GenerationMode.PASSWORD
+            model.background(); model.autoClearClipboard = true; model.clipboardSecondsText = "30"; model.protectCapture = true; model.revealed = false; model.mode = jp.passgen.core.GenerationMode.PASSWORD
             model.lengthText = "24"; model.countText = "1"; model.words = 7; model.separator = " "
             model.uppercase = true; model.lowercase = true; model.digits = true; model.symbolsEnabled = true
             model.symbols = "!@#\u0024%&*-_+=?"; model.excludeSimilar = true; model.requireEach = true; model.noAdjacent = false
@@ -44,16 +44,60 @@ class GeneratorUiTest {
             val first = PassgenModel(prefs)
             first.lengthText = "48"; first.uppercaseCharacters = "AZ"; first.revealed = true
             first.noAdjacent = true; first.words = 9; first.separator = "_"; first.background()
-            first.clipboardSecondsText = "90"; first.protectCapture = false; first.clearClipboardOnBackground = false; first.background()
+            first.clipboardSecondsText = "90"; first.protectCapture = false; first.background()
             val restored = PassgenModel(prefs)
             assertEquals(48, restored.length); assertEquals("AZ", restored.uppercaseCharacters)
             assertTrue(restored.revealed); assertTrue(restored.noAdjacent); assertEquals(9, restored.words)
             assertEquals("_", restored.separator); assertTrue(restored.results.isEmpty())
-            assertEquals(90, restored.clipboardSeconds); assertFalse(restored.protectCapture); assertFalse(restored.clearClipboardOnBackground)
+            assertEquals(90, restored.clipboardSeconds); assertFalse(restored.protectCapture)
             restored.chooseMode(jp.passgen.core.GenerationMode.PASSPHRASE)
             restored.chooseMode(jp.passgen.core.GenerationMode.PASSWORD)
             assertEquals(48, restored.length)
             prefs.edit().clear().apply()
+        }
+    }
+
+    @Test fun legacyBackgroundClipboardFlagDoesNotResetPreferences() {
+        rule.runOnIdle {
+            val prefs = rule.activity.getSharedPreferences("test.preferences.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+            prefs.edit().putString("generation.preferences.v1", """{"version":1,"length":48,"revealed":true,"clipboardSeconds":90,"autoClearClipboard":false,"protectCapture":false,"clearClipboardOnBackground":true}""").apply()
+            val restored = PassgenModel(prefs)
+            assertEquals(48, restored.length); assertTrue(restored.revealed)
+            assertEquals(90, restored.clipboardSeconds); assertFalse(restored.autoClearClipboard); assertFalse(restored.protectCapture)
+            val stored = org.json.JSONObject(prefs.getString("generation.preferences.v1", null)!!)
+            assertFalse(stored.has("clearClipboardOnBackground"))
+            prefs.edit().clear().apply()
+        }
+    }
+
+    @Test fun clipboardRemainsUntilDeadlineAcrossBackground() {
+        rule.runOnIdle { SecureClipboard(rule.activity).copy("fake-test-only", 5) }
+        rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.runOnIdle {
+            val manager = rule.activity.getSystemService(ClipboardManager::class.java)
+            assertTrue(manager.primaryClip?.getItemAt(0)?.text?.toString() == "fake-test-only")
+        }
+        rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        android.os.SystemClock.sleep(6000)
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.waitUntil(3000) { rule.activity.hasWindowFocus() }
+        rule.runOnIdle { assertFalse(rule.activity.getSystemService(ClipboardManager::class.java).hasPrimaryClip()) }
+    }
+
+    @Test fun clipboardExpiryPreservesReplacementAfterBackground() {
+        rule.runOnIdle {
+            SecureClipboard(rule.activity).copy("fake-test-only", 5)
+            rule.activity.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("another-app", "replacement"))
+        }
+        rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        android.os.SystemClock.sleep(6000)
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.waitUntil(3000) { rule.activity.hasWindowFocus() }
+        rule.runOnIdle {
+            val manager = rule.activity.getSystemService(ClipboardManager::class.java)
+            assertTrue(manager.primaryClip?.getItemAt(0)?.text?.toString() == "replacement")
+            manager.clearPrimaryClip()
         }
     }
 

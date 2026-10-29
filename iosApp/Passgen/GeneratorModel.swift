@@ -74,7 +74,6 @@ struct SecuritySettings: Codable, Sendable {
     var allowUniversalClipboard = false
     var autoClearClipboard = true
     var clipboardSeconds = 30
-    var clearClipboardOnBackground = true
     var protectCapture = true
     var sanitized: SecuritySettings {
         var value = self; value.clipboardSeconds = min(600, max(5, clipboardSeconds)); return value

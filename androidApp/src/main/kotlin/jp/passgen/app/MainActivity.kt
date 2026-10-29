@@ -53,8 +53,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        if (!isChangingConfigurations) { model.background(); if (model.clearClipboardOnBackground) clipboard.clearOwned() }
+        if (!isChangingConfigurations) model.background()
         super.onStop()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && ::clipboard.isInitialized) clipboard.clearExpired()
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

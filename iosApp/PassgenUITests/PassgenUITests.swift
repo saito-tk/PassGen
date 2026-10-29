@@ -13,6 +13,35 @@ final class PassgenUITests: XCTestCase {
         app.activate()
         XCTAssertFalse(app.staticTexts["secret"].exists)
     }
+    @MainActor func testCopiedPasswordCanBePastedAfterBackground() {
+        let app = launchApp()
+        app.buttons["数字のみ"].tap()
+        let length = app.textFields["length"]; length.tap()
+        length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "4")
+        app.buttons["generate"].tap()
+        let copy = app.buttons["copy-0"]; XCTAssertTrue(copy.waitForExistence(timeout: 5)); copy.tap()
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertFalse(app.staticTexts["secret"].exists)
+        app.swipeDown()
+        app.segmentedControls.buttons["記号"].tap()
+        let symbols = app.switches["記号を含める"]
+        XCTAssertTrue(symbols.waitForExistence(timeout: 3))
+        if symbols.value as? String == "0" { symbols.tap() }
+        app.swipeUp()
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        let field = app.descendants(matching: .any).matching(identifier: "symbol-paste-input").firstMatch
+        let scroll = app.scrollViews["symbol-editor-scroll"]
+        for _ in 0..<6 { if field.isHittable { break }; scroll.swipeUp() }
+        field.tap(); field.press(forDuration: 1.2)
+        let options = [app.menuItems["Paste"], app.menuItems["ペースト"], app.buttons["Paste"], app.buttons["ペースト"]]
+        guard let paste = options.first(where: { $0.waitForExistence(timeout: 1) && $0.isHittable }) else {
+            XCTFail("Copied test value must remain available for paste after background"); return
+        }
+        paste.tap()
+        let value = field.value as? String ?? ""
+        XCTAssertTrue(value.count == 4 && value.allSatisfy { "0123456789".contains($0) })
+        app.buttons["完了"].tap()
+    }
     @MainActor func testNativeRecipeEditorAndSymbols() {
         let app = launchApp()
         XCTAssertTrue(app.textFields["length"].waitForExistence(timeout: 3))

@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.PersistableBundle
+import android.os.SystemClock
 import java.util.UUID
 
 /** Labels are opaque ownership tokens; never read another application's clipboard text. */
@@ -16,6 +17,7 @@ class SecureClipboard(context: Context) {
         val handler = Handler(Looper.getMainLooper())
         var owner: String? = null
         var pending: Runnable? = null
+        var expiresAt: Long? = null
     }
 
     fun copy(secret: String, clearAfterSeconds: Int? = 30): Boolean {
@@ -29,18 +31,29 @@ class SecureClipboard(context: Context) {
         catch (_: RuntimeException) { return false }
         pending?.let(handler::removeCallbacks)
         owner = id
-        pending = clearAfterSeconds?.let { seconds ->
-            Runnable { clearOwned() }.also { handler.postDelayed(it, seconds.coerceIn(5, 600) * 1000L) }
+        val delay = clearAfterSeconds?.coerceIn(5, 600)?.times(1000L)
+        expiresAt = delay?.let { SystemClock.elapsedRealtime() + it }
+        pending = delay?.let { milliseconds ->
+            Runnable { clearExpired() }.also { handler.postDelayed(it, milliseconds) }
         }
         return true
     }
 
+    fun clearExpired() {
+        val deadline = expiresAt ?: return
+        if (SystemClock.elapsedRealtime() >= deadline) clearOwned()
+    }
+
     fun clearOwned() {
         pending?.let(handler::removeCallbacks)
-        try {
-            if (owner != null && manager.primaryClipDescription?.label?.toString() == owner) manager.clearPrimaryClip()
-        } catch (_: RuntimeException) { /* OS clipboard service unavailable; never log clip contents. */ }
-        owner = null
         pending = null
+        val expected = owner ?: return
+        try {
+            // Background access may return null. Keep only the opaque ownership
+            // token and deadline, then retry when this app regains window focus.
+            val description = manager.primaryClipDescription ?: return
+            if (description.label?.toString() == expected) manager.clearPrimaryClip()
+            owner = null; expiresAt = null
+        } catch (_: RuntimeException) { /* Retry on focus; never log clip contents. */ }
     }
 }

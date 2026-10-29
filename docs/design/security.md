@@ -28,7 +28,8 @@
 
 - AndroidはINTERNET権限なし、backup無効、オーバーレイ対策、機密クリップボード印を使う。FLAG_SECUREは初期状態で有効。撮影・収録防止を設定で変更できる。
 - iOSは非アクティブ時の画面を覆う。UIKitのsceneCaptureStateを開始・停止・再アクティブ化時に読み、収録中の保護が有効な場合は秘密と画像の表示・コピーを制限する。停止時に解除し、ユーザーの表示設定自体は変更しない。iOSの静止画スクリーンショットを完全に禁止できるとは表現しない。
-- コピーは明示操作のみ。初期値は端末内限定（iOS localOnly）・30秒・背景消去。期限5〜600秒、自動消去と背景消去の無効化、iOSのUniversal Clipboard許可を選べる。設定変更は次のコピーから適用する。iOSはOS expiration、Androidは所有識別付きタイマーを使い、OSが先に消去し得ることを示す。Androidには共通のlocalOnly APIがないため端末側の共有設定を案内する。
+- コピーは明示操作のみ。初期値は端末内限定（iOS localOnly）・30秒。背景移行ではコピーを消去しない。期限5〜600秒、自動消去の有効/無効、iOSのUniversal Clipboard許可を選べる。設定変更は次のコピーから適用する。iOSはOS expiration、Androidは所有識別付きタイマーを使い、OSが先に消去し得ることを示す。Androidには共通のlocalOnly APIがないため端末側の共有設定を案内する。
+- Androidで背景の所有確認がOSに拒否された場合は、所有トークンと単調時計の期限だけを保持し、window focusの復帰時に再確認する。別の内容であれば消去しない。プロセス終了や背景制限下での厳密な期限消去は保証しない。参照: [Androidのクリップボード制限](https://developer.android.com/about/versions/10/privacy/changes#clipboard-data)。
 - クリップボードの他アプリによる置換は削除しない。アクセシビリティは秘密を読み上げず、明示した表示操作だけで視覚表示する。
 
 ## スクリーンショットの記号取り込み

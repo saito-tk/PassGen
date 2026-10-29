@@ -5926,7 +5926,7 @@ private actor ImportAnalysisGate {
         first.recipe.noAdjacent = true; first.recipe.words = 9; first.recipe.separator = "_"
         first.revealed = true
         first.security.allowUniversalClipboard = true; first.security.clipboardSeconds = 90
-        first.security.protectCapture = false; first.security.clearClipboardOnBackground = false
+        first.security.protectCapture = false
         first.generateOrStop()
         for _ in 0..<100 {
             if !first.busy { break }
@@ -5942,9 +5942,30 @@ private actor ImportAnalysisGate {
         let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         XCTAssertEqual(Set(object.keys), ["version", "recipe", "revealed", "security"])
         XCTAssertTrue(restored.security.allowUniversalClipboard); XCTAssertEqual(restored.security.clipboardSeconds, 90)
-        XCTAssertFalse(restored.security.protectCapture); XCTAssertFalse(restored.security.clearClipboardOnBackground)
+        XCTAssertFalse(restored.security.protectCapture)
         restored.chooseMode(.passphrase); restored.chooseMode(.password)
         XCTAssertEqual(restored.recipe.length, 48)
+    }
+
+    func testLegacyBackgroundClipboardFlagDoesNotResetPreferences() throws {
+        let suite = "passgen.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let first = GeneratorModel(preferences: defaults)
+        first.recipe.lengthText = "48"; first.revealed = true
+        first.security.clipboardSeconds = 90; first.security.allowUniversalClipboard = true
+        first.security.protectCapture = false; first.security.autoClearClipboard = false
+        var object = try JSONSerialization.jsonObject(with: defaults.data(forKey: "generation.preferences.v1")!) as! [String: Any]
+        var security = object["security"] as! [String: Any]
+        security["clearClipboardOnBackground"] = true; object["security"] = security
+        defaults.set(try JSONSerialization.data(withJSONObject: object), forKey: "generation.preferences.v1")
+        let restored = GeneratorModel(preferences: defaults)
+        XCTAssertEqual(restored.recipe.length, 48); XCTAssertTrue(restored.revealed)
+        XCTAssertEqual(restored.security.clipboardSeconds, 90); XCTAssertTrue(restored.security.allowUniversalClipboard)
+        XCTAssertFalse(restored.security.protectCapture); XCTAssertFalse(restored.security.autoClearClipboard)
+        restored.recipe.lengthText = "49"
+        let saved = try JSONSerialization.jsonObject(with: defaults.data(forKey: "generation.preferences.v1")!) as! [String: Any]
+        XCTAssertNil((saved["security"] as! [String: Any])["clearClipboardOnBackground"])
     }
 
     func testRevealPreferenceSurvivesRegenerationAndBackground() async throws {

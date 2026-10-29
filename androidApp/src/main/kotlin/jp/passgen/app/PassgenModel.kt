@@ -42,10 +42,9 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var copiedIndices by mutableStateOf<Set<Int>>(emptySet())
     var autoClearClipboard by mutableStateOf(true)
     var clipboardSecondsText by mutableStateOf("30")
-    var clearClipboardOnBackground by mutableStateOf(true)
     var protectCapture by mutableStateOf(true)
     val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
-    val clipboardSummary get() = if (autoClearClipboard) "コピーは${clipboardSeconds}秒後に消去" else "コピーの時間による自動消去はオフ"
+    val clipboardSummary get() = if (autoClearClipboard) "コピーの消去は${clipboardSeconds}秒後が目安" else "コピーの時間による自動消去はオフ"
     private var job: Job? = null
     private var cancel = AtomicBoolean(false)
     private var epoch = 0L
@@ -68,7 +67,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         put("digitCharacters", CharacterPolicy.canonical(digitCharacters, CharacterPolicy.DIGITS))
         put("similarExclusions", CharacterPolicy.canonical(similarExclusions, CharacterPolicy.SIMILAR))
         put("autoClearClipboard", autoClearClipboard); put("clipboardSeconds", clipboardSeconds)
-        put("clearClipboardOnBackground", clearClipboardOnBackground); put("protectCapture", protectCapture)
+        put("protectCapture", protectCapture)
     }.toString()
     private fun restorePreferences(json: JSONObject) {
         if (json.optInt("version") != 1) return
@@ -89,7 +88,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         revealed = flag("revealed", false)
         autoClearClipboard = flag("autoClearClipboard", true)
         clipboardSecondsText = json.optInt("clipboardSeconds", 30).coerceIn(5, 600).toString()
-        clearClipboardOnBackground = flag("clearClipboardOnBackground", true); protectCapture = flag("protectCapture", true)
+        protectCapture = flag("protectCapture", true)
     }
     val busy get() = work != WorkState.IDLE
     val isDigitsOnly get() = mode == GenerationMode.PASSWORD && digits && !uppercase && !lowercase && !symbolsEnabled

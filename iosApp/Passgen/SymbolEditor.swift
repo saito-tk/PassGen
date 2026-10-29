@@ -54,6 +54,7 @@ struct SymbolEditor: View {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)
                         TextField("例: ! @ # $ %", text: $pasted, axis: .vertical)
                             .lineLimit(2...5).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .accessibilityIdentifier("symbol-paste-input")
                             .padding(16).background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                             .onChange(of: pasted) { _, _ in feedback = nil }
                             .redacted(reason: (protection.isCaptured && model.security.protectCapture) ? .privacy : []).disabled((protection.isCaptured && model.security.protectCapture))

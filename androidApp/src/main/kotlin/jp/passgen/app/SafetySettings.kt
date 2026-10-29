@@ -33,8 +33,7 @@ import androidx.compose.ui.unit.dp
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true,
                     modifier = Modifier.fillMaxWidth().semantics { testTag = "clipboard-seconds" })
             }
-            SettingsSwitch("背景へ移るとコピーを消去", model.clearClipboardOnBackground, "clipboard-background") { model.clearClipboardOnBackground = it }
-            Text("他の内容に置き換わったコピーは消しません。他アプリへ移って貼り付ける場合は背景での消去をオフにしてください。設定変更は次のコピーから適用します。OSが先に消去する場合もあります。", style = MaterialTheme.typography.bodySmall)
+            Text("他の内容に置き換わったコピーは消しません。背景へ移ってもコピーは保持します。OSの制限で期限時に消せない場合は、復帰時に消去します。設定変更は次のコピーから適用します。OSが先に消去する場合もあります。", style = MaterialTheme.typography.bodySmall)
             Text("端末間のクリップボード共有はOSや連携アプリ側の設定に従います。Androidにはアプリから端末内だけに限定する共通APIがありません。共有を使わない場合は端末側でも無効にしてください。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             Text("画面の保護", style = MaterialTheme.typography.titleMedium)

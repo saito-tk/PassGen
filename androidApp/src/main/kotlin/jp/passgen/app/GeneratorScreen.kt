@@ -231,23 +231,41 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable private fun CategoryOverview(model: PassgenModel) {
-    Surface(modifier = Modifier.padding(top = 4.dp), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("文字種の使用状況", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            CharacterTab.entries.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pair.forEach { tab ->
-                        val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
-                        val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
-                        val count = selected.count { tab == CharacterTab.SYMBOLS || !model.excludeSimilar || it !in model.similarExclusions }
-                        FilterChip(selected = enabled, onClick = {
-                            when (tab) { CharacterTab.UPPER -> model.uppercase = !enabled; CharacterTab.LOWER -> model.lowercase = !enabled; CharacterTab.DIGITS -> model.digits = !enabled; CharacterTab.SYMBOLS -> model.symbolsEnabled = !enabled }
-                        }, enabled = !model.busy, modifier = Modifier.weight(1f).semantics { testTag = "category-${tab.name}" },
-                            label = { Column(Modifier.padding(vertical = 4.dp)) { Text(tab.title); Text(if (enabled) "使用中 · ${count}文字" else "未使用", style = MaterialTheme.typography.labelSmall) } },
-                            leadingIcon = { Text(if (enabled) "✓" else "−") })
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("現在選択中の文字", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CharacterTab.entries.forEach { tab ->
+                    val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
+                    val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
+                    val effective = if (enabled) CharacterPolicy.effective(selected, tab.alphabet, model.excludeSimilar, model.similarExclusions) else ""
+                    val description = "${tab.title}、生成対象: ${effective.toList().joinToString(" ").ifEmpty { "なし" }}"
+                    val row = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description; testTag = "overview-${tab.name}" }
+                    if (LocalDensity.current.fontScale >= 2f) {
+                        Column(row, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(tab.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                            Text(tab.title, modifier = Modifier.width(42.dp).padding(top = 2.dp), style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.weight(1f))
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable private fun CharacterPreviewGlyphs(alphabet: String, effective: String, modifier: Modifier) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        alphabet.forEach { character ->
+            val active = character in effective
+            Text(character.toString(), modifier = Modifier.widthIn(min = 11.dp), fontSize = 14.sp, lineHeight = 20.sp,
+                fontFamily = FontFamily.Monospace, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f))
         }
     }
 }

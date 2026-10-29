@@ -157,6 +157,29 @@ class GeneratorUiTest {
         rule.onNodeWithText("対応する記号がないため、選択は変更していません。").assertExists()
     }
 
+    @Test fun characterPreviewReflectsSelectionExclusionsAndDisabledGroups() {
+        rule.runOnIdle {
+            model.uppercaseCharacters = "AIOZ"; model.lowercase = false; model.digitCharacters = "0129"
+            model.similarExclusions = "I0"; model.symbols = "[]`\\"
+        }
+        rule.onNodeWithTag("overview-UPPER").assertContentDescriptionEquals("大文字、生成対象: A O Z").assertHasNoClickAction()
+        rule.onNodeWithTag("overview-LOWER").assertContentDescriptionEquals("小文字、生成対象: なし")
+        rule.onNodeWithTag("overview-DIGITS").assertContentDescriptionEquals("数字、生成対象: 1 2 9")
+        rule.onNodeWithTag("overview-SYMBOLS").assertContentDescriptionEquals("記号、生成対象: [ ] ` \\")
+        rule.runOnIdle { model.excludeSimilar = false }
+        rule.onNodeWithTag("overview-UPPER").assertContentDescriptionEquals("大文字、生成対象: A I O Z")
+        rule.onNodeWithTag("overview-DIGITS").assertContentDescriptionEquals("数字、生成対象: 0 1 2 9")
+        rule.onNodeWithTag("overview-SYMBOLS").performScrollTo()
+        rule.runOnIdle { assertTrue(model.results.isEmpty()); model.protectCapture = false }
+        rule.waitForIdle(); android.os.SystemClock.sleep(2000)
+        try {
+            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            File(context.getExternalFilesDir(null), "character-preview.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        } finally { rule.runOnIdle { model.protectCapture = true } }
+    }
+
     @Test fun individualCharacterChoiceReachesGenerator() {
         rule.runOnIdle {
             model.uppercaseCharacters = "A"; model.lowercase = false; model.digits = false; model.symbolsEnabled = false

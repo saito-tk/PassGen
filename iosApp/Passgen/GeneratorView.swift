@@ -274,33 +274,77 @@ private struct CharacterEditor: View {
 }
 
 private struct CharacterOverview: View {
-    @Bindable var model: GeneratorModel
+    let model: GeneratorModel
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         if model.recipe.mode == .password {
             VStack(alignment: .leading, spacing: 8) {
-                Text("文字種の使用状況").font(.caption).foregroundStyle(.secondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+                Text("現在選択中の文字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(CharacterGroup.allCases) { item in
-                        let enabled = item.enabled(in: model.recipe)
-                        let count = item.selected(in: model.recipe).filter { item == .symbols || !model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0) }.count
-                        Button { item.setEnabled(!enabled, in: &model.recipe) } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: enabled ? "checkmark.circle.fill" : "circle").foregroundStyle(enabled ? Color.passgenAccent : Color.secondary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.title).font(.subheadline)
-                                    Text(enabled ? "使用中 · \(count)文字" : "未使用").font(.caption2).foregroundStyle(.secondary)
-                                }.fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
-                            }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 8)
-                                .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(.plain).accessibilityLabel("\(item.title)を使用")
-                            .accessibilityValue(enabled ? "オン、\(count)文字" : "オフ")
-                            .accessibilityAddTraits(enabled ? [.isSelected] : [])
-                            .accessibilityIdentifier("category-\(item.rawValue)")
+                        let effective = item.enabled(in: model.recipe) ? CharacterPolicy.shared.effective(
+                            selected: item.selected(in: model.recipe), alphabet: item.alphabet,
+                            excludeSimilar: model.recipe.excludeSimilar, exclusions: model.recipe.similarExclusions) : ""
+                        Group {
+                            if typeSize.isAccessibilitySize {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                    glyphs(item.alphabet, effective: effective)
+                                }
+                            } else {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text(item.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                        .frame(width: 42, alignment: .leading).padding(.top, 2)
+                                    glyphs(item.alphabet, effective: effective)
+                                }
+                            }
+                        }.accessibilityElement(children: .ignore)
+                            .accessibilityLabel(item.title)
+                            .accessibilityValue("生成対象: \(effective.isEmpty ? "なし" : effective.map(String.init).joined(separator: " "))")
+                            .accessibilityIdentifier("overview-\(item.rawValue)")
                     }
-                }
-            }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-                .disabled(model.busy)
+                }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.secondary.opacity(0.18)))
+            }
+        }
+    }
+    private func glyphs(_ alphabet: String, effective: String) -> some View {
+        CharacterPreviewLayout(spacing: 3) {
+            ForEach(Array(alphabet), id: \.self) { character in
+                let active = effective.contains(character)
+                Text(String(character)).font(.system(.caption, design: .monospaced, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? Color.primary : Color.secondary.opacity(0.35))
+                    .frame(minWidth: 11)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A read-only character list with natural wrapping, including at large Dynamic Type sizes.
+private struct CharacterPreviewLayout: Layout {
+    var spacing: CGFloat
+    private func arrangement(width: CGFloat, subviews: Subviews) -> (positions: [CGPoint], height: CGFloat) {
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width { x = 0; y += lineHeight + spacing; lineHeight = 0 }
+            positions.append(CGPoint(x: x, y: y))
+            x += size.width + spacing; lineHeight = max(lineHeight, size.height)
+        }
+        return (positions, y + lineHeight)
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let naturalWidth = subviews.reduce(CGFloat.zero) { $0 + $1.sizeThatFits(.unspecified).width + spacing }
+        let proposedWidth = proposal.width ?? naturalWidth
+        let width = max(0, proposedWidth.isFinite ? proposedWidth : naturalWidth)
+        return CGSize(width: width, height: arrangement(width: width, subviews: subviews).height)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let positions = arrangement(width: bounds.width, subviews: subviews).positions
+        for (view, point) in zip(subviews, positions) {
+            view.place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), anchor: .topLeading, proposal: .unspecified)
         }
     }
 }

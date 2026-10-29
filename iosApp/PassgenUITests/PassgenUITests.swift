@@ -40,7 +40,10 @@ final class PassgenUITests: XCTestCase {
     }
     @MainActor func testRulesAndCategoryOverviewFitSmallScreen() {
         let app = launchApp(); app.swipeUp()
-        for id in ["category-upper", "category-lower", "category-digits", "category-symbols"] { XCTAssertTrue(app.buttons[id].exists) }
+        for id in ["overview-upper", "overview-lower", "overview-digits", "overview-symbols"] {
+            let row = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            XCTAssertTrue(row.exists); XCTAssertLessThanOrEqual(row.frame.maxX, app.frame.maxX - 8)
+        }
         app.buttons["generation-rules"].tap(); app.swipeUp()
         let layout = XCTAttachment(screenshot: app.screenshot()); layout.name = "Expanded rules"; layout.lifetime = .keepAlways; add(layout)
         for id in ["rule-requireEach", "rule-excludeSimilar", "rule-noAdjacent"] {
@@ -49,6 +52,23 @@ final class PassgenUITests: XCTestCase {
             XCTAssertLessThanOrEqual(control.frame.maxX, app.frame.maxX - 8)
             XCTAssertGreaterThanOrEqual(control.frame.width, 45)
         }
+    }
+
+    @MainActor func testCharacterPreviewReflectsSelectionExclusionsAndDisabledGroups() {
+        let app = launchApp()
+        app.buttons["character-A"].tap(); app.swipeUp()
+        func preview(_ group: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "overview-\(group)").firstMatch
+        }
+        XCTAssertEqual(preview("upper").value as? String, "生成対象: B C D E F G H J K L M N P Q R S T U V W X Y Z")
+        XCTAssertEqual(preview("digits").value as? String, "生成対象: 2 3 4 5 6 7 8 9")
+        let initial = XCTAttachment(screenshot: app.screenshot()); initial.name = "All characters preview"; initial.lifetime = .keepAlways; add(initial)
+        app.swipeDown(); app.swipeDown(); app.buttons["数字のみ"].tap(); app.swipeUp()
+        XCTAssertEqual(preview("upper").value as? String, "生成対象: なし")
+        XCTAssertEqual(preview("lower").value as? String, "生成対象: なし")
+        XCTAssertEqual(preview("symbols").value as? String, "生成対象: なし")
+        XCTAssertEqual(preview("digits").value as? String, "生成対象: 0 1 2 3 4 5 6 7 8 9")
+        let digits = XCTAttachment(screenshot: app.screenshot()); digits.name = "Disabled groups preview"; digits.lifetime = .keepAlways; add(digits)
     }
 
     @MainActor func testCopyMarksRemainOnBothRowsAndGuideOpens() {

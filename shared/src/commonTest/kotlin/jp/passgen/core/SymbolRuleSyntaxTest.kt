@@ -39,6 +39,32 @@ class SymbolRuleSyntaxTest {
             assertFalse('ッ' in parsed.spans.joinToString("") { it.symbols })
         }
     }
+    @Test fun suffixDelimitedParenthesesDoNotTreatLiteralBracketsAsNestedGrammar() {
+        val values = "!\"#$%&'()-^,./:;<=>?@[]_`{+*}~|\\"
+        for (text in listOf("※英字、数字、記号 ($values) が使用可能です。", "記号（!@#)が使用可能です。", "記号（!@#）が使\n用可能です。")) {
+            val parsed = assertNotNull(SymbolRuleSyntax.parse(text), text)
+            val expected = if (text.startsWith("※")) values else "!@#"
+            assertEquals(SymbolPolicy.recognized(expected), parsed.spans.joinToString("") { it.symbols }, text)
+        }
+        assertNull(SymbolRuleSyntax.parse("記号（!@#）が使使用可能です。"))
+        val text = "※英字、数字、記号 (\"#$%&'θ)ー^, / : <=>?@0_ [+*~1\\) が使用可能です。"
+        val parsed = assertNotNull(SymbolRuleSyntax.parse(text))
+        val source = text.substring(parsed.spans.first().start, parsed.spans.last().end)
+        assertTrue(source.contains("<=>?")); assertTrue(source.contains("\\"))
+        assertFalse(source.contains("が使用"))
+    }
+    @Test fun enclosedNoisyOCRKeepsPixelsAndAllowsModelToRestoreLiteralParentheses() {
+        val text = "※英字、数字、記号（\"#$%&’0-^，/：＜=＞3@日_（+*～11）が使用可能です。"
+        val parsed = assertNotNull(SymbolRuleSyntax.parse(text))
+        val source = text.substring(parsed.spans.first().start, parsed.spans.last().end)
+        assertTrue(source.contains("@日")); assertTrue(source.endsWith("11"))
+        assertEquals(SymbolPolicy.SUPPORTED, parsed.modelVocabulary)
+        val missing = assertNotNull(SymbolRuleSyntax.parse("記号（!#θ）が使用可能です。"))
+        assertTrue('(' in missing.modelVocabulary); assertFalse('(' in missing.rereadVocabulary)
+        val quoted = assertNotNull(SymbolRuleSyntax.parse("記号（'!', '.', '#'）が使用可能です。"))
+        assertFalse('\'' in quoted.modelVocabulary); assertFalse(',' in quoted.modelVocabulary)
+        assertNull(SymbolRuleSyntax.parse(text.replace("使用可能", "使用不可")))
+    }
     @Test fun modelCanCorrectAValueWithoutAddingQuotationOrSeparatorCharacters() {
         val parsed = assertNotNull(SymbolRuleSyntax.parse("使用可能な記号: '!', '.', '#'"))
         assertTrue('@' in parsed.modelVocabulary)

@@ -2,9 +2,13 @@ package jp.passgen.core
 
 /** UTF-16 offsets into the original OCR string. Only observed literal glyphs are returned. */
 class SymbolRuleSpan(val start: Int, val end: Int, val symbols: String)
-class SymbolRuleMatch(val spans: List<SymbolRuleSpan>, val excludedFormatting: String = "", val exactValues: Boolean = false) {
+class SymbolRuleMatch(val spans: List<SymbolRuleSpan>, val excludedFormatting: String = "", val exactValues: Boolean = false, val enclosedList: Boolean = false) {
     /** Keep format delimiters out while allowing the image model to correct OCR. */
-    val modelVocabulary: String get() = SymbolPolicy.SUPPORTED.filter { character ->
+    val modelVocabulary: String get() = if (enclosedList && !exactValues) {
+        // Only outer annotation syntax is relaxed; quoted/CSV value delimiters remain constrained.
+        SymbolPolicy.SUPPORTED.filter { character -> spans.any { character in it.symbols } || character !in excludedFormatting.filterNot { it in "():" } }
+    } else rereadVocabulary
+    val rereadVocabulary: String get() = SymbolPolicy.SUPPORTED.filter { character ->
         spans.any { character in it.symbols } || (!exactValues && character !in excludedFormatting)
     }
 }
@@ -73,7 +77,7 @@ object SymbolRuleSyntax {
         }
         return SymbolRuleMatch(spans, "(),:.", exactValues = true)
     }
-    private class ValueScope(val start: Int, val end: Int, val formatting: String = "")
+    private class ValueScope(val start: Int, val end: Int, val formatting: String = "", val enclosed: Boolean = false)
     private fun valueScope(text: String): ValueScope? {
         val positions = text.indices.filterNot { text[it].isWhitespace() }
         val compactSource = positions.map { text[it] }.joinToString("")
@@ -87,11 +91,14 @@ object SymbolRuleSyntax {
         val annotation = Regex("$NOUN\\s*[（(]", RegexOption.IGNORE_CASE).find(text)
         if (annotation != null) {
             val start = annotation.range.last + 1
-            var depth = 1
-            for (index in start until text.length) {
-                if (text[index] in "（(") depth++
-                if (text[index] in "）)") depth--
-                if (depth == 0) return ValueScope(start, index, "():")
+            // Parentheses inside a punctuation list are values, not nested syntax.
+            // Select the outer close by its grammatical suffix, never by balancing
+            // OCR glyphs: a misread inner '(' must not truncate the whole list.
+            for (index in text.lastIndex downTo start) {
+                if (text[index] !in "）)") continue
+                val tail = text.substring(index + 1).trim()
+                val predicate = Regex("^(?:が|は|を|も)?(?:任意で)?(?:(?:使用|利用)(?:可能|可)(?:です)?|(?:使用|利用)(?:できます|できる)|使(?:えます|える|うことができます))[。．.]*$").matches(compact(tail))
+                if (tail.isEmpty() || tail in listOf("です", "です。", "です.") || predicate) return ValueScope(start, index, "():", enclosed = true)
             }
             return null
         }
@@ -112,16 +119,16 @@ object SymbolRuleSyntax {
         val value = text.substring(scope.start, scope.end)
         if (address(narrowWidth(value)) || itemReviewReason(value) != null) return null
         val result = namedItems(value) ?: quotedSpans(value).takeIf { it.isNotEmpty() }?.let { SymbolRuleMatch(it, "\"',:.[]") }
-            ?: plainPrefix(value, 0) ?: return null
+            ?: plainPrefix(value, 0, if (scope.enclosed) 12 else 3) ?: return null
         return SymbolRuleMatch(result.spans.map { SymbolRuleSpan(it.start + scope.start, it.end + scope.start, it.symbols) },
-            result.excludedFormatting + scope.formatting, result.exactValues)
+            result.excludedFormatting + scope.formatting, result.exactValues, scope.enclosed)
     }
-    private fun observedSpan(text: String, start: Int, end: Int): SymbolRuleSpan? {
+    private fun observedSpan(text: String, start: Int, end: Int, uncertaintyLimit: Int = 3): SymbolRuleSpan? {
         span(text, start, end)?.let { return it }
         val value = narrowWidth(text.substring(start, end)).filterNot(Char::isWhitespace)
         if (value.isEmpty() || value.length > 96 || Regex("[0-9]+[-〜][0-9]+").containsMatchIn(value)) return null
         val known = value.count { it in SymbolPolicy.SUPPORTED }
-        if (known < 1 || known * 2 < value.length || value.length - known > 3) return null
+        if (known < 1 || known * 2 < value.length || value.length - known > uncertaintyLimit) return null
         return SymbolRuleSpan(start, end, SymbolPolicy.recognized(value))
     }
     private val quoted = Regex("(?<![A-Za-z0-9])(?:\"([^\"]*)\"|'([^']*)'|「([^」]*)」|『([^』]*)』|“([^”]*)”|‘([^’]*)’)")
@@ -173,7 +180,7 @@ object SymbolRuleSyntax {
         if (parts.size >= 3 && parts.all { narrowWidth(it.trim()).length == 1 && literal(it.trim()) != null }) return plainPrefix(text, 0)
         return null
     }
-    private fun plainPrefix(text: String, from: Int): SymbolRuleMatch? {
+    private fun plainPrefix(text: String, from: Int, uncertaintyLimit: Int = 3): SymbolRuleMatch? {
         var start = from
         while (start < text.length && text[start].isWhitespace()) start++
         var end = start
@@ -186,7 +193,7 @@ object SymbolRuleSyntax {
             val tail = text.substring(end).trimStart()
             val proseTail = tail.startsWith("です") || tail.startsWith("のみ") || tail.startsWith("だけ") || isPermission(tail) ||
                 Regex("^[（(].*(?:文字|characters|optional).*[)）]", RegexOption.IGNORE_CASE).containsMatchIn(tail)
-            if (!proseTail) return observedSpan(text, start, text.length)?.let { SymbolRuleMatch(listOf(it), ":") }
+            if (!proseTail) return observedSpan(text, start, text.length, uncertaintyLimit)?.let { SymbolRuleMatch(listOf(it), ":") }
         }
         val value = text.substring(start, end).trim()
         val items = value.split(',').map(String::trim)

@@ -2,14 +2,14 @@ import Foundation
 import Observation
 import PassgenCore
 
-enum RecipeMode: String, CaseIterable, Identifiable, Sendable {
+enum RecipeMode: String, CaseIterable, Identifiable, Sendable, Codable {
     case password, passphrase
     var id: Self { self }
     var title: String { switch self { case .password: "パスワード"; case .passphrase: "パスフレーズ" } }
     var core: GenerationMode { switch self { case .password: .password; case .passphrase: .passphrase } }
 }
 
-struct Recipe: Sendable {
+struct Recipe: Sendable, Codable {
     var mode: RecipeMode = .password
     var lengthText = "24"
     var countText = "1"
@@ -32,6 +32,18 @@ struct Recipe: Sendable {
     var maximumCount: Int { mode == .passphrase ? 1000 : Int(InputPolicy.shared.maximumCount(length: Int32(length))) }
     var count: Int { Int(InputPolicy.shared.normalizedInteger(text: countText, fallback: 1, minimum: 1, maximum: Int32(maximumCount))) }
     mutating func normalize() { lengthText = String(length); countText = String(count) }
+    func sanitized() -> Recipe {
+        var value = self
+        value.normalize()
+        value.words = min(12, max(6, words))
+        if ![" ", "-", "_", "."].contains(separator) { value.separator = " " }
+        value.uppercaseCharacters = CharacterPolicy.shared.canonical(selected: uppercaseCharacters, alphabet: CharacterPolicy.shared.UPPERCASE)
+        value.lowercaseCharacters = CharacterPolicy.shared.canonical(selected: lowercaseCharacters, alphabet: CharacterPolicy.shared.LOWERCASE)
+        value.digitCharacters = CharacterPolicy.shared.canonical(selected: digitCharacters, alphabet: CharacterPolicy.shared.DIGITS)
+        value.symbols = SymbolPolicy.shared.recognized(text: symbols)
+        value.similarExclusions = CharacterPolicy.shared.canonical(selected: similarExclusions, alphabet: CharacterPolicy.shared.SIMILAR)
+        return value
+    }
     func request() -> GenerationRequest {
         GenerationRequest(mode: mode.core, length: Int32(length), wordCount: Int32(words), uppercase: uppercase,
                           lowercase: lowercase, digits: digits, symbolsEnabled: symbolsEnabled, symbols: symbols,
@@ -58,17 +70,57 @@ final class GenerationCancellation: NSObject, CancellationProbe, @unchecked Send
 
 enum GenerationState { case idle, running, cancelling }
 
+struct SecuritySettings: Codable, Sendable {
+    var allowUniversalClipboard = false
+    var autoClearClipboard = true
+    var clipboardSeconds = 30
+    var clearClipboardOnBackground = true
+    var protectCapture = true
+    var sanitized: SecuritySettings {
+        var value = self; value.clipboardSeconds = min(600, max(5, clipboardSeconds)); return value
+    }
+    var clipboardSummary: String { autoClearClipboard ? "コピーは\(clipboardSeconds)秒後に期限切れ" : "コピーの時間による自動消去はオフ" }
+}
+
 @MainActor @Observable final class GeneratorModel {
-    var recipe = Recipe()
+    var recipe = Recipe() { didSet { persistPreferences() } }
     private(set) var results: [SecretItem] = []
     private(set) var state: GenerationState = .idle
     private(set) var goal = 1
-    var revealed = false
+    var revealed = false { didSet { persistPreferences() } }
     var message: String?
-    var copiedID: Int?
+    var copiedIDs: Set<Int> = []
+    var security = SecuritySettings() { didSet { persistPreferences() } }
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var cancellation = GenerationCancellation()
     @ObservationIgnored private var epoch = 0
+    @ObservationIgnored private let preferences: UserDefaults?
+    private struct StoredPreferences: Codable {
+        let version: Int
+        let recipe: Recipe
+        let revealed: Bool
+        var security: SecuritySettings? = nil
+    }
+    init(preferences: UserDefaults? = nil) {
+        self.preferences = preferences
+        if let data = preferences?.data(forKey: "generation.preferences.v1"), data.count <= 16_384,
+           let stored = try? JSONDecoder().decode(StoredPreferences.self, from: data), stored.version == 1 {
+            recipe = stored.recipe.sanitized()
+            revealed = stored.revealed
+            security = stored.security?.sanitized ?? SecuritySettings()
+        }
+    }
+    static func applicationModel() -> GeneratorModel {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--uitest-ephemeral-settings") { return GeneratorModel() }
+        #endif
+        return GeneratorModel(preferences: .standard)
+    }
+    private func persistPreferences() {
+        guard let preferences,
+              let data = try? JSONEncoder().encode(StoredPreferences(version: 1, recipe: recipe.sanitized(), revealed: revealed, security: security.sanitized)) else { return }
+        preferences.set(data, forKey: "generation.preferences.v1")
+    }
     var busy: Bool { state != .idle }
     var isDigitsOnly: Bool { recipe.mode == .password && recipe.digits && !recipe.uppercase && !recipe.lowercase && !recipe.symbolsEnabled }
     var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
@@ -84,7 +136,6 @@ enum GenerationState { case idle, running, cancelling }
     func chooseMode(_ mode: RecipeMode) {
         guard !busy else { return }
         recipe.mode = mode
-        if mode == .password { recipe.lengthText = "24" }
         recipe.normalize()
     }
 
@@ -101,7 +152,7 @@ enum GenerationState { case idle, running, cancelling }
         epoch += 1
         let run = epoch
         goal = snapshot.count
-        results = []; revealed = false; copiedID = nil; message = nil; state = .running
+        results = []; copiedIDs = []; message = nil; state = .running
         task = Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let engine = PasswordEngine()
@@ -133,10 +184,10 @@ enum GenerationState { case idle, running, cancelling }
 
     func clear() {
         guard !busy else { return }
-        results = []; revealed = false; copiedID = nil
+        results = []; copiedIDs = []
     }
     func background() {
         epoch += 1; cancellation.cancel(); task?.cancel(); task = nil
-        results = []; revealed = false; copiedID = nil; message = nil; state = .idle
+        results = []; copiedIDs = []; message = nil; state = .idle
     }
 }

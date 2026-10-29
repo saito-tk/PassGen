@@ -1,0 +1,48 @@
+[
+  {
+    "name": "content_copy",
+    "classification": "official-material-symbol",
+    "family": "Outlined",
+    "source": "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/content_copy/default/24px.svg",
+    "license": "Apache-2.0",
+    "upstream_sha256": "3575c3fdb035a66097bed9a7597620e313ed1efa051eb586a7335348c3fdff35",
+    "normalization": "Equivalent affine transform: x/40, (y+960)/40. No silhouette changes.",
+    "axes": {
+      "wght": 400,
+      "FILL": 0,
+      "GRAD": 0,
+      "opsz": 24
+    },
+    "output": "static SVG and VectorDrawable; no variable axes",
+    "rtl": "do-not-mirror",
+    "target_dp": 48,
+    "glyph_dp": 24,
+    "badge_dp": 14,
+    "badge_accessibility": "decorative; parent action name includes copied status",
+    "localization": "コピー / コピー済み。もう一度コピー",
+    "checked": "2026-10-29"
+  },
+  {
+    "name": "check_circle",
+    "classification": "official-material-symbol",
+    "family": "Outlined",
+    "source": "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/check_circle/default/24px.svg",
+    "license": "Apache-2.0",
+    "upstream_sha256": "42bf0950bc12ecf7952a8c3be86e0131f225095a7dc6c824a659a13df442e373",
+    "normalization": "Equivalent affine transform: x/40, (y+960)/40. No silhouette changes.",
+    "axes": {
+      "wght": 400,
+      "FILL": 0,
+      "GRAD": 0,
+      "opsz": 24
+    },
+    "output": "static SVG and VectorDrawable; no variable axes",
+    "rtl": "do-not-mirror",
+    "target_dp": 48,
+    "glyph_dp": 24,
+    "badge_dp": 14,
+    "badge_accessibility": "decorative; parent action name includes copied status",
+    "localization": "コピー / コピー済み。もう一度コピー",
+    "checked": "2026-10-29"
+  }
+]

@@ -1,5 +1,8 @@
 package jp.passgen.app
 
+import android.content.SharedPreferences
+import androidx.core.content.edit
+import org.json.JSONObject
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,7 +16,7 @@ class SecretRow(val value: String, val bits: Double, val index: Int) {
     override fun toString() = "SecretRow([REDACTED])"
 }
 
-class PassgenModel : ViewModel() {
+class PassgenModel(private val preferences: SharedPreferences? = null) : ViewModel() {
     var mode by mutableStateOf(GenerationMode.PASSWORD)
     var lengthText by mutableStateOf("24")
     var countText by mutableStateOf("1")
@@ -36,10 +39,58 @@ class PassgenModel : ViewModel() {
     var goal by mutableIntStateOf(1); private set
     var revealed by mutableStateOf(false)
     var message by mutableStateOf<String?>(null)
-    var copiedIndex by mutableStateOf<Int?>(null)
+    var copiedIndices by mutableStateOf<Set<Int>>(emptySet())
+    var autoClearClipboard by mutableStateOf(true)
+    var clipboardSecondsText by mutableStateOf("30")
+    var clearClipboardOnBackground by mutableStateOf(true)
+    var protectCapture by mutableStateOf(true)
+    val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
+    val clipboardSummary get() = if (autoClearClipboard) "コピーは${clipboardSeconds}秒後に消去" else "コピーの時間による自動消去はオフ"
     private var job: Job? = null
     private var cancel = AtomicBoolean(false)
     private var epoch = 0L
+    init {
+        preferences?.getString("generation.preferences.v1", null)?.takeIf { it.length <= 16_384 }?.let { json ->
+            try { restorePreferences(JSONObject(json)) } catch (_: Exception) { /* Invalid non-secret settings use defaults. */ }
+        }
+        if (preferences != null) viewModelScope.launch {
+            snapshotFlow { preferencesJSON() }.collect { value -> preferences.edit { putString("generation.preferences.v1", value) } }
+        }
+    }
+    private fun preferencesJSON(): String = JSONObject().apply {
+        put("version", 1); put("mode", mode.name); put("length", length); put("count", count)
+        put("words", words.coerceIn(6, 12)); put("separator", separator.takeIf { it in listOf(" ", "-", "_", ".") } ?: " ")
+        put("uppercase", uppercase); put("lowercase", lowercase); put("digits", digits); put("symbolsEnabled", symbolsEnabled)
+        put("symbols", SymbolPolicy.recognized(symbols)); put("excludeSimilar", excludeSimilar); put("requireEach", requireEach)
+        put("noAdjacent", noAdjacent); put("revealed", revealed)
+        put("uppercaseCharacters", CharacterPolicy.canonical(uppercaseCharacters, CharacterPolicy.UPPERCASE))
+        put("lowercaseCharacters", CharacterPolicy.canonical(lowercaseCharacters, CharacterPolicy.LOWERCASE))
+        put("digitCharacters", CharacterPolicy.canonical(digitCharacters, CharacterPolicy.DIGITS))
+        put("similarExclusions", CharacterPolicy.canonical(similarExclusions, CharacterPolicy.SIMILAR))
+        put("autoClearClipboard", autoClearClipboard); put("clipboardSeconds", clipboardSeconds)
+        put("clearClipboardOnBackground", clearClipboardOnBackground); put("protectCapture", protectCapture)
+    }.toString()
+    private fun restorePreferences(json: JSONObject) {
+        if (json.optInt("version") != 1) return
+        fun text(key: String, fallback: String) = json.opt(key) as? String ?: fallback
+        fun flag(key: String, fallback: Boolean) = json.opt(key) as? Boolean ?: fallback
+        mode = GenerationMode.entries.firstOrNull { it.name == text("mode", "PASSWORD") } ?: GenerationMode.PASSWORD
+        lengthText = InputPolicy.normalizedInteger(json.opt("length")?.toString() ?: "24", 24, 4, InputPolicy.MAX_LENGTH).toString()
+        countText = InputPolicy.normalizedInteger(json.opt("count")?.toString() ?: "1", 1, 1, maxCount).toString()
+        words = json.optInt("words", 7).coerceIn(6, 12)
+        separator = text("separator", " ").takeIf { it in listOf(" ", "-", "_", ".") } ?: " "
+        uppercase = flag("uppercase", true); lowercase = flag("lowercase", true); digits = flag("digits", true)
+        symbolsEnabled = flag("symbolsEnabled", true); symbols = SymbolPolicy.recognized(text("symbols", symbols))
+        excludeSimilar = flag("excludeSimilar", true); requireEach = flag("requireEach", true); noAdjacent = flag("noAdjacent", false)
+        uppercaseCharacters = CharacterPolicy.canonical(text("uppercaseCharacters", uppercaseCharacters), CharacterPolicy.UPPERCASE)
+        lowercaseCharacters = CharacterPolicy.canonical(text("lowercaseCharacters", lowercaseCharacters), CharacterPolicy.LOWERCASE)
+        digitCharacters = CharacterPolicy.canonical(text("digitCharacters", digitCharacters), CharacterPolicy.DIGITS)
+        similarExclusions = CharacterPolicy.canonical(text("similarExclusions", similarExclusions), CharacterPolicy.SIMILAR)
+        revealed = flag("revealed", false)
+        autoClearClipboard = flag("autoClearClipboard", true)
+        clipboardSecondsText = json.optInt("clipboardSeconds", 30).coerceIn(5, 600).toString()
+        clearClipboardOnBackground = flag("clearClipboardOnBackground", true); protectCapture = flag("protectCapture", true)
+    }
     val busy get() = work != WorkState.IDLE
     val isDigitsOnly get() = mode == GenerationMode.PASSWORD && digits && !uppercase && !lowercase && !symbolsEnabled
     val length get() = InputPolicy.normalizedInteger(lengthText, 24, 4, InputPolicy.MAX_LENGTH)
@@ -57,7 +108,6 @@ class PassgenModel : ViewModel() {
     fun chooseMode(value: GenerationMode) {
         if (busy) return
         mode = value
-        if (value == GenerationMode.PASSWORD) lengthText = "24"
         normalize()
     }
     fun request() = GenerationRequest(mode, length, words, uppercase, lowercase, digits,
@@ -80,7 +130,7 @@ class PassgenModel : ViewModel() {
         cancel = token
         val run = ++epoch
         goal = target
-        results = emptyList(); revealed = false; message = null; copiedIndex = null
+        results = emptyList(); message = null; copiedIndices = emptySet()
         work = WorkState.RUNNING
         job = viewModelScope.launch {
             try {
@@ -108,10 +158,11 @@ class PassgenModel : ViewModel() {
         }
     }
 
-    fun clear() { if (!busy) { results = emptyList(); revealed = false; copiedIndex = null } }
+    fun clear() { if (!busy) { results = emptyList(); copiedIndices = emptySet() } }
     fun background() {
+        preferences?.edit { putString("generation.preferences.v1", preferencesJSON()) }
         ++epoch; cancel.set(true); job?.cancel(); job = null
-        results = emptyList(); revealed = false; copiedIndex = null; work = WorkState.IDLE; message = null
+        results = emptyList(); copiedIndices = emptySet(); work = WorkState.IDLE; message = null
     }
     override fun onCleared() { cancel.set(true) }
 }

@@ -18,7 +18,7 @@ class SecureClipboard(context: Context) {
         var pending: Runnable? = null
     }
 
-    fun copy(secret: String): Boolean {
+    fun copy(secret: String, clearAfterSeconds: Int? = 30): Boolean {
         val id = "passgen-${UUID.randomUUID()}"
         val clip = ClipData.newPlainText(id, secret)
         clip.description.extras = PersistableBundle().apply {
@@ -29,7 +29,9 @@ class SecureClipboard(context: Context) {
         catch (_: RuntimeException) { return false }
         pending?.let(handler::removeCallbacks)
         owner = id
-        pending = Runnable { clearOwned() }.also { handler.postDelayed(it, 30_000) }
+        pending = clearAfterSeconds?.let { seconds ->
+            Runnable { clearOwned() }.also { handler.postDelayed(it, seconds.coerceIn(5, 600) * 1000L) }
+        }
         return true
     }
 

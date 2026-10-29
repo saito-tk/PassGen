@@ -21,6 +21,8 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +42,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     var showResults by remember { mutableStateOf(false) }
     var showSymbols by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val density = LocalDensity.current
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -57,7 +60,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 if (model.results.isNotEmpty() || model.busy) TextButton(onClick = { showResults = true }) {
                     Text(if (model.busy) "${model.results.size}/${model.goal}件" else "結果 ${model.results.size}件")
                 }
-                TextButton(onClick = { showPrivacy = true }) { Text("安全性") }
+                TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
             }
         }, bottomBar = {
             Surface(tonalElevation = 2.dp) {
@@ -103,17 +106,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
     if (showResults) ResultSheet(model, copy, verticalFold, { showResults = false }, ::generate)
     if (showSymbols) SymbolSheet(model) { showSymbols = false }
-    if (showPrivacy) ModalBottomSheet(onDismissRequest = { showPrivacy = false }) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("安全性とプライバシー", style = MaterialTheme.typography.titleLarge)
-            Text("OSの暗号学的乱数を使用し、パスワードを保存・送信しません。背景へ移ると生成結果を破棄します。")
-            Text("コピーは機密情報として扱い、30秒後または背景移行時に消去します。他の内容へ置き換わっていた場合は消しません。")
-            Text("画面キャプチャとアプリ切替時のプレビューを保護します。侵害されたOSやコピー先アプリでの保護は保証できません。")
-            Text("エントロピーは生成候補数の目安です。サービスの安全性や解読時間を保証しません。EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0。", style = MaterialTheme.typography.bodySmall)
-            Text("出典: https://www.eff.org/dice\nライセンス: https://creativecommons.org/licenses/by/4.0/", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { showPrivacy = false }, modifier = Modifier.align(Alignment.End)) { Text("閉じる") }
-        }
-    }
+    if (showPrivacy) PrivacySheet(model, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
+    if (showGuide) SecurityGuideSheet { showGuide = false }
 }
 
 @Composable private fun Modifier.normalizeOnBlur(normalize: () -> Unit): Modifier {
@@ -233,6 +227,29 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { Text("記号一覧を貼り付け", fontSize = 13.sp) }
         }
     }
+    CategoryOverview(model)
+}
+
+@Composable private fun CategoryOverview(model: PassgenModel) {
+    Surface(modifier = Modifier.padding(top = 4.dp), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("文字種の使用状況", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            CharacterTab.entries.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { tab ->
+                        val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
+                        val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
+                        val count = selected.count { tab == CharacterTab.SYMBOLS || !model.excludeSimilar || it !in model.similarExclusions }
+                        FilterChip(selected = enabled, onClick = {
+                            when (tab) { CharacterTab.UPPER -> model.uppercase = !enabled; CharacterTab.LOWER -> model.lowercase = !enabled; CharacterTab.DIGITS -> model.digits = !enabled; CharacterTab.SYMBOLS -> model.symbolsEnabled = !enabled }
+                        }, enabled = !model.busy, modifier = Modifier.weight(1f).semantics { testTag = "category-${tab.name}" },
+                            label = { Column(Modifier.padding(vertical = 4.dp)) { Text(tab.title); Text(if (enabled) "使用中 · ${count}文字" else "未使用", style = MaterialTheme.typography.labelSmall) } },
+                            leadingIcon = { Text(if (enabled) "✓" else "−") })
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable private fun RuleCard(model: PassgenModel) {
@@ -290,7 +307,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 TextButton(onClick = model::clear, enabled = !model.busy && model.results.isNotEmpty()) { Text("消去") }
                 TextButton(onClick = dismiss) { Text("閉じる") }
             }
-            model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · コピーは30秒で消去", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (model.busy) {
                 LinearProgressIndicator(progress = { model.results.size.toFloat() / model.goal }, modifier = Modifier.fillMaxWidth())
                 Text("${model.results.size} / ${model.goal}件", style = MaterialTheme.typography.labelSmall)
@@ -303,14 +320,27 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("${row.index + 1} · ${row.value.length}文字${if (row.value.length > 100) " / 先頭100文字" else ""}", style = MaterialTheme.typography.labelSmall)
-                                Text(if (model.revealed) row.value.take(100) else "•••• •••• ••••", fontFamily = FontFamily.Monospace,
+                                Text(if (model.revealed) row.value.take(100) else SecretPresentation.MASK, fontFamily = FontFamily.Monospace,
                                     maxLines = 3, overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています" })
                             }
                             TextButton(onClick = {
-                                if (copy(row.value)) model.copiedIndex = row.index
+                                if (copy(row.value)) model.copiedIndices = model.copiedIndices + row.index
                                 else model.message = "コピーできませんでした。OSが長い値を扱えない場合があります。"
-                            }) { Text(if (model.copiedIndex == row.index) "コピー済み" else "コピー") }
+                            }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).semantics {
+                                contentDescription = if (row.index in model.copiedIndices) "コピー済み。もう一度コピー" else "コピー"
+                                testTag = "copy-${row.index}"
+                            }) {
+                                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                                    Icon(painterResource(R.drawable.ic_content_copy), null, Modifier.size(24.dp))
+                                    if (row.index in model.copiedIndices) {
+                                        Surface(Modifier.align(Alignment.TopEnd).size(14.dp), shape = androidx.compose.foundation.shape.CircleShape,
+                                            color = MaterialTheme.colorScheme.surface) {
+                                            Icon(painterResource(R.drawable.ic_check_circle), null, tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

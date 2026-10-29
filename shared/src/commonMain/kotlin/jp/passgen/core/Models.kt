@@ -2,6 +2,10 @@ package jp.passgen.core
 
 enum class GenerationMode { PASSWORD, PASSPHRASE }
 
+object SecretPresentation {
+    const val MASK = "••••••••••••"
+}
+
 /** Configuration contains no secret and may be used by either native UI. */
 class GenerationRequest(
     val mode: GenerationMode = GenerationMode.PASSWORD,
@@ -46,9 +50,9 @@ object InputPolicy {
     }
 }
 
-/** Same 30-symbol alphabet and paste behavior as the reference macOS app. */
+/** All 32 ASCII punctuation marks; preserves the reference app's literal paste behavior. */
 object SymbolPolicy {
-    const val SUPPORTED = "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><="
+    const val SUPPORTED = "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><=`\\"
     fun recognized(text: String): String = SUPPORTED.filter { it in text }
     fun applyPasted(text: String, current: String): String = recognized(text).ifEmpty { current }
 

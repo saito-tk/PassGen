@@ -8,16 +8,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.window.layout.WindowInfoTracker
 import androidx.window.layout.FoldingFeature
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private val model by viewModels<PassgenModel>()
+    private val model by viewModels<PassgenModel> {
+        viewModelFactory { initializer { PassgenModel(applicationContext.getSharedPreferences("generation.settings", MODE_PRIVATE)) } }
+    }
     private lateinit var clipboard: SecureClipboard
     private val fold = mutableStateOf<FoldingFeature?>(null)
 
@@ -35,11 +40,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        setContent { PassgenTheme { GeneratorScreen(model, fold.value, clipboard::copy) } }
+        setContent {
+            val protectCapture = model.protectCapture
+            SideEffect {
+                if (protectCapture) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            PassgenTheme {
+                GeneratorScreen(model, fold.value) { value -> clipboard.copy(value, if (model.autoClearClipboard) model.clipboardSeconds else null) }
+            }
+        }
     }
 
     override fun onStop() {
-        if (!isChangingConfigurations) { model.background(); clipboard.clearOwned() }
+        if (!isChangingConfigurations) { model.background(); if (model.clearClipboardOnBackground) clipboard.clearOwned() }
         super.onStop()
     }
 

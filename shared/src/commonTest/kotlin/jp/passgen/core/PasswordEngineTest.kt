@@ -186,8 +186,14 @@ class PasswordEngineTest {
 }
 
 class PolicyTest {
+    @Test fun resultMaskHasNoSpacingOrWordBoundaries() {
+        assertEquals("••••••••••••", SecretPresentation.MASK)
+        assertTrue(SecretPresentation.MASK.none { it.isWhitespace() })
+    }
+
     @Test fun referenceSymbolPasteBehavior() {
-        assertEquals(30, SymbolPolicy.SUPPORTED.length)
+        assertEquals(32, SymbolPolicy.SUPPORTED.length)
+        assertEquals((33..126).map { it.toChar() }.filter { !it.isLetterOrDigit() }.toSet(), SymbolPolicy.SUPPORTED.toSet())
         assertEquals("!#:", SymbolPolicy.applyPasted("使用可能: ! # !", "@"))
     }
 

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Material-aligned icon review</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px; background: #f4f5f7; color: #202124; }
+    h1 { margin-top: 0; }
+    section { margin: 28px 0; padding: 22px; background: white; border-radius: 18px; }
+    .hash { overflow-wrap: anywhere; color: #5f6368; }
+    .samples { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+    .sample { margin: 0; padding: 14px; border: 1px solid #dadce0; border-radius: 12px; min-width: 156px; }
+    .stage { display: grid; place-items: center; margin: 0 auto 10px; }
+    .stage img { display: block; color: currentColor; }
+    .light { background: #fff; color: #202124; }
+    .dark { background: #202124; color: #fff; border-color: #5f6368; }
+    .dark .stage img { filter: brightness(0) invert(1); }
+    .checker {
+      color: #202124;
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg,#e8eaed 25%,transparent 25%),
+        linear-gradient(-45deg,#e8eaed 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#e8eaed 75%),
+        linear-gradient(-45deg,transparent 75%,#e8eaed 75%);
+      background-size: 12px 12px;
+      background-position: 0 0,0 6px,6px -6px,-6px 0;
+    }
+    .grid {
+      color: #202124;
+      background-color: #fff;
+      background-image:
+        linear-gradient(#d7dce1 1px,transparent 1px),
+        linear-gradient(90deg,#d7dce1 1px,transparent 1px);
+      background-size: 8px 8px;
+    }
+    figcaption { margin-top: 8px; font-size: 12px; max-width: 190px; }
+    details { margin-top: 26px; }
+    pre { white-space: pre-wrap; }
+    .notice { padding: 12px 16px; background: #fef7e0; border-left: 4px solid #f9ab00; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #111; color: #f1f3f4; }
+      section { background: #202124; }
+      .hash { color: #bdc1c6; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Material-aligned icon review</h1>
+  <p class="notice">Review at actual size. This page and the structural linter do not certify semantic clarity or official Material compliance.</p>
+
+    <section>
+      <h2>content_copy.svg</h2>
+      <p class="hash">SHA-256: <code>e95a6f50bcbbaf5c798097514fd617713958ec2238d6d972bd37e8f0b34bf7c9</code></p>
+      <div class="samples">
+      <figure class="sample light">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>content_copy.svg · 20px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>content_copy.svg · 20px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>content_copy.svg · 20px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>content_copy.svg · 24px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>content_copy.svg · 24px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>content_copy.svg · 24px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>content_copy.svg · 40px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>content_copy.svg · 40px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>content_copy.svg · 40px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>content_copy.svg · 48px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>content_copy.svg · 48px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>content_copy.svg · 48px · checker</figcaption>
+      </figure>
+      <figure class="sample grid">
+        <div class="stage" style="width:192px;height:192px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik05LDE4IFE4LjE3NSwxOCA3LjU4NzUsMTcuNDEyNSBUNywxNiBMNyw0IFE3LDMuMTc1IDcuNTg3NSwyLjU4NzUgVDksMiBMMTgsMiBRMTguODI1LDIgMTkuNDEyNSwyLjU4NzUgVDIwLDQgTDIwLDE2IFEyMCwxNi44MjUgMTkuNDEyNSwxNy40MTI1IFQxOCwxOCBMOSwxOCBaIE05LDE2IEwxOCwxNiBMMTgsNCBMOSw0IEw5LDE2IFogTTUsMjIgUTQuMTc1LDIyIDMuNTg3NSwyMS40MTI1IFQzLDIwIEwzLDYgTDUsNiBMNSwyMCBMMTYsMjAgTDE2LDIyIEw1LDIyIFogTTksMTYgTDksNCBMOSwxNiBaIi8+PC9zdmc+Cg==" alt="" width="192" height="192">
+        </div>
+        <figcaption>content_copy.svg · 24px at 8× diagnostic · grid</figcaption>
+      </figure></div>
+    </section>
+    <section>
+      <h2>check_circle.svg</h2>
+      <p class="hash">SHA-256: <code>874d1cb67e351e13c5029a84685fc15dc065f593573faacfa9687312a34ffc9b</code></p>
+      <div class="samples">
+      <figure class="sample light">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>check_circle.svg · 20px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>check_circle.svg · 20px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:20px;height:20px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="20" height="20">
+        </div>
+        <figcaption>check_circle.svg · 20px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>check_circle.svg · 24px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>check_circle.svg · 24px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:24px;height:24px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="24" height="24">
+        </div>
+        <figcaption>check_circle.svg · 24px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>check_circle.svg · 40px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>check_circle.svg · 40px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:40px;height:40px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="40" height="40">
+        </div>
+        <figcaption>check_circle.svg · 40px · checker</figcaption>
+      </figure>
+      <figure class="sample light">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>check_circle.svg · 48px · light</figcaption>
+      </figure>
+      <figure class="sample dark">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>check_circle.svg · 48px · dark</figcaption>
+      </figure>
+      <figure class="sample checker">
+        <div class="stage" style="width:48px;height:48px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="48" height="48">
+        </div>
+        <figcaption>check_circle.svg · 48px · checker</figcaption>
+      </figure>
+      <figure class="sample grid">
+        <div class="stage" style="width:192px;height:192px">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJjdXJyZW50Q29sb3IiPjxwYXRoIGQ9Ik0xMC42LDE2LjYgTDE3LjY1LDkuNTUgTDE2LjI1LDguMTUgTDEwLjYsMTMuOCBMNy43NSwxMC45NSBMNi4zNSwxMi4zNSBMMTAuNiwxNi42IFogTTEyLDIyIFE5LjkyNSwyMiA4LjEsMjEuMjEyNSBUNC45MjUsMTkuMDc1IFEzLjU3NSwxNy43MjUgMi43ODc1LDE1LjkgVDIsMTIgUTIsOS45MjUgMi43ODc1LDguMSBUNC45MjUsNC45MjUgUTYuMjc1LDMuNTc1IDguMSwyLjc4NzUgVDEyLDIgUTE0LjA3NSwyIDE1LjksMi43ODc1IFQxOS4wNzUsNC45MjUgUTIwLjQyNSw2LjI3NSAyMS4yMTI1LDguMSBUMjIsMTIgUTIyLDE0LjA3NSAyMS4yMTI1LDE1LjkgVDE5LjA3NSwxOS4wNzUgUTE3LjcyNSwyMC40MjUgMTUuOSwyMS4yMTI1IFQxMiwyMiBaIE0xMiwyMCBRMTUuMzUsMjAgMTcuNjc1LDE3LjY3NSBUMjAsMTIgUTIwLDguNjUgMTcuNjc1LDYuMzI1IFQxMiw0IFE4LjY1LDQgNi4zMjUsNi4zMjUgVDQsMTIgUTQsMTUuMzUgNi4zMjUsMTcuNjc1IFQxMiwyMCBaIE0xMiwxMiBaIi8+PC9zdmc+Cg==" alt="" width="192" height="192">
+        </div>
+        <figcaption>check_circle.svg · 24px at 8× diagnostic · grid</figcaption>
+      </figure></div>
+    </section>
+  <details>
+    <summary>Review manifest</summary>
+    <pre>{
+  &quot;generator&quot;: &quot;build_review_page.py&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;sizes&quot;: [
+    20,
+    24,
+    40,
+    48
+  ],
+  &quot;diagnosticScale&quot;: 8,
+  &quot;files&quot;: [
+    {
+      &quot;name&quot;: &quot;content_copy.svg&quot;,
+      &quot;sha256&quot;: &quot;e95a6f50bcbbaf5c798097514fd617713958ec2238d6d972bd37e8f0b34bf7c9&quot;
+    },
+    {
+      &quot;name&quot;: &quot;check_circle.svg&quot;,
+      &quot;sha256&quot;: &quot;874d1cb67e351e13c5029a84685fc15dc065f593573faacfa9687312a34ffc9b&quot;
+    }
+  ]
+}</pre>
+  </details>
+</body>
+</html>

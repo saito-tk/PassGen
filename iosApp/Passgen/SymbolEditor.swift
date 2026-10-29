@@ -6,6 +6,7 @@ struct SymbolEditor: View {
     @Bindable var model: GeneratorModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var phase
+    @Environment(ScreenProtectionState.self) private var protection
     @State private var pasted = ""
     @State private var feedback: String?
     @State private var selection: PhotosPickerItem?
@@ -21,7 +22,7 @@ struct SymbolEditor: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
-                            Text("\(model.recipe.symbols.count) / 30種類").font(.headline)
+                            Text("\(model.recipe.symbols.count) / \(SymbolPolicy.shared.SUPPORTED.count)種類").font(.headline)
                             Spacer()
                             Menu("選択") {
                                 Button("すべて選択") { model.recipe.symbols = SymbolPolicy.shared.SUPPORTED }
@@ -51,6 +52,7 @@ struct SymbolEditor: View {
                             .lineLimit(2...5).textInputAutocapitalization(.never).autocorrectionDisabled()
                             .padding(16).background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                             .onChange(of: pasted) { _, _ in feedback = nil }
+                            .redacted(reason: (protection.isCaptured && model.security.protectCapture) ? .privacy : []).disabled((protection.isCaptured && model.security.protectCapture))
                         Text("入力内の対応記号をそのまま反映します。説明文の句読点も選択対象です。対応記号がない場合は選択を維持します。")
                             .font(.caption).foregroundStyle(.secondary)
                         Button("記号に反映") {
@@ -70,13 +72,15 @@ struct SymbolEditor: View {
                         PhotosPicker(selection: $selection, matching: .images, preferredItemEncoding: .current) {
                             Label("画像を選んで読み取る", systemImage: "photo")
                                 .frame(maxWidth: .infinity).padding(.vertical, 8)
-                        }.buttonStyle(.bordered)
+                        }.buttonStyle(.bordered).disabled((protection.isCaptured && model.security.protectCapture))
                         if loading {
                             HStack { ProgressView(); Text("端末内で読み取り中…").font(.caption) }
                             Button("読み取りを中止") { selection = nil; loading = false; analysis = nil; candidate = "" }.font(.caption)
                         }
                         if let importError { Text(importError).font(.caption).foregroundStyle(.red) }
-                        if let analysis {
+                        if (protection.isCaptured && model.security.protectCapture) {
+                            Text("画面収録中は読み取り内容を非表示にしています。").font(.caption).foregroundStyle(.secondary)
+                        } else if let analysis {
                             Text(analysis.note).font(.subheadline)
                             if !analysis.evidence.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -85,25 +89,38 @@ struct SymbolEditor: View {
                                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                                     .background(Color.passgenAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
                             }
-                            if !analysis.proposedSymbols.isEmpty {
-                                Text("記号の候補 · \(candidate.count)種類").font(.subheadline.weight(.semibold))
+                            if let data = analysis.previewData, let image = UIImage(data: data) {
+                                Image(uiImage: image).resizable().scaledToFit()
+                                    .padding(8).background(.white, in: RoundedRectangle(cornerRadius: 12))
+                                    .accessibilityLabel("元画像の記号部分。下の候補と照合してください。")
+                                    .privacySensitive()
+                            }
+                            if analysis.previewData != nil {
+                                Text("画像と照合 · \(candidate.count)種類を選択中").font(.subheadline.weight(.semibold))
+                                Text("読み落とした記号は追加し、余分な記号は解除してください。").font(.caption).foregroundStyle(.secondary)
                                 LazyVGrid(columns: columns, spacing: 8) {
-                                    ForEach(Array(analysis.proposedSymbols), id: \.self) { symbol in
+                                    ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
                                         Button {
                                             if candidate.contains(symbol) { candidate.removeAll { $0 == symbol } }
                                             else { candidate = SymbolPolicy.shared.recognized(text: candidate + String(symbol)) }
                                         } label: {
-                                            Text(String(symbol)).font(.system(.body, design: .monospaced)).frame(minWidth: 44, minHeight: 44)
-                                                .background(candidate.contains(symbol) ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
-                                        }.buttonStyle(.bordered).accessibilityAddTraits(candidate.contains(symbol) ? [.isSelected] : [])
+                                            Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
+                                                .frame(maxWidth: .infinity, minHeight: 44)
+                                                .foregroundStyle(candidate.contains(symbol) ? Color.passgenOnAccent : Color.primary)
+                                                .background(candidate.contains(symbol) ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                        }.buttonStyle(.plain).accessibilityLabel("候補 \(String(symbol))")
+                                            .accessibilityIdentifier("candidate-\(String(symbol))")
+                                            .accessibilityAddTraits(candidate.contains(symbol) ? [.isSelected] : [])
                                     }
                                 }
                                 Button("確認した候補を適用") {
                                     guard !candidate.isEmpty else { return }
                                     model.recipe.symbols = candidate
+                                    model.recipe.symbolsEnabled = true
                                     feedback = "確認した\(candidate.count)種類の記号を適用しました。"
                                     self.analysis = nil; selection = nil; candidate = ""
                                 }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(candidate.isEmpty)
+                                    .accessibilityIdentifier("apply-image-symbols")
                             }
                             DisclosureGroup("文字認識の結果を確認") {
                                 Text(analysis.recognizedText).font(.caption.monospaced()).frame(maxWidth: .infinity, alignment: .leading).privacySensitive().padding(.top, 8)

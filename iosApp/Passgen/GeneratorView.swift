@@ -1,5 +1,40 @@
 import SwiftUI
 import PassgenCore
+import UIKit
+import Observation
+
+@MainActor @Observable final class ScreenProtectionState {
+    private(set) var isCaptured = false
+    func update(_ value: Bool) { if isCaptured != value { isCaptured = value } }
+    func allowsSecret(revealed: Bool, protectCapture: Bool = true) -> Bool { revealed && !(isCaptured && protectCapture) }
+}
+
+@MainActor final class CaptureStatusView: UIView {
+    var onChange: ((Bool) -> Void)?
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        registerForTraitChanges([UITraitSceneCaptureState.self]) { (view: CaptureStatusView, _: UITraitCollection) in view.refresh() }
+        NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: UIScene.didActivateNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+    override func didMoveToWindow() { super.didMoveToWindow(); refresh() }
+    @objc func refresh() { updateTraitsIfNeeded(); onChange?(traitCollection.sceneCaptureState == .active) }
+    deinit { NotificationCenter.default.removeObserver(self) }
+}
+
+private struct CaptureStateReader: UIViewRepresentable {
+    var onChange: @MainActor (Bool) -> Void
+    func makeUIView(context: Context) -> CaptureStatusView {
+        let view = CaptureStatusView(frame: .zero)
+        view.onChange = { value in Task { @MainActor in onChange(value) } }
+        return view
+    }
+    func updateUIView(_ view: CaptureStatusView, context: Context) {
+        view.onChange = { value in Task { @MainActor in onChange(value) } }
+        view.refresh()
+    }
+}
 
 private enum CharacterGroup: String, CaseIterable, Identifiable {
     case upper, lower, digits, symbols
@@ -29,13 +64,13 @@ private enum CharacterGroup: String, CaseIterable, Identifiable {
 }
 
 struct GeneratorView: View {
-    @State private var model = GeneratorModel()
+    @State private var model = GeneratorModel.applicationModel()
     @State private var clipboard = SecureClipboard()
     @State private var showSymbols = false
     @State private var showPrivacy = false
     @State private var showResults = false
+    @State private var protection = ScreenProtectionState()
     @Environment(\.scenePhase) private var phase
-    @Environment(\.isSceneCaptured) private var captured
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -48,7 +83,7 @@ struct GeneratorView: View {
                                 VStack(spacing: 12) { modePicker; QuantityEditor(model: model); RulesEditor(model: model) }
                                     .padding(12)
                             }.frame(width: min(360, geometry.size.width * 0.42))
-                            ScrollView { CharacterEditor(model: model, showSymbols: $showSymbols).padding(12) }
+                            ScrollView { VStack(spacing: 12) { CharacterEditor(model: model, showSymbols: $showSymbols); CharacterOverview(model: model) }.padding(12) }
                         }
                     } else {
                         ScrollView {
@@ -56,6 +91,7 @@ struct GeneratorView: View {
                                 modePicker
                                 QuantityEditor(model: model)
                                 CharacterEditor(model: model, showSymbols: $showSymbols)
+                                CharacterOverview(model: model)
                                 RulesEditor(model: model)
                             }.padding(12)
                         }.scrollDismissesKeyboard(.interactively)
@@ -76,7 +112,7 @@ struct GeneratorView: View {
                 }
             }
             .sheet(isPresented: $showSymbols) { SymbolEditor(model: model).sensitiveScene() }
-            .sheet(isPresented: $showPrivacy) { PrivacyView().sensitiveScene() }
+            .sheet(isPresented: $showPrivacy) { PrivacyView(model: model).sensitiveScene() }
             .sheet(isPresented: $showResults) {
                 ResultsList(model: model, copy: copy).sensitiveScene()
                     .presentationDetents([.height(CGFloat(220 + min(model.busy ? model.goal : model.results.count, 5) * 76)), .large])
@@ -84,12 +120,14 @@ struct GeneratorView: View {
             }
             .sensitiveScene()
         }
+        .environment(protection)
+        .background { CaptureStateReader(onChange: protection.update).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
         .tint(.passgenAccent)
         .onChange(of: phase) { _, value in
-            if value != .active { model.revealed = false }
-            if value == .background { model.background(); clipboard.clearOwned() }
+            if value == .background { model.background(); if model.security.clearClipboardOnBackground { clipboard.clearOwned() } }
         }
-        .onChange(of: captured) { _, value in if value { model.revealed = false } }
+        .onChange(of: protection.isCaptured) { _, value in if value && model.security.protectCapture { clipboard.clearOwned() } }
+        .onChange(of: model.security.protectCapture) { _, value in if value && protection.isCaptured { clipboard.clearOwned() } }
     }
 
     private var modePicker: some View {
@@ -120,8 +158,8 @@ struct GeneratorView: View {
         }.padding(.horizontal, 16).padding(.vertical, 8).background(.bar)
     }
     private func copy(_ item: SecretItem) {
-        guard !captured, phase == .active else { return }
-        clipboard.copy(item.value); model.copiedID = item.id
+        guard !(protection.isCaptured && model.security.protectCapture), phase == .active else { return }
+        clipboard.copy(item.value, settings: model.security); model.copiedIDs.insert(item.id)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
@@ -235,35 +273,85 @@ private struct CharacterEditor: View {
     }
 }
 
+private struct CharacterOverview: View {
+    @Bindable var model: GeneratorModel
+    var body: some View {
+        if model.recipe.mode == .password {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("文字種の使用状況").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+                    ForEach(CharacterGroup.allCases) { item in
+                        let enabled = item.enabled(in: model.recipe)
+                        let count = item.selected(in: model.recipe).filter { item == .symbols || !model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0) }.count
+                        Button { item.setEnabled(!enabled, in: &model.recipe) } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: enabled ? "checkmark.circle.fill" : "circle").foregroundStyle(enabled ? Color.passgenAccent : Color.secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title).font(.subheadline)
+                                    Text(enabled ? "使用中 · \(count)文字" : "未使用").font(.caption2).foregroundStyle(.secondary)
+                                }.fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                            }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 8)
+                                .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+                        }.buttonStyle(.plain).accessibilityLabel("\(item.title)を使用")
+                            .accessibilityValue(enabled ? "オン、\(count)文字" : "オフ")
+                            .accessibilityAddTraits(enabled ? [.isSelected] : [])
+                            .accessibilityIdentifier("category-\(item.rawValue)")
+                    }
+                }
+            }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                .disabled(model.busy)
+        }
+    }
+}
+
+private struct RuleSwitch: View {
+    let title: String
+    @Binding var value: Bool
+    let identifier: String
+    var body: some View {
+        Toggle(isOn: $value) {
+            Text(title).fixedSize(horizontal: false, vertical: true)
+        }.toggleStyle(.switch).fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .accessibilityIdentifier(identifier)
+    }
+}
+
 private struct RulesEditor: View {
     @Bindable var model: GeneratorModel
     @State private var expanded = false
     var body: some View {
         if model.recipe.mode != .passphrase {
-            DisclosureGroup("生成ルール", isExpanded: $expanded) {
-                VStack(spacing: 12) {
-                    if model.recipe.mode == .password {
-                        Toggle("各文字種を必ず含める", isOn: $model.recipe.requireEach)
-                        Toggle("似た文字を除外", isOn: $model.recipe.excludeSimilar)
+            VStack(spacing: 8) {
+                Button { expanded.toggle() } label: {
+                    HStack { Text("生成ルール"); Spacer(); Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.caption.weight(.semibold)) }
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier("generation-rules")
+                if expanded {
+                    VStack(spacing: 8) {
+                        RuleSwitch(title: "各文字種を必ず含める", value: $model.recipe.requireEach, identifier: "rule-requireEach")
+                        RuleSwitch(title: "似た文字を除外", value: $model.recipe.excludeSimilar, identifier: "rule-excludeSimilar")
                         if model.recipe.excludeSimilar {
-                            HStack(spacing: 6) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 6)], spacing: 6) {
                                 ForEach(Array("Oo0Il1"), id: \.self) { c in
                                     let selected = model.recipe.similarExclusions.contains(c)
                                     Button {
                                         model.recipe.similarExclusions = selected ? String(model.recipe.similarExclusions.filter { $0 != c }) : model.recipe.similarExclusions + String(c)
                                     } label: {
-                                        Text(String(c)).font(.system(.body, design: .monospaced))
-                                            .frame(maxWidth: .infinity, minHeight: 44)
+                                        Text(String(c)).font(.system(.body, design: .monospaced)).frame(maxWidth: .infinity, minHeight: 44)
                                             .background(selected ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                                     }.buttonStyle(.plain).accessibilityLabel("\(String(c)) を除外").accessibilityAddTraits(selected ? [.isSelected] : [])
                                 }
                             }
                         }
-                    }
-                    Toggle("同じ文字を連続させない", isOn: $model.recipe.noAdjacent)
-                }.font(.subheadline).padding(.top, 12).disabled(model.busy)
-            }.font(.subheadline).padding(14)
+                        RuleSwitch(title: "同じ文字を連続させない", value: $model.recipe.noAdjacent, identifier: "rule-noAdjacent")
+                    }.disabled(model.busy)
+                }
+            }.font(.subheadline).padding(12)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                .accessibilityElement(children: .contain)
         }
     }
 }
@@ -272,10 +360,14 @@ struct ResultsList: View {
     @Bindable var model: GeneratorModel
     var copy: (SecretItem) -> Void
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isSceneCaptured) private var captured
+    @Environment(ScreenProtectionState.self) private var protection
     var body: some View {
         NavigationStack {
             List {
+                if protection.isCaptured && model.security.protectCapture {
+                    Label("画面収録中は結果の表示・コピーを制限します。停止すると復帰します。", systemImage: "record.circle")
+                        .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("capture-protection")
+                }
                 if model.busy {
                     Section {
                         ProgressView(value: Double(model.results.count), total: Double(model.goal))
@@ -289,24 +381,30 @@ struct ResultsList: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字" : "")").font(.caption2).foregroundStyle(.secondary)
-                                Text(model.revealed && !captured ? String(item.value.prefix(100)) : "•••• •••• ••••")
+                                Text(protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture) ? String(item.value.prefix(100)) : SecretPresentation.shared.MASK)
                                     .font(.system(.body, design: .monospaced)).lineLimit(3).privacySensitive()
                                     .accessibilityLabel("パスワード。読み上げを保護しています").accessibilityIdentifier("secret")
                             }.frame(maxWidth: .infinity, alignment: .leading)
                             Button { copy(item) } label: {
-                                Image(systemName: model.copiedID == item.id ? "checkmark" : "doc.on.doc").frame(width: 36, height: 36)
-                            }.buttonStyle(.bordered).disabled(captured).accessibilityLabel(model.copiedID == item.id ? "コピー済み" : "コピー")
+                                Image(systemName: "doc.on.doc").frame(width: 36, height: 36)
+                                    .overlay(alignment: .topTrailing) {
+                                        if model.copiedIDs.contains(item.id) {
+                                            Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold))
+                                                .foregroundStyle(Color.passgenAccent).background(.background, in: Circle())
+                                        }
+                                    }
+                            }.buttonStyle(.bordered).disabled(protection.isCaptured && model.security.protectCapture).accessibilityLabel(model.copiedIDs.contains(item.id) ? "コピー済み。もう一度コピー" : "コピー").accessibilityIdentifier("copy-\(item.id)")
                         }.padding(.vertical, 3)
                     }
                 } footer: {
-                    if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · コピーは30秒で消去") }
+                    if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · \(model.security.clipboardSummary)") }
                 }
             }
             .navigationTitle("生成結果 \(model.results.count)件").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { model.revealed.toggle() } label: { Image(systemName: model.revealed ? "eye.slash" : "eye") }
-                        .disabled(captured || model.results.isEmpty).accessibilityLabel(model.revealed ? "隠す" : "表示")
+                        .disabled((protection.isCaptured && model.security.protectCapture) || model.results.isEmpty).accessibilityLabel(model.revealed ? "隠す" : "表示")
                 }
                 ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
                 ToolbarItem(placement: .bottomBar) {
@@ -322,50 +420,105 @@ struct ResultsList: View {
     }
 }
 struct PrivacyView: View {
+    @Bindable var model: GeneratorModel
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Label("データの扱い", systemImage: "lock.shield").font(.headline)
-                    Text("OSの暗号学的乱数から生成します。通信・アカウント・パスワードの保存はありません。")
-                    Text("生成結果は背景へ移ると消去します。コピーはこの端末に限定し、30秒で期限切れになります。")
+                    NavigationLink { SecurityGuideView() } label: {
+                        Label("パスワードとアカウントを守る", systemImage: "book.closed")
+                    }.accessibilityIdentifier("security-guide")
+                } footer: { Text("長さ・使い回し・管理アプリ・2要素認証・パスキーを知る") }
+                Section {
+                    Toggle("ほかのApple端末へのコピーを許可", isOn: $model.security.allowUniversalClipboard)
+                        .accessibilityIdentifier("allow-universal-clipboard")
+                } header: { Label("コピーの共有", systemImage: "doc.on.clipboard") }
+                footer: { Text(model.security.allowUniversalClipboard ? "ユニバーサルクリップボードで共有します。Apple AccountやHandoffなどOS側の設定も必要です。コピー先の消去までは制御できません。" : "この端末のクリップボードだけにコピーします。") }
+                Section {
+                    Toggle("時間が経ったら自動消去", isOn: $model.security.autoClearClipboard)
+                    if model.security.autoClearClipboard {
+                        Stepper("\(model.security.clipboardSeconds)秒後", value: $model.security.clipboardSeconds, in: 5...600, step: 5)
+                    }
+                    Toggle("背景へ移るとコピーを消去", isOn: $model.security.clearClipboardOnBackground)
+                } header: { Label("コピーの消去", systemImage: "timer") }
+                footer: { Text("他の内容に置き換わったコピーは消しません。他アプリや別端末へ移って貼り付けたい場合は、背景での消去をオフにしてください。設定変更は次のコピーから適用します。✓はこの一覧でコピーした印です。") }
+                Section {
+                    Toggle("画面収録中は結果を保護", isOn: $model.security.protectCapture)
+                        .accessibilityIdentifier("protect-capture")
+                    Text("iOSでは静止画のスクリーンショットを禁止できません。収録の停止後は選んでいた表示状態に戻ります。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } header: { Label("画面の保護", systemImage: "record.circle") }
+                footer: { Text("オフにすると収録や画面共有に結果・読み取り画像が映ります。非アクティブ時の覆いと背景移行時の結果消去は常に有効です。") }
+                Section("データの扱い") {
+                    Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。パスワード・画像・読み取りテキストは保存しません。")
+                    Text("画像はVisionと、対応するiOS 27端末ではApple Intelligenceの画像モデルで端末内処理します。読み取り候補は画像と照合して適用してください。iCloud写真を選ぶ際はOSが元画像を取得することがあります。")
+                    Text("侵害されたOS・コピー先のアプリ・外部カメラへの保護や、メモリの完全消去は保証できません。")
                 }
-                Section("画面の保護") {
-                    Text("非アクティブ時の画面を覆い、画面収録中は秘密を表示しません。iOSの静止画スクリーンショットを完全に禁止することはできません。")
-                    Text("侵害されたOSやコピー先のアプリ、外部カメラの撮影に対する保護は保証できません。")
-                }
-                Section("画像からの記号取り込み") {
-                    Text("選択した画像をVisionで文字認識します。iOS 27以降の対応端末ではApple Intelligenceの端末内モデルで候補を抽出します。画像とテキストは保存・送信しません。")
-                    Text("写真にiCloud上の項目を選んだ場合、写真アプリが元画像を取得することがあります。アプリのOCR・モデル処理は端末内です。")
-                    Text("読み取りは誤ることがあります。記号の根拠を確認してから適用してください。")
-                }
-                Section("生成方式") {
-                    Text("パスワードとEFFの7,776語パスフレーズから選べます。数字のみの生成はパスワードの文字種設定で行います。数字は同じ長さの英数字より候補が少なくなります。")
-                    Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0")
-                    Link("EFFの単語リストについて", destination: URL(string: "https://www.eff.org/dice")!)
+                Section("生成方式と出典") {
+                    Text("OSの暗号学的乱数を使います。パスワードは選んだ文字から、パスフレーズはEFFの7,776語から無作為に生成します。推定エントロピーは候補数の目安です。")
+                    Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0").font(.footnote)
+                    Link("EFFの単語リスト", destination: URL(string: "https://www.eff.org/dice")!)
                     Link("CC BY 4.0 ライセンス", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
                 }
-            }.navigationTitle("プライバシー").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle("設定と安全性").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } } }
         }
     }
 }
 
+struct SecurityGuideView: View {
+    var body: some View {
+        List {
+            Section {
+                Label("長く、無作為に、サービスごとに", systemImage: "key.horizontal")
+                    .font(.headline).foregroundStyle(Color.passgenAccent)
+                Text("このアプリは生成専用です。作った値はサービスに登録し、管理アプリへ保存してください。サービスの条件を満たす長さでも、安全性が同じとは限りません。")
+            }
+            Section("強いパスワードの特徴") {
+                Text("長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。このアプリの初期値は24文字です。")
+                Text("パスフレーズは無作為な単語を複数組み合わせます。好きな名言や歌詞をそのまま使う方法とは異なります。数字だけの短い値は候補が少なく、英数字の長いパスワードより推測されやすくなります。")
+                Link("NISTのパスワードガイド（英語）", destination: URL(string: "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")!)
+            }
+            Section("弱くなりやすい例") {
+                Text("名前・誕生日・辞書の単語だけ・連番・キーボード順・有名なフレーズは避けましょう。末尾に1や!を足すだけ、aを@に置き換えるだけでは推測を防ぎにくいです。")
+                Text("使い回すと、ひとつのサービスから漏れた値で別のアカウントにも侵入されます。サービスごとに別の値を生成しましょう。長いパスワードでも、偽サイトへの入力やマルウェアは防げません。")
+            }
+            Section("管理アプリへ保存する") {
+                Text("Appleの「パスワード」、Google パスワード マネージャー、1Passwordなどは、サービスごとのパスワードやパスキーを保存・自動入力できます。使う端末や復旧方法、同期範囲を確認して選びましょう。")
+                Text("管理アプリ自体のアカウントも保護し、復旧用情報を安全な場所へ保存してください。生成結果をスクリーンショットや平文のメモで残すことは避けましょう。")
+                Link("Apple「パスワード」の使い方", destination: URL(string: "https://support.apple.com/ja-jp/120758")!)
+                Link("Google パスワード マネージャー", destination: URL(string: "https://support.google.com/accounts/answer/6208650?hl=ja")!)
+                Link("1Passwordの使い方", destination: URL(string: "https://support.1password.com/category/getting-started/")!)
+            }
+            Section("2要素認証を追加する") {
+                Text("パスワードに加え、認証アプリの一時コードやセキュリティキーなど、別の要素で本人を確認します。対応サービスのセキュリティ設定から有効にし、復旧コードも保管しましょう。")
+                Text("SMSにも保護効果はありますが、認証アプリやセキュリティキーが選べるなら検討してください。一時コードも偽サイトに入力すると盗まれます。")
+                Link("Googleの2段階認証ガイド", destination: URL(string: "https://support.google.com/accounts/answer/185839?hl=ja")!)
+            }
+            Section("パスキーを使う") {
+                Text("パスキーは、端末や管理アプリに保存した暗号鍵でサインインする仕組みです。対応するサイト・アプリで作成し、Face IDや指紋、端末のロック解除などで使用します。")
+                Text("登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。")
+                Link("Appleのパスキー解説", destination: URL(string: "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")!)
+                Link("Googleのパスキーガイド", destination: URL(string: "https://support.google.com/accounts/answer/13548313?hl=ja")!)
+            }
+        }.navigationTitle("アカウントを守る").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 private struct SensitiveScene: ViewModifier {
     @Environment(\.scenePhase) private var phase
-    @Environment(\.isSceneCaptured) private var captured
     func body(content: Content) -> some View {
         content.overlay {
-            if phase != .active || captured {
+            if phase != .active {
                 ZStack {
                     Color(uiColor: .systemBackground).ignoresSafeArea()
                     VStack(spacing: 16) {
                         Image(systemName: "lock.shield").font(.largeTitle).foregroundStyle(Color.passgenAccent)
                         Text("Passgen").font(.title2.weight(.semibold))
-                        Text(captured ? "画面収録中は秘密を保護しています" : "秘密を保護しています").font(.caption).foregroundStyle(.secondary)
+                        Text("秘密を保護しています").font(.caption).foregroundStyle(.secondary)
                     }
-                }.transition(.identity).accessibilityElement(children: .combine)
+                }.transition(.identity).accessibilityElement(children: .combine).allowsHitTesting(false)
             }
         }
     }

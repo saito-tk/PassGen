@@ -1,0 +1,53 @@
+{
+  "validator": "lint_material_svg.py",
+  "version": "1.0.0",
+  "reports": [
+    {
+      "file": "docs/design/icons/content_copy.svg",
+      "errors": 0,
+      "warnings": 0,
+      "issues": [],
+      "metadata": {
+        "validatorVersion": "1.0.0",
+        "canvas": 24.0,
+        "style": "outlined",
+        "drawableElements": 1,
+        "approximateCommandCount": 34,
+        "conservativeBounds": [
+          3.0,
+          2.0,
+          20.000000000000004,
+          22.0
+        ],
+        "boundsSpace": "render-coordinate",
+        "note": "Structural lint only; not a Material compliance certification."
+      }
+    },
+    {
+      "file": "docs/design/icons/check_circle.svg",
+      "errors": 0,
+      "warnings": 0,
+      "issues": [],
+      "metadata": {
+        "validatorVersion": "1.0.0",
+        "canvas": 24.0,
+        "style": "outlined",
+        "drawableElements": 1,
+        "approximateCommandCount": 38,
+        "conservativeBounds": [
+          2.0,
+          2.0,
+          22.0,
+          22.0
+        ],
+        "boundsSpace": "render-coordinate",
+        "note": "Structural lint only; not a Material compliance certification."
+      }
+    }
+  ],
+  "summary": {
+    "files": 2,
+    "errors": 0,
+    "warnings": 0
+  }
+}

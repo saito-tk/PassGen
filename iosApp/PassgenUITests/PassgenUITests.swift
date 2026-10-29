@@ -192,29 +192,54 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["保存方法と使い回し"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["平文（ひらぶん）"].exists)
         XCTAssertTrue(app.staticTexts["ハッシュ化"].exists)
+        let plaintext = app.descendants(matching: .any).matching(identifier: "storage-plaintext-value").firstMatch
+        XCTAssertTrue(plaintext.label.contains("Demo!7_mikan-Sora"))
+        let hash = app.descendants(matching: .any).matching(identifier: "storage-hash-value").firstMatch
+        let surface = app.scrollViews["storage-lesson-scroll"]
+        let top = max(surface.frame.minY, app.segmentedControls.element(boundBy: 0).frame.maxY) + 8
+        let bottom = min(surface.frame.maxY, app.frame.maxY) - 12
+        for _ in 0..<12 {
+            if hash.frame.minY >= top && hash.frame.maxY <= bottom { break }
+            let delta = max(-180, min(180, hash.frame.midY - (top + bottom) / 2))
+            let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -delta)))
+        }
+        XCTAssertGreaterThanOrEqual(hash.frame.minY, top)
+        XCTAssertLessThanOrEqual(hash.frame.maxY, bottom)
+
+        XCTAssertNotNil(hash.label.range(of: #"\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}"#, options: .regularExpression))
+        XCTAssertFalse(hash.label.contains("…")); XCTAssertFalse(hash.label.contains("..."))
+        XCTAssertGreaterThanOrEqual(hash.frame.minX, surface.frame.minX)
+        XCTAssertLessThanOrEqual(hash.frame.maxX, surface.frame.maxX)
+        let fullHash = XCTAttachment(screenshot: app.screenshot()); fullHash.name = "Full database hash example"; fullHash.lifetime = .keepAlways; add(fullHash)
         let details = app.buttons["ハッシュ化なら、漏れても安全？"]
-        for _ in 0..<5 { if details.isHittable { break }; app.swipeUp() }
+        for _ in 0..<14 { if details.isHittable { break }; app.swipeUp() }
         details.tap(); XCTAssertTrue(app.staticTexts["hash-guessing"].exists)
         XCTAssertEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
         let saltChoice = app.segmentedControls.buttons["個別ソルト"]
-        for _ in 0..<5 { if saltChoice.isHittable { break }; app.swipeUp() }
-        let unsalted = XCTAttachment(screenshot: app.screenshot()); unsalted.name = "Same hash without salt"; unsalted.lifetime = .keepAlways; add(unsalted)
+        for _ in 0..<10 { if saltChoice.isHittable { break }; app.swipeUp() }
+        let common = XCTAttachment(screenshot: app.screenshot()); common.name = "Same hash with shared salt"; common.lifetime = .keepAlways; add(common)
         saltChoice.tap()
         XCTAssertNotEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
         XCTAssertEqual(app.staticTexts["salt-outcome"].label, "同じパスワードでも、保存値は異なります。")
         let outcome = app.staticTexts["salt-outcome"]
         for _ in 0..<3 { if outcome.isHittable { break }; app.swipeUp() }
         let salted = XCTAttachment(screenshot: app.screenshot()); salted.name = "Different hashes with unique salts"; salted.lifetime = .keepAlways; add(salted)
-        let noSalt = app.segmentedControls.buttons["ソルトなし"]
-        for _ in 0..<3 { if noSalt.isHittable { break }; app.swipeDown() }
-        noSalt.tap()
+        let commonSalt = app.segmentedControls.buttons["共通ソルト"]
+        for _ in 0..<3 { if commonSalt.isHittable { break }; app.swipeDown() }
+        commonSalt.tap()
         XCTAssertEqual(app.staticTexts["salt-hash-a"].label, app.staticTexts["salt-hash-b"].label)
         let stored = XCTAttachment(screenshot: app.screenshot()); stored.name = "Hash storage explanation"; stored.lifetime = .keepAlways; add(stored)
         app.segmentedControls.buttons["使い回し"].tap()
         XCTAssertEqual(app.staticTexts["reuse-outcome"].label, "同じ値が別のサービスでも試されます。")
+        for key in ["reuse-password-a", "reuse-password-b", "reuse-password-c"] {
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: key).firstMatch.label.contains("Demo!7_mikan-Sora"))
+        }
         let same = XCTAttachment(screenshot: app.screenshot()); same.name = "Reused password scenario"; same.lifetime = .keepAlways; add(same)
         app.segmentedControls.buttons["別々にする"].tap()
         XCTAssertEqual(app.staticTexts["reuse-outcome"].label, "Aで漏れた値は、BとCのパスワードには一致しません。")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "reuse-password-b").firstMatch.label.contains("Example#4_kiwi-Nami"))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "reuse-password-c").firstMatch.label.contains("Sample+9_momo-Tsuki"))
         let unique = XCTAttachment(screenshot: app.screenshot()); unique.name = "Unique passwords scenario"; unique.lifetime = .keepAlways; add(unique)
     }
 

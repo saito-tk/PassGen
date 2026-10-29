@@ -569,6 +569,7 @@ private struct PasswordStorageLessonView: View {
     @State private var topic = 0
     @State private var reuse = true
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSize
     var body: some View {
         VStack(spacing: 0) {
             Picker("図解のテーマ", selection: $topic) {
@@ -587,14 +588,15 @@ private struct PasswordStorageLessonView: View {
                         }.font(.subheadline).padding(.top, 10)
                     }.font(.caption.weight(.semibold))
                 }.padding(16).frame(maxWidth: 760).frame(maxWidth: .infinity)
-            }.id(topic)
+            }.id(topic).accessibilityIdentifier("storage-lesson-scroll")
         }.background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("保存方法と使い回し").navigationBarTitleDisplayMode(.inline)
     }
     private var storageContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("預けた先の保存方法で、漏れた後の危険が変わる。").font(.title2.weight(.semibold))
-            Text("本来は適切にハッシュ化して保存すべきですが、平文で保存する実装が残っている可能性もあります。利用者には外から確かめにくい部分です。").font(.subheadline)
+            Text("サーバーのDBには、何が残る？").font(.title2.weight(.semibold))
+            Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、平文で保存されている可能性も外からは確かめにくい部分です。").font(.subheadline)
+            Text("説明用の架空の例です。実際のパスワードには使わないでください。").font(.caption).foregroundStyle(.secondary)
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     StorageComparisonCard(hashed: false).frame(minWidth: 280)
@@ -604,15 +606,15 @@ private struct PasswordStorageLessonView: View {
             }
             LessonPanel(title: "ログイン時は、計算して照合") {
                 Text("入力したパスワードを、保存時と同じソルト・設定で計算します。保存済みの値と一致するかで確認します。").font(.subheadline)
-                if typeSize.isAccessibilitySize {
-                    LessonValueBox(caption: "今回の入力から計算", value: "今回の計算結果")
+                if typeSize.isAccessibilitySize || horizontalSize != .regular {
+                    LessonValueBox(caption: "今回の入力から計算", value: StorageLessonExamples.shared.COMMON_SALT_HASH)
                     Text("照合").font(.headline).foregroundStyle(Color.passgenAccent)
-                    LessonValueBox(caption: "サービスに保存済み", value: "保存済みの値")
+                    LessonValueBox(caption: "サーバーのDBに保存済み", value: StorageLessonExamples.shared.COMMON_SALT_HASH)
                 } else {
                     HStack(spacing: 8) {
-                        LessonValueBox(caption: "今回の入力から計算", value: "今回の計算結果")
+                        LessonValueBox(caption: "今回の入力から計算", value: StorageLessonExamples.shared.COMMON_SALT_HASH)
                         Text("照合").font(.caption.weight(.semibold))
-                        LessonValueBox(caption: "サービスに保存済み", value: "保存済みの値")
+                        LessonValueBox(caption: "サーバーのDBに保存済み", value: StorageLessonExamples.shared.COMMON_SALT_HASH)
                     }
                 }
             }
@@ -634,19 +636,20 @@ private struct PasswordStorageLessonView: View {
     private var reuseContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("1か所で知られた値が、ほかの入口にも使われる。").font(.title2.weight(.semibold))
+            Text("説明用の架空の例です。実際のパスワードには使わないでください。").font(.caption).foregroundStyle(.secondary)
             Picker("パスワードの使い方", selection: $reuse) {
                 Text("同じ値を使う").tag(true); Text("別々にする").tag(false)
             }.pickerStyle(.segmented).accessibilityIdentifier("reuse-choice")
             LessonPanel(title: "1  ショップAでパスワードが判明") {
                 Text("平文の漏えいや、漏れたハッシュからの推測などで知られた場合の図です。").font(.caption).foregroundStyle(.secondary)
-                LessonValueBox(caption: "攻撃者に知られた値", value: "Aのパスワード")
+                LessonValueBox(caption: "攻撃者に知られた値", value: StorageLessonExamples.shared.PASSWORD, identifier: "reuse-password-a")
             }
             LessonBranch().stroke(reuse ? Color.red.opacity(0.6) : Color.passgenAccent.opacity(0.6), lineWidth: 1.5)
                 .frame(height: 24).accessibilityHidden(true)
             if typeSize.isAccessibilitySize {
-                VStack(spacing: 10) { ReuseTargetCard(name: "メールB", reuse: reuse); ReuseTargetCard(name: "SNS C", reuse: reuse) }
+                VStack(spacing: 10) { ReuseTargetCard(name: "メールB", password: reuse ? StorageLessonExamples.shared.PASSWORD : StorageLessonExamples.shared.PASSWORD_B, reuse: reuse, identifier: "reuse-password-b"); ReuseTargetCard(name: "SNS C", password: reuse ? StorageLessonExamples.shared.PASSWORD : StorageLessonExamples.shared.PASSWORD_C, reuse: reuse, identifier: "reuse-password-c") }
             } else {
-                HStack(alignment: .top, spacing: 10) { ReuseTargetCard(name: "メールB", reuse: reuse); ReuseTargetCard(name: "SNS C", reuse: reuse) }
+                HStack(alignment: .top, spacing: 10) { ReuseTargetCard(name: "メールB", password: reuse ? StorageLessonExamples.shared.PASSWORD : StorageLessonExamples.shared.PASSWORD_B, reuse: reuse, identifier: "reuse-password-b"); ReuseTargetCard(name: "SNS C", password: reuse ? StorageLessonExamples.shared.PASSWORD : StorageLessonExamples.shared.PASSWORD_C, reuse: reuse, identifier: "reuse-password-c") }
             }
             Text(reuse ? "同じ値が別のサービスでも試されます。" : "Aで漏れた値は、BとCのパスワードには一致しません。")
                 .font(.headline).foregroundStyle(reuse ? Color.red : Color.passgenAccent).accessibilityIdentifier("reuse-outcome")
@@ -680,13 +683,15 @@ private struct LessonPanel<Content: View>: View {
 private struct LessonValueBox: View {
     let caption: String
     let value: String
+    var identifier = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(caption).font(.caption2).foregroundStyle(.secondary)
             Text(value).font(.system(.subheadline, design: .monospaced, weight: .medium))
+                .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
         }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .combine).accessibilityIdentifier(identifier)
     }
 }
 
@@ -695,11 +700,11 @@ private struct StorageComparisonCard: View {
     var body: some View {
         LessonPanel(title: hashed ? "ハッシュ化" : "平文（ひらぶん）") {
             Text(hashed ? "照合に使う値へ変換して保存" : "そのまま読める形で保存").font(.subheadline)
-            LessonValueBox(caption: "入力", value: "入力した文字列")
+            LessonValueBox(caption: "利用者が入力したパスワード", value: StorageLessonExamples.shared.PASSWORD)
             Text(hashed ? "↓ 一方向の計算" : "↓ そのまま保存").font(.caption.weight(.semibold))
                 .foregroundStyle(hashed ? Color.passgenAccent : Color.red).frame(maxWidth: .infinity)
-            LessonValueBox(caption: "サービス内に保存", value: hashed ? "a7f0…9c2e" : "入力した文字列")
-            Text(hashed ? "値の表示は模式図です。元の文字列へ読み戻すための仕組みではありません。" : "保存先を見られると、パスワードもそのまま読まれます。")
+            LessonValueBox(caption: "サーバーのDBに保存される値", value: hashed ? StorageLessonExamples.shared.COMMON_SALT_HASH : StorageLessonExamples.shared.PASSWORD, identifier: hashed ? "storage-hash-value" : "storage-plaintext-value")
+            Text(hashed ? "Argon2idで計算した保存形式の一例です。方式・設定・ソルトも含まれます。" : "保存先を見られると、パスワードもそのまま読まれます。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -710,23 +715,24 @@ private struct SaltComparisonView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("同じパスワードを使う2人").font(.subheadline.weight(.semibold))
-            Text("同じ方式・設定で計算する模式図です。表示する値は実際のハッシュではありません。").font(.caption).foregroundStyle(.secondary)
+            Text("同じArgon2idの設定と架空のパスワードで、ソルトだけを変えて計算した例です。").font(.caption).foregroundStyle(.secondary)
+            LessonValueBox(caption: "2人が入力したパスワード", value: StorageLessonExamples.shared.PASSWORD)
             Picker("ソルトの比較", selection: $salted) {
-                Text("ソルトなし").tag(false); Text("個別ソルト").tag(true)
+                Text("共通ソルト").tag(false); Text("個別ソルト").tag(true)
             }.pickerStyle(.segmented)
-            account("利用者A", salted ? "A専用のソルト" : "ソルトなし", salted ? "b31a…81d0" : "a7f0…9c2e", "salt-hash-a")
-            account("利用者B", salted ? "B専用のソルト" : "ソルトなし", salted ? "f82c…04a9" : "a7f0…9c2e", "salt-hash-b")
+            account("利用者A", salted ? "A専用のソルト" : "共通のソルト", salted ? StorageLessonExamples.shared.INDIVIDUAL_SALT_HASH_A : StorageLessonExamples.shared.COMMON_SALT_HASH, "salt-hash-a")
+            account("利用者B", salted ? "B専用のソルト" : "共通のソルト", salted ? StorageLessonExamples.shared.INDIVIDUAL_SALT_HASH_B : StorageLessonExamples.shared.COMMON_SALT_HASH, "salt-hash-b")
             Text(salted ? "同じパスワードでも、保存値は異なります。" : "保存値の一致が、同じパスワードの手掛かりに。")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Color.passgenAccent).accessibilityIdentifier("salt-outcome")
             Text(salted ? "利用者ごとに異なるランダムな「ソルト」を加えると、保存値の単純な一致比較を防げます。ソルトは通常ハッシュと一緒に保存され、秘密にする値ではありません。"
-                 : "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトを全員で使い回す場合も、同じ方式・設定なら同じ問題が残ります。")
+                 : "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトがない場合や全員で同じソルトを使う場合は、同じ方式・設定でこの問題が起こります。")
                 .font(.subheadline)
         }.padding(.vertical, 8)
     }
     private func account(_ name: String, _ salt: String, _ hash: String, _ identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(name) · \(salt)").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-            Text(hash).font(.system(.body, design: .monospaced)).accessibilityIdentifier(identifier)
+            Text(hash).font(.system(.body, design: .monospaced)).lineLimit(nil).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
         }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
     }
@@ -734,17 +740,19 @@ private struct SaltComparisonView: View {
 
 private struct ReuseTargetCard: View {
     let name: String
+    let password: String
     let reuse: Bool
+    let identifier: String
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(name).font(.subheadline.weight(.semibold))
-            Text(reuse ? "Aと同じパスワード" : "Aとは別のパスワード").font(.caption)
+            Text(password).font(.system(.caption, design: .monospaced)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
             Text(reuse ? "侵入を試される" : "漏れた値は不一致").font(.caption.weight(.semibold))
                 .foregroundStyle(reuse ? Color.red : Color.passgenAccent)
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(reuse ? Color.red.opacity(0.4) : Color.passgenAccent.opacity(0.4)))
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .combine).accessibilityIdentifier(identifier)
     }
 }
 

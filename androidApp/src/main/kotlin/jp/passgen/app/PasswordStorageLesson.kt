@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.layout.FoldingFeature
+import jp.passgen.core.StorageLessonExamples
 
 /** Illustrations only: no user password is requested, processed, stored, or displayed. */
 @Composable fun PasswordStorageLessonSheet(fold: FoldingFeature?, back: () -> Unit) {
@@ -42,8 +43,9 @@ import androidx.window.layout.FoldingFeature
             key(topic) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (topic == 0) {
-                        Text("預けた先の保存方法で、漏れた後の危険が変わる。", style = MaterialTheme.typography.headlineSmall)
-                        Text("本来は適切にハッシュ化して保存すべきですが、平文で保存する実装が残っている可能性もあります。利用者には外から確かめにくい部分です。", style = MaterialTheme.typography.bodyMedium)
+                        Text("サーバーのDBには、何が残る？", style = MaterialTheme.typography.headlineSmall)
+                        Text("DB（データベース）はサービス側の保存場所です。適切にハッシュ化すべきですが、平文で保存されている可能性も外からは確かめにくい部分です。", style = MaterialTheme.typography.bodyMedium)
+                        Text("説明用の架空の例です。実際のパスワードには使わないでください。", style = MaterialTheme.typography.bodySmall)
                         BoxWithConstraints {
                             if (maxWidth >= 560.dp && density.fontScale < 2f) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -55,10 +57,20 @@ import androidx.window.layout.FoldingFeature
                         }
                         LessonPanel("ログイン時は、計算して照合") {
                             Text("入力したパスワードを、保存時と同じソルト・設定で計算します。保存済みの値と一致するかで確認します。", style = MaterialTheme.typography.bodyMedium)
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ValueBox("今回の入力から計算", "今回の計算結果", Modifier.weight(1f))
-                                Text("照合", style = MaterialTheme.typography.labelMedium)
-                                ValueBox("サービスに保存済み", "保存済みの値", Modifier.weight(1f))
+                            BoxWithConstraints {
+                                if (maxWidth < 560.dp || density.fontScale >= 1.5f) {
+                                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ValueBox("今回の入力から計算", StorageLessonExamples.COMMON_SALT_HASH, Modifier.fillMaxWidth())
+                                        Text("照合", Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.labelMedium)
+                                        ValueBox("サーバーのDBに保存済み", StorageLessonExamples.COMMON_SALT_HASH, Modifier.fillMaxWidth())
+                                    }
+                                } else {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ValueBox("今回の入力から計算", StorageLessonExamples.COMMON_SALT_HASH, Modifier.weight(1f))
+                                        Text("照合", style = MaterialTheme.typography.labelMedium)
+                                        ValueBox("サーバーのDBに保存済み", StorageLessonExamples.COMMON_SALT_HASH, Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
                         Text("HTTPSの鍵マークは通信の保護です。サービス内での保存方法までは示しません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -66,6 +78,7 @@ import androidx.window.layout.FoldingFeature
                         Button({ topic = 1 }, Modifier.fillMaxWidth()) { Text("使い回しで何が起きる？") }
                     } else {
                         Text("1か所で知られた値が、ほかの入口にも使われる。", style = MaterialTheme.typography.headlineSmall)
+                        Text("説明用の架空の例です。実際のパスワードには使わないでください。", style = MaterialTheme.typography.bodySmall)
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                             listOf(true to "同じ値を使う", false to "別々にする").forEachIndexed { index, (same, title) ->
                                 SegmentedButton(reuse == same, { reuse = same }, shape = SegmentedButtonDefaults.itemShape(index, 2),
@@ -74,7 +87,7 @@ import androidx.window.layout.FoldingFeature
                         }
                         LessonPanel("1  ショップAでパスワードが判明") {
                             Text("平文の漏えいや、漏れたハッシュからの推測などで知られた場合の図です。", style = MaterialTheme.typography.bodySmall)
-                            ValueBox("攻撃者に知られた値", "Aのパスワード", Modifier.fillMaxWidth())
+                            ValueBox("攻撃者に知られた値", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth(), "reuse-password-a")
                         }
                         val tint = if (reuse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         Canvas(Modifier.fillMaxWidth().height(26.dp).clearAndSetSemantics { }) {
@@ -83,9 +96,9 @@ import androidx.window.layout.FoldingFeature
                             for (x in listOf(.25f, .75f)) drawLine(tint, Offset(size.width * x, size.height / 2), Offset(size.width * x, size.height), 2.dp.toPx())
                         }
                         if (density.fontScale >= 2f) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ReuseTarget("メールB", reuse, Modifier.fillMaxWidth()); ReuseTarget("SNS C", reuse, Modifier.fillMaxWidth())
+                            ReuseTarget("メールB", if (reuse) StorageLessonExamples.PASSWORD else StorageLessonExamples.PASSWORD_B, reuse, "reuse-password-b", Modifier.fillMaxWidth()); ReuseTarget("SNS C", if (reuse) StorageLessonExamples.PASSWORD else StorageLessonExamples.PASSWORD_C, reuse, "reuse-password-c", Modifier.fillMaxWidth())
                         } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ReuseTarget("メールB", reuse, Modifier.weight(1f)); ReuseTarget("SNS C", reuse, Modifier.weight(1f))
+                            ReuseTarget("メールB", if (reuse) StorageLessonExamples.PASSWORD else StorageLessonExamples.PASSWORD_B, reuse, "reuse-password-b", Modifier.weight(1f)); ReuseTarget("SNS C", if (reuse) StorageLessonExamples.PASSWORD else StorageLessonExamples.PASSWORD_C, reuse, "reuse-password-c", Modifier.weight(1f))
                         }
                         Text(if (reuse) "同じ値が別のサービスでも試されます。" else "Aで漏れた値は、BとCのパスワードには一致しません。",
                             style = MaterialTheme.typography.titleMedium, color = tint, modifier = Modifier.semantics { testTag = "reuse-outcome" })
@@ -122,19 +135,19 @@ import androidx.window.layout.FoldingFeature
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (hashed) "ハッシュ化" else "平文（ひらぶん）", style = MaterialTheme.typography.titleMedium, color = color)
             Text(if (hashed) "照合に使う値へ変換して保存" else "そのまま読める形で保存", style = MaterialTheme.typography.bodyMedium)
-            ValueBox("入力", "入力した文字列", Modifier.fillMaxWidth())
+            ValueBox("利用者が入力したパスワード", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth())
             Text(if (hashed) "↓ 一方向の計算" else "↓ そのまま保存", Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.labelMedium, color = color)
-            ValueBox("サービス内に保存", if (hashed) "a7f0…9c2e" else "入力した文字列", Modifier.fillMaxWidth())
-            Text(if (hashed) "値の表示は模式図です。元の文字列へ読み戻すための仕組みではありません。" else "保存先を見られると、パスワードもそのまま読まれます。", style = MaterialTheme.typography.bodySmall)
+            ValueBox("サーバーのDBに保存される値", if (hashed) StorageLessonExamples.COMMON_SALT_HASH else StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth(), if (hashed) "storage-hash-value" else "storage-plaintext-value")
+            Text(if (hashed) "Argon2idで計算した保存形式の一例です。方式・設定・ソルトも含まれます。" else "保存先を見られると、パスワードもそのまま読まれます。", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
-@Composable private fun ValueBox(caption: String, value: String, modifier: Modifier) {
+@Composable private fun ValueBox(caption: String, value: String, modifier: Modifier, tag: String = "") {
     Surface(modifier, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
+            Text(value, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, softWrap = true, modifier = Modifier.semantics { testTag = tag })
         }
     }
 }
@@ -163,20 +176,21 @@ import androidx.window.layout.FoldingFeature
 @Composable private fun SaltComparison() {
     var salted by remember { mutableStateOf(false) }
     Text("同じパスワードを使う2人", style = MaterialTheme.typography.titleSmall)
-    Text("同じ方式・設定で計算する模式図です。表示する値は実際のハッシュではありません。", style = MaterialTheme.typography.bodySmall)
+    Text("同じArgon2idの設定と架空のパスワードで、ソルトだけを変えて計算した例です。", style = MaterialTheme.typography.bodySmall)
+    ValueBox("2人が入力したパスワード", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth())
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        listOf(false to "ソルトなし", true to "個別ソルト").forEachIndexed { index, (selected, title) ->
+        listOf(false to "共通ソルト", true to "個別ソルト").forEachIndexed { index, (selected, title) ->
             SegmentedButton(salted == selected, { salted = selected }, shape = SegmentedButtonDefaults.itemShape(index, 2),
-                modifier = Modifier.fillMaxHeight().semantics { testTag = if (selected) "salt-unique" else "salt-none" }) { Text(title) }
+                modifier = Modifier.fillMaxHeight().semantics { testTag = if (selected) "salt-unique" else "salt-common" }) { Text(title) }
         }
     }
-    SaltAccount("利用者A", if (salted) "A専用のソルト" else "ソルトなし", if (salted) "b31a…81d0" else "a7f0…9c2e", "salt-hash-a")
-    SaltAccount("利用者B", if (salted) "B専用のソルト" else "ソルトなし", if (salted) "f82c…04a9" else "a7f0…9c2e", "salt-hash-b")
+    SaltAccount("利用者A", if (salted) "A専用のソルト" else "共通のソルト", if (salted) StorageLessonExamples.INDIVIDUAL_SALT_HASH_A else StorageLessonExamples.COMMON_SALT_HASH, "salt-hash-a")
+    SaltAccount("利用者B", if (salted) "B専用のソルト" else "共通のソルト", if (salted) StorageLessonExamples.INDIVIDUAL_SALT_HASH_B else StorageLessonExamples.COMMON_SALT_HASH, "salt-hash-b")
     Text(if (salted) "同じパスワードでも、保存値は異なります。" else "保存値の一致が、同じパスワードの手掛かりに。",
         style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.semantics { testTag = "salt-outcome" })
     Text(if (salted) "利用者ごとに異なるランダムな「ソルト」を加えると、保存値の単純な一致比較を防げます。ソルトは通常ハッシュと一緒に保存され、秘密にする値ではありません。"
-        else "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトを全員で使い回す場合も、同じ方式・設定なら同じ問題が残ります。", style = MaterialTheme.typography.bodyMedium)
+        else "一人のパスワードが判明すると、同じ保存値を持つほかの人のパスワードも推測できます。ソルトがない場合や全員で同じソルトを使う場合は、同じ方式・設定でこの問題が起こります。", style = MaterialTheme.typography.bodyMedium)
 }
 
 @Composable private fun SaltAccount(name: String, salt: String, hash: String, tag: String) {
@@ -188,12 +202,12 @@ import androidx.window.layout.FoldingFeature
     }
 }
 
-@Composable private fun ReuseTarget(name: String, reuse: Boolean, modifier: Modifier) {
+@Composable private fun ReuseTarget(name: String, password: String, reuse: Boolean, tag: String, modifier: Modifier) {
     val tint = if (reuse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     Surface(modifier, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, tint.copy(alpha = .5f))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(name, style = MaterialTheme.typography.titleSmall)
-            Text(if (reuse) "Aと同じパスワード" else "Aとは別のパスワード", style = MaterialTheme.typography.bodySmall)
+            Text(password, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, modifier = Modifier.semantics { testTag = tag })
             Text(if (reuse) "侵入を試される" else "漏れた値は不一致", style = MaterialTheme.typography.labelLarge, color = tint)
         }
     }

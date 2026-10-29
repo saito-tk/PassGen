@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.Before
 import org.junit.After
 import java.io.File
+import jp.passgen.core.StorageLessonExamples
 
 class GeneratorUiTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
@@ -159,26 +160,36 @@ class GeneratorUiTest {
         rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
         rule.onNodeWithTag("password-storage-guide").performClick()
         rule.onNodeWithText("平文（ひらぶん）").assertExists()
+        rule.onNodeWithTag("storage-plaintext-value").performScrollTo().assertTextEquals(StorageLessonExamples.PASSWORD)
+        saveGuideScreenshot("storage-plaintext.png")
+        rule.onNodeWithTag("storage-hash-value").performScrollTo().assertTextEquals(StorageLessonExamples.COMMON_SALT_HASH)
+        rule.onNodeWithText("Argon2idで計算した保存形式の一例です。方式・設定・ソルトも含まれます。").performScrollTo()
+        saveGuideScreenshot("storage-full-hash.png")
         rule.onNodeWithTag("hash-details").performScrollTo().performClick()
         rule.onNodeWithTag("hash-guessing").assertExists()
-        rule.onNodeWithTag("salt-hash-a").assertTextEquals("a7f0…9c2e")
-        rule.onNodeWithTag("salt-hash-b").assertTextEquals("a7f0…9c2e")
+        rule.onNodeWithTag("salt-hash-a").assertTextEquals(StorageLessonExamples.COMMON_SALT_HASH)
+        rule.onNodeWithTag("salt-hash-b").assertTextEquals(StorageLessonExamples.COMMON_SALT_HASH)
         rule.onNodeWithTag("salt-outcome").performScrollTo().assertTextEquals("保存値の一致が、同じパスワードの手掛かりに。")
-        saveGuideScreenshot("salt-none.png")
+        saveGuideScreenshot("salt-common.png")
         rule.onNodeWithTag("salt-unique").performScrollTo().performClick()
-        rule.onNodeWithTag("salt-hash-a").assertTextEquals("b31a…81d0")
-        rule.onNodeWithTag("salt-hash-b").assertTextEquals("f82c…04a9")
+        rule.onNodeWithTag("salt-hash-a").assertTextEquals(StorageLessonExamples.INDIVIDUAL_SALT_HASH_A)
+        rule.onNodeWithTag("salt-hash-b").assertTextEquals(StorageLessonExamples.INDIVIDUAL_SALT_HASH_B)
         rule.onNodeWithTag("salt-outcome").performScrollTo().assertTextEquals("同じパスワードでも、保存値は異なります。")
         saveGuideScreenshot("salt-unique.png")
-        rule.onNodeWithTag("salt-none").performScrollTo().performClick()
-        rule.onNodeWithTag("salt-hash-b").assertTextEquals("a7f0…9c2e")
+        rule.onNodeWithTag("salt-common").performScrollTo().performClick()
+        rule.onNodeWithTag("salt-hash-b").assertTextEquals(StorageLessonExamples.COMMON_SALT_HASH)
         rule.onNodeWithTag("storage-topic-1").performClick()
         rule.onNodeWithTag("reuse-outcome").assertTextEquals("同じ値が別のサービスでも試されます。")
         rule.onNodeWithTag("reuse-outcome").performScrollTo()
+        for (tag in listOf("reuse-password-a", "reuse-password-b", "reuse-password-c")) {
+            rule.onNodeWithTag(tag).assertTextEquals(StorageLessonExamples.PASSWORD)
+        }
         saveGuideScreenshot("storage-reuse.png")
         rule.onNodeWithTag("reuse-unique").performScrollTo().performClick()
         rule.onNodeWithTag("reuse-outcome").assertTextEquals("Aで漏れた値は、BとCのパスワードには一致しません。")
         rule.onNodeWithTag("reuse-outcome").performScrollTo()
+        rule.onNodeWithTag("reuse-password-b").assertTextEquals(StorageLessonExamples.PASSWORD_B)
+        rule.onNodeWithTag("reuse-password-c").assertTextEquals(StorageLessonExamples.PASSWORD_C)
         saveGuideScreenshot("storage-unique.png")
         rule.onNodeWithTag("storage-back").performClick()
         rule.onNodeWithText("アカウントを守る").assertExists()

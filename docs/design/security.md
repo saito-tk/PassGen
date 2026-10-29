@@ -79,3 +79,11 @@ Google / JetBrains / Appleの保守されている標準・公式ライブラリ
 - OWASP MFA（方式ごとの特徴とフィッシング）: https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
 
 ガイドはサービスの保存方式や認証方式を検査しない。模式図に本物のパスワードを入力させず、生成結果・設定値を教材へ渡さない。アプリから外部リンクを明示操作で開く以外に、教材の通信は行わない。秘密の質問の例は推奨として扱わない。
+
+
+### 教材の具体値（タスク20）
+
+- 平文・使い回しの例は公開の架空値のみで、生成エンジンの入力やユーザーの資格情報を使わない。アプリ内ではハッシュ計算を行わず、固定の共通教材データを表示する。
+- ハッシュ例はArgon2idのPHC保存形式全文（バージョン・計算設定・16バイトのソルト・32バイトの計算結果を含む）を表示する。架空の同じ入力、同じメモリ/反復/並列設定で、共通ソルト・個別ソルトの違いを比較する。Argon2はソルトが必要なので、無ソルトのArgon2形式を創作しない。
+- Node.js標準のArgon2idでオフライン計算し、RFC 9106のベクトルと3つの例を開発用スクリプトで検証する。モバイルアプリの依存ライブラリは追加しない。設定例はOWASPの最小構成（m=19456 KiB, t=2, p=1）に合わせる。例示の値を利用者のパスワードとして推奨しない。
+- 参考: [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)、[RFC 9106 §5.3](https://www.rfc-editor.org/rfc/rfc9106.html#section-5.3)、[Node.js Argon2](https://nodejs.org/api/crypto.html#cryptoargon2syncalgorithm-parameters)。

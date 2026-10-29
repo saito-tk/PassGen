@@ -5725,6 +5725,91 @@ final class SymbolEvidenceTests: XCTestCase {
 
 }
 
+final class SymbolRulePatternTests: XCTestCase {
+    @MainActor private func image(_ lines: [String]) throws -> Data {
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2100, height: 540), format: format).image { context in
+            UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: 2100, height: 540))
+            ("パスワードの条件 / Password requirements" as NSString).draw(at: CGPoint(x: 36, y: 24), withAttributes: [.font: UIFont.systemFont(ofSize: 34), .foregroundColor: UIColor.black])
+            for (index, line) in lines.enumerated() {
+                (line as NSString).draw(at: CGPoint(x: 36, y: 110 + index * 95), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 46, weight: .medium), .foregroundColor: UIColor.black])
+            }
+        }
+        return try XCTUnwrap(image.pngData())
+    }
+    @MainActor func testPrintedPrefixesSuffixesAndQuotedValuesDoNotAddFormatting() async throws {
+        let examples: [([String], String)] = [
+            (["使用可能な記号: '!', '@', '#'"], "!@#"),
+            (["使える記号は「!@#」です。"], "!@#"),
+            (["使用可能な記号（!@#）"], "!@#"),
+            (["Special characters: ! @ #"], "!@#"),
+            (["Special characters(ASCII): ! # %"], "!#%"),
+            (["使用可能な記号", "ハイフン（-）", "アンダースコア（_）"], "-_")
+        ]
+        for (lines, expected) in examples {
+            let result = try await ScreenshotImporter.analyze(image(lines), useModel: false)
+            let context = lines.joined() + "\n" + result.recognizedText
+            if #available(iOS 27, *) {
+                XCTAssertNotNil(result.previewData, context)
+                XCTAssertEqual(Set(result.proposedSymbols), Set(expected), context)
+            } else {
+                // Vision 18 confuses @ with ② and quote delimiters with 1.
+                // Uncertain syntax must decline safely rather than import its formatting.
+                XCTAssertTrue(Set(result.proposedSymbols).isSubset(of: Set(expected)), context)
+                if result.previewData == nil {
+                    XCTAssertTrue(result.proposedSymbols.isEmpty, context)
+                    XCTAssertFalse(result.note.isEmpty, context)
+                } else { XCTAssertFalse(result.proposedSymbols.isEmpty, context) }
+            }
+        }
+    }
+    @MainActor func testUnquotedVariantsRetainPixelsForReviewAndModelCorrection() async throws {
+        for text in ["使用可能な記号: ! @ #", "! @ # の記号が使用できます", "記号: -_"] {
+            let result = try await ScreenshotImporter.analyze(image([text]), useModel: false)
+            XCTAssertNotNil(result.previewData, result.recognizedText)
+            XCTAssertFalse(result.proposedSymbols.isEmpty, result.recognizedText)
+        }
+    }
+    @MainActor func testImageModelCorrectsUnquotedVariantsWhenAvailable() async throws {
+        guard #available(iOS 27, *), SystemLanguageModel.default.availability == .available else { throw XCTSkip("On-device image model unavailable") }
+        for (text, expected) in [("使用可能な記号: ! @ #", "!@#"), ("! @ # の記号が使用できます", "!@#"), ("記号: -_", "-_"),
+            ("使用可能な記号: '!', '@', '#'", "!@#"), ("使える記号は「!@#」です。", "!@#"), ("使用可能な記号（!@#）", "!@#")] {
+            let result = try await ScreenshotImporter.analyze(image([text]))
+            guard result.note.contains("OCRと端末内の画像モデルの候補") else { throw XCTSkip("Image inference unavailable") }
+            XCTAssertEqual(Set(result.proposedSymbols), Set(expected), text + " " + result.proposedSymbols)
+        }
+    }
+    @MainActor func testForbiddenConditionalRangeAndExampleScreensDoNotGuessAnAllowlist() async throws {
+        for lines in [["使用不可の記号: < > #"], ["使用可能な記号: ! @ # ただし # は不可"], ["使用可能な記号: regex [!-~]"], ["記号の入力例: Password!1"]] {
+            let result = try await ScreenshotImporter.analyze(image(lines), useModel: false)
+            XCTAssertTrue(result.proposedSymbols.isEmpty, lines.joined() + "\n" + result.recognizedText)
+            XCTAssertNil(result.previewData)
+        }
+    }
+    func testExplicitValueLimitsExcludeFormattingEvenWhenRereadOrModelSeesIt() throws {
+        let text = "使用可能な記号: '!', '@', '#'"
+        let label = OCRLayoutLine(text: text, bounds: CGRect(x: 0.1, y: 0.6, width: 0.8, height: 0.025))
+        let values = ["!", "@", "#"].enumerated().map { index, symbol in
+            OCRLayoutLine(text: symbol, bounds: CGRect(x: 0.4 + Double(index) * 0.1, y: 0.6, width: 0.04, height: 0.025), permissionLabelBounds: label.bounds, literalSymbols: symbol)
+        }
+        let region = try XCTUnwrap(SymbolPermissionLocator.region(for: label, in: [label] + values))
+        XCTAssertEqual(Set(try XCTUnwrap(region.rowVocabularies[0])), Set("!@#"))
+        XCTAssertFalse(region.rowVocabularies[0]!.contains("'")); XCTAssertFalse(region.rowVocabularies[0]!.contains(","))
+    }
+    func testTableAliasesAndShortLiteralHeadingsRemainScoped() throws {
+        func line(_ text: String, _ x: CGFloat, _ y: CGFloat, _ width: CGFloat = 0.15) -> OCRLayoutLine {
+            OCRLayoutLine(text: text, bounds: CGRect(x: x, y: y, width: width, height: 0.025))
+        }
+        let layout = [line("パスワードに使用できる文字は次のとおりです。", 0.02, 0.8, 0.9),
+            line("英小文字", 0.02, 0.7), line("abcdefgh", 0.25, 0.7, 0.4),
+            line("英大文字", 0.02, 0.64), line("ABCDEFGH", 0.25, 0.64, 0.4),
+            line("特殊文字", 0.02, 0.58), line("!@#", 0.25, 0.58, 0.3)]
+        XCTAssertEqual(SymbolTableLocator.regions(in: layout).first?.primary, ["!@#"])
+        XCTAssertTrue(SymbolEvidenceValidator.accepts("記号: -_", source: .labelledList))
+        XCTAssertFalse(SymbolEvidenceValidator.accepts("使用不可の記号: -_", source: .labelledList))
+    }
+}
+
 final class SymbolPermissionLayoutTests: XCTestCase {
     private func line(_ text: String, _ x: CGFloat, _ y: CGFloat, _ width: CGFloat = 0.3, _ height: CGFloat = 0.025) -> OCRLayoutLine {
         OCRLayoutLine(text: text, bounds: CGRect(x: x, y: y, width: width, height: height))
@@ -5772,6 +5857,12 @@ final class SymbolPermissionLayoutTests: XCTestCase {
         XCTAssertEqual(SymbolPermissionLocator.region(for: label, in: [label, upper, prose, lower])?.primary, [upper.text])
         XCTAssertEqual(SymbolPermissionLocator.region(for: label, in: [label, upper, line("[]{}~", 0.1, 0.2)])?.primary, [upper.text])
         XCTAssertNil(SymbolPermissionLocator.region(for: label, in: [label, line("別の説明文", 0.62, 0.6), lower]))
+    }
+    func testAdjacentExceptionIsNotDiscardedAfterTheSymbolRows() {
+        let label = OCRLayoutLine(text: "使用可能な記号", bounds: CGRect(x: 0.1, y: 0.7, width: 0.7, height: 0.03))
+        let value = OCRLayoutLine(text: "!@#", bounds: CGRect(x: 0.1, y: 0.65, width: 0.3, height: 0.03))
+        let exception = OCRLayoutLine(text: "ただし # は使用不可", bounds: CGRect(x: 0.1, y: 0.6, width: 0.7, height: 0.03))
+        XCTAssertNil(SymbolPermissionLocator.region(for: label, in: [label, value, exception]))
     }
     func testRestrictionsExamplesURLsAndUnboundedInputAreRejected() {
         for text in ["使用不可 !@#$%&", "except!@#$%&*", "example!@#$%&*", "https://a.b/?!#$%&", "a+b@x.io?!#$%", "追加の説明です。!", "--------"] {

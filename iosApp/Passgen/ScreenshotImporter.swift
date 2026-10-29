@@ -92,21 +92,12 @@ enum ScreenshotImportError: LocalizedError {
 }
 
 /** Evidence is scoped to a rule, table cell, or literal list; never unrelated page footers. */
-enum SymbolEvidenceSource: Sendable { case permissionStatement, characterTable, symbolList }
+enum SymbolEvidenceSource: Sendable { case permissionStatement, characterTable, symbolList, labelledList }
 
 enum SymbolEvidenceValidator {
-    private static func hasNegative(_ text: String) -> Bool {
-        let negative = ["禁止", "不可", "できません", "できない", "使えません", "使えない", "ありません", "notallowed", "notpermitted", "notsupported", "cannot", "can't", "mustnot", "donot", "don't", "disallowed", "unsupported", "forbidden", "prohibited", "except", "以外", "除く"]
-        return negative.contains { text.contains($0) }
-    }
-    static func isPermission(_ evidence: String) -> Bool {
-        let text = evidence.lowercased().replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
-        guard !hasNegative(text) else { return false }
-        return ["使用可能", "利用可能", "使える", "使用できる", "使用できます", "利用できます", "allowed", "supported", "permitted", "canuse"].contains { text.contains($0) }
-    }
-    static func hasRestriction(_ evidence: String) -> Bool {
-        hasNegative(evidence.lowercased().filter { !$0.isWhitespace })
-    }
+    private static func hasNegative(_ text: String) -> Bool { SymbolRuleSyntax.shared.hasRestriction(text: text) }
+    static func isPermission(_ evidence: String) -> Bool { SymbolRuleSyntax.shared.isPermission(text: evidence) }
+    static func hasRestriction(_ evidence: String) -> Bool { SymbolRuleSyntax.shared.hasRestriction(text: evidence) }
     static func isSymbolList(_ text: String) -> Bool {
         let compact = narrowWidth(text).filter { !$0.isWhitespace }
         let symbols = compact.filter { SymbolPolicy.shared.SUPPORTED.contains($0) }
@@ -116,8 +107,8 @@ enum SymbolEvidenceValidator {
         let text = evidence.lowercased().replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
         guard !hasNegative(text), text.contains("パスワード") || text.contains("password") else { return false }
         guard evidence.count <= 1000 else { return false }
-        let type = ["文字種", "文字の種類", "charactertypes", "characters"].contains { text.contains($0) }
-        let definition = ["組み合わせ", "構成", "使用可能", "利用可能", "使える", "consist", "composed", "following", "allowed", "supported"].contains { text.contains($0) }
+        let type = ["文字種", "文字の種類", "使用できる文字", "使用可能な文字", "使える文字", "charactertypes", "characters"].contains { text.contains($0) }
+        let definition = ["組み合わせ", "構成", "使用可能", "利用可能", "使える", "使用できる", "使用できます", "利用できる", "利用できます", "consist", "composed", "following", "allowed", "supported"].contains { text.contains($0) }
         return type && definition
     }
     static func accepts(_ evidence: String, source: SymbolEvidenceSource) -> Bool {
@@ -125,6 +116,7 @@ enum SymbolEvidenceValidator {
         case .permissionStatement: isPermission(evidence)
         case .characterTable: isCharacterTableDescription(evidence)
         case .symbolList: isSymbolList(evidence)
+        case .labelledList: SymbolRuleSyntax.shared.isLiteralHeading(text: evidence)
         }
     }
     static func candidate(symbols: String, evidence: String, fullText: String, explicit: Bool) -> String {
@@ -156,40 +148,60 @@ struct OCRLayoutLine: Sendable {
     // Some Vision revisions report the entire observation for a substring.
     // Preserve the known inline relationship even when those boxes overlap.
     var permissionLabelBounds: CGRect? = nil
+    var literalSymbols: String? = nil
+    var modelVocabulary: String? = nil
 }
 
 struct SymbolTableRegion: Sendable {
     let bounds: CGRect
     let evidence: String
     let primary: [String]
+    var candidateVocabulary: String? = nil
+}
+
+private func literalVocabulary(_ lines: [OCRLayoutLine]) -> String? {
+    guard lines.allSatisfy({ $0.literalSymbols != nil }) else { return nil }
+    let observed = lines.compactMap(\.literalSymbols).joined()
+    let masks = lines.compactMap(\.modelVocabulary)
+    guard !masks.isEmpty else { return SymbolPolicy.shared.recognized(text: observed) }
+    return String(SymbolPolicy.shared.SUPPORTED.filter { symbol in observed.contains(symbol) || masks.allSatisfy { $0.contains(symbol) } })
 }
 
 /// Locate a password character-set table, not a keyboard/typing-example table.
 /// Coordinates are Vision's normalized, bottom-left-origin rectangles.
 enum SymbolTableLocator {
-    static let labels = ["小文字", "大文字", "数字", "記号", "lowercase", "uppercase", "digits", "symbols"]
+    static let labels = ["記号（半角）", "特殊文字（半角）", "数字（半角）", "小文字（半角）", "大文字（半角）", "symbols (ASCII)", "special characters (ASCII)", "半角英小文字", "半角英大文字", "英小文字", "英大文字", "小文字", "大文字", "数字", "特殊文字", "記号類", "記号", "lowercase letters", "uppercase letters", "lower case", "upper case", "lowercase", "uppercase", "digits", "numbers", "special characters", "symbols", "symbol"].sorted { $0.count > $1.count }
     private static func label(_ line: OCRLayoutLine) -> String {
-        line.text.lowercased().filter { !$0.isWhitespace && $0 != ":" && $0 != "：" }
+        let key = line.text.lowercased().filter { !$0.isWhitespace && $0 != ":" && $0 != "：" }
+            .replacingOccurrences(of: "（半角）", with: "").replacingOccurrences(of: "(半角)", with: "")
+            .replacingOccurrences(of: "(ascii)", with: "").replacingOccurrences(of: "（ascii）", with: "")
+        switch key {
+        case "半角英小文字", "英小文字", "小文字", "lowercase", "lowercaseletters": return "lower"
+        case "半角英大文字", "英大文字", "大文字", "uppercase", "uppercaseletters": return "upper"
+        case "数字", "digits", "numbers": return "digits"
+        case "記号", "記号類", "特殊文字", "symbol", "symbols", "specialcharacters": return "symbols"
+        default: return key
+        }
     }
     private static func sameRow(_ a: CGRect, _ b: CGRect) -> Bool {
         min(a.maxY, b.maxY) - max(a.minY, b.minY) >= min(a.height, b.height) * 0.45
     }
     private static func values(rightOf line: OCRLayoutLine, in lines: [OCRLayoutLine]) -> [OCRLayoutLine] {
-        lines.filter { $0.bounds.minX >= line.bounds.maxX - 0.005 && sameRow($0.bounds, line.bounds) }
+        lines.filter { $0.permissionLabelBounds == line.bounds || ($0.bounds.minX >= line.bounds.maxX - 0.005 && sameRow($0.bounds, line.bounds)) }
             .sorted { $0.bounds.minX < $1.bounds.minX }
     }
     static func regions(in lines: [OCRLayoutLine]) -> [SymbolTableRegion] {
         var result: [SymbolTableRegion] = []
-        for symbolLabel in lines where ["記号", "symbols"].contains(label(symbolLabel)) {
+        for symbolLabel in lines where label(symbolLabel) == "symbols" {
             let values = values(rightOf: symbolLabel, in: lines)
-            let payload = values.map(\.text).joined()
+            let payload = values.map { $0.literalSymbols ?? $0.text }.joined()
             guard !values.isEmpty, ScreenshotImporter.isSymbolPayload(payload) else { continue }
             let firstColumn = values[0].bounds.minX
             var kinds: Set<String> = []
             var top = symbolLabel.bounds.maxY
             for other in lines {
                 let kind = label(other)
-                guard ["小文字", "大文字", "数字", "lowercase", "uppercase", "digits"].contains(kind),
+                guard ["lower", "upper", "digits"].contains(kind),
                       abs(other.bounds.midX - symbolLabel.bounds.midX) < 0.045,
                       other.bounds.midY > symbolLabel.bounds.midY,
                       other.bounds.midY - symbolLabel.bounds.midY < max(0.23, symbolLabel.bounds.height * 12) else { continue }
@@ -199,8 +211,8 @@ enum SymbolTableLocator {
                 let alphabet: String
                 let category: String
                 switch kind {
-                case "小文字", "lowercase": alphabet = "abcdefghijklmnopqrstuvwxyz"; category = "lower"
-                case "大文字", "uppercase": alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; category = "upper"
+                case "lower": alphabet = "abcdefghijklmnopqrstuvwxyz"; category = "lower"
+                case "upper": alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; category = "upper"
                 default: alphabet = "0123456789"; category = "digits"
                 }
                 guard Set(text).count >= 4, text.allSatisfy({ alphabet.contains($0) }) else { continue }
@@ -221,7 +233,8 @@ enum SymbolTableLocator {
             let bounds = values.dropFirst().reduce(values[0].bounds) { $0.union($1.bounds) }
             result.append(SymbolTableRegion(bounds: bounds,
                 evidence: context + "\n" + symbolLabel.text + "\n" + values.map(\.text).joined(separator: " "),
-                primary: values.map(\.text)))
+                primary: values.map { $0.literalSymbols ?? $0.text },
+                candidateVocabulary: literalVocabulary(values)))
         }
         return result
     }
@@ -234,11 +247,14 @@ enum SymbolPermissionLocator {
     struct Region {
         let rowBounds: [CGRect]
         let primary: [String]
+        let rowPrimary: [[String]]
+        let rowVocabularies: [String?]
     }
     static func isGlyphRow(_ text: String) -> Bool {
         let compact = SymbolEvidenceValidator.narrowWidth(text).filter { !$0.isWhitespace }
         let lower = compact.lowercased()
         guard !compact.isEmpty, compact.count <= 96,
+              SymbolRuleSyntax.shared.itemReviewReason(text: text) == nil,
               !SymbolEvidenceValidator.hasRestriction(compact),
               !lower.contains("://"), !lower.contains("www."),
               !["例", "入力", "名称", "example", "keyboard"].contains(where: { lower.contains($0) }) else { return false }
@@ -263,7 +279,7 @@ enum SymbolPermissionLocator {
     }
     static func region(for label: OCRLayoutLine, in lines: [OCRLayoutLine]) -> Region? {
         guard lines.count <= 512, label.bounds.height >= 0.001,
-              SymbolEvidenceValidator.isPermission(label.text) else { return nil }
+              SymbolEvidenceValidator.isPermission(label.text) || SymbolRuleSyntax.shared.isLiteralHeading(text: label.text) else { return nil }
         let left = label.bounds.minX - 0.015
         var used = Set<Int>()
         var selected: [[Int]] = []
@@ -279,7 +295,7 @@ enum SymbolPermissionLocator {
             for index in inline {
                 let line = lines[index]
                 guard line.bounds.minX - edge < max(0.045, label.bounds.height * 3) else { break }
-                guard isGlyphRow(line.text) else { return nil }
+                guard line.literalSymbols != nil || isGlyphRow(line.text) else { return nil }
                 row.append(index); edge = max(edge, line.bounds.maxX)
             }
             if !row.isEmpty {
@@ -299,15 +315,22 @@ enum SymbolPermissionLocator {
             guard previous.minY - next.maxY < max(0.025, max(previous.height, next.height) * 1.8) else { break }
             let row = below.filter { sameRow(lines[$0].bounds, next) }
                 .sorted { lines[$0].bounds.minX < lines[$1].bounds.minX }
+            // An adjacent exception changes the rule; do not accept the earlier
+            // rows as a complete allowlist and silently discard that condition.
+            if row.contains(where: { SymbolEvidenceValidator.hasRestriction(lines[$0].text) || SymbolRuleSyntax.shared.itemReviewReason(text: lines[$0].text) != nil }) { return nil }
             // Do not skip prose to find a later, unrelated punctuation block.
-            guard !row.isEmpty, row.allSatisfy({ isGlyphRow(lines[$0].text) }) else { break }
+            guard !row.isEmpty, row.allSatisfy({ lines[$0].literalSymbols != nil || isGlyphRow(lines[$0].text) }) else { break }
             selected.append(row); used.formUnion(row)
             previous = row.dropFirst().reduce(lines[row[0]].bounds) { $0.union(lines[$1].bounds) }
         }
         guard !selected.isEmpty else { return nil }
         return Region(rowBounds: selected.map { row in
             row.dropFirst().reduce(lines[row[0]].bounds) { $0.union(lines[$1].bounds) }
-        }, primary: selected.flatMap { $0.map { lines[$0].text } })
+        }, primary: selected.flatMap { $0.map { lines[$0].literalSymbols ?? lines[$0].text } },
+            rowPrimary: selected.map { $0.map { lines[$0].literalSymbols ?? lines[$0].text } },
+            rowVocabularies: selected.map { row in
+                literalVocabulary(row.map { lines[$0] })
+            })
     }
 }
 
@@ -379,7 +402,8 @@ enum SymbolListLocator {
                 let definition = context[start...].map(\.text).joined()
                 if (definition.contains("文字種") || definition.lowercased().contains("characters")) && SymbolEvidenceValidator.hasRestriction(definition) { return nil }
             }
-            return SymbolTableRegion(bounds: bounds, evidence: text, primary: group.map(\.text))
+            return SymbolTableRegion(bounds: bounds, evidence: text, primary: group.map { $0.literalSymbols ?? $0.text },
+                candidateVocabulary: literalVocabulary(group))
         }
     }
 }
@@ -392,13 +416,20 @@ private struct SymbolListExtraction {
     var symbols: String
 }
 
+private struct OCRModelImage: Sendable {
+    let image: CGImage
+    let candidateVocabulary: String?
+    let row: Int
+}
 private struct OCRDocument: Sendable {
     let text: String
     let permission: String
     let symbols: String
     let preview: CGImage?
-    var modelImages: [CGImage] = []
+    var modelImages: [OCRModelImage] = []
     var source: SymbolEvidenceSource = .permissionStatement
+    var reviewReason: String? = nil
+    var rowCandidates: [String] = []
 }
 
 enum ScreenshotImporter {
@@ -416,11 +447,13 @@ enum ScreenshotImporter {
         try Task.checkCancellation()
         var candidate = document.symbols
         var usedModel = false
+        var visualRows: [Int: String] = [:]
         var attemptedModel = false
         if #available(iOS 27, *), useModel, document.preview != nil,
            SymbolEvidenceValidator.accepts(document.permission, source: document.source), SystemLanguageModel.default.availability == .available {
             attemptedModel = true
-            for image in document.modelImages {
+            for input in document.modelImages {
+                let image = input.image
                 do {
                     // Explicitly on device. Neither a cloud model nor tools are configured.
                     let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: """
@@ -433,6 +466,7 @@ enum ScreenshotImporter {
                     A permission sentence may remain beside the first symbol row. Ignore that prose and transcribe the punctuation beside it.
                     A list can wrap over multiple rows. Read EVERY row, including the first row beside a permission sentence and all continuation rows. Do not return only the last row.
                     The crop contains the symbol list; OCR may confuse punctuation with Japanese characters. These OCR errors must not cause you to skip a visible row.
+                    Quotation marks, commas separating quoted items, and parentheses around symbol names may be formatting. Transcribe the values, not those delimiters. Never turn a forbidden list into an allowlist or expand a range.
                     Read the actual pixels, not an assumed ASCII sequence. Do not fill missing symbols or invent ranges.
                     Distinguish apostrophe from backtick, exclamation from letter l, and curly braces from parentheses. Use halfwidth ASCII for fullwidth punctuation equivalents.
                     """)
@@ -444,21 +478,30 @@ enum ScreenshotImporter {
                     let response = try await session.respond(to: prompt, generating: SymbolListExtraction.self,
                         options: GenerationOptions(temperature: 0, maximumResponseTokens: 256))
                     try Task.checkCancellation()
-                    let visual = SymbolEvidenceValidator.visualCandidate(symbols: response.content.symbols,
+                    let observed = SymbolEvidenceValidator.visualCandidate(symbols: response.content.symbols,
                         permission: document.permission, explicit: response.content.literalSymbolList, source: document.source)
-                    if !visual.isEmpty {
-                        candidate = SymbolPolicy.shared.recognized(text: candidate + visual)
+                    let visual = input.candidateVocabulary.map { limit in String(observed.filter { limit.contains($0) }) } ?? observed
+                    let minimumCoverage = max(1, (document.rowCandidates.indices.contains(input.row) ? document.rowCandidates[input.row].count : 0) / 2)
+                    if visual.count >= minimumCoverage {
+                        visualRows[input.row] = SymbolPolicy.shared.recognized(text: (visualRows[input.row] ?? "") + visual)
                         usedModel = true
                     }
                 } catch is CancellationError { throw CancellationError() }
                 catch { /* OCR candidates and an editable pixel preview remain available. */ }
             }
         }
-        let readingNote = candidate.isEmpty ? "記号の一覧を特定できませんでした。記号の並びに絞った画像を選ぶか、手動で選択してください。" :
+        if usedModel {
+            // Valid pixel readings replace that row's OCR errors. Other rows
+            // retain their OCR fallback; variants of the same row are combined.
+            candidate = SymbolPolicy.shared.recognized(text: document.rowCandidates.enumerated().map { index, fallback in
+                visualRows[index] ?? fallback
+            }.joined())
+        }
+        let readingNote = candidate.isEmpty ? (document.reviewReason ?? "記号の一覧を特定できませんでした。記号の並びに絞った画像を選ぶか、手動で選択してください。") :
             usedModel ? "OCRと端末内の画像モデルの候補です。画像と照合して適用してください。" :
             attemptedModel ? "画像モデルで候補を取得できなかったため、OCRの候補です。画像と照合して修正してください。" :
             "OCRの候補です。読み落としがあり得るため、画像と照合して追加・解除してください。"
-        let note = document.source == .symbolList && !candidate.isEmpty ?
+        let note = (document.source == .symbolList || document.source == .labelledList) && !candidate.isEmpty ?
             "記号の並びから拾った候補です。利用先で使える記号か確認してください。\n" + readingNote : readingNote
         return ScreenshotAnalysis(recognizedText: document.text, proposedSymbols: candidate,
             evidence: document.permission, note: note, previewData: document.preview.flatMap(pngData))
@@ -482,26 +525,49 @@ enum ScreenshotImporter {
         let layout = layoutLines(rows)
         let matches = layout.filter { line in
             let lower = line.text.lowercased()
-            return SymbolEvidenceValidator.isPermission(line.text) && ["記号", "symbol", "character"].contains { lower.contains($0) }
+            return SymbolEvidenceValidator.isPermission(line.text) && SymbolRuleSyntax.shared.hasSymbolLabel(text: lower)
         }
         let tables = SymbolTableLocator.regions(in: layout)
         // Independent rule blocks are never silently combined.
         guard matches.count <= 1, tables.count <= 1 else {
-            return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
+            return OCRDocument(text: text, permission: "", symbols: "", preview: nil, reviewReason: "複数の記号ルールがあります。使いたい一覧に絞った画像を選んでください。")
         }
         if let table = tables.first {
             guard matches.isEmpty || table.evidence.contains(matches[0].text),
                   let part = crop(image, table.bounds, padding: 12) else {
                 return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
             }
-            return try recognizeParts([part], primary: table.primary, evidence: table.evidence, source: .characterTable, text: text)
+            return try recognizeParts([part], primary: table.primary, evidence: table.evidence, source: .characterTable, text: text, limits: [table.candidateVocabulary])
+        }
+        if matches.isEmpty {
+            let headings = layout.filter { SymbolRuleSyntax.shared.isLiteralHeading(text: $0.text) }
+            let candidates = headings.compactMap { label -> (OCRLayoutLine, SymbolPermissionLocator.Region)? in
+                let context = layout.filter {
+                    $0.bounds.midY >= label.bounds.midY && $0.bounds.minY - label.bounds.maxY < max(0.08, label.bounds.height * 5)
+                }.map(\.text).joined(separator: "\n")
+                guard !SymbolEvidenceValidator.hasRestriction(context),
+                      !["入力方法", "入力するキー", "名称", "keyboard", "example"].contains(where: { context.lowercased().contains($0) }),
+                      let region = SymbolPermissionLocator.region(for: label, in: layout) else { return nil }
+                return (label, region)
+            }
+            if candidates.count > 1 { return OCRDocument(text: text, permission: "", symbols: "", preview: nil, reviewReason: "複数の記号一覧があります。対象の一覧に絞った画像を選んでください。") }
+            if let (label, region) = candidates.first {
+                let parts = region.rowBounds.compactMap { crop(image, $0, padding: 12) }
+                guard parts.count == region.rowBounds.count else { return OCRDocument(text: text, permission: "", symbols: "", preview: nil) }
+                return try recognizeParts(parts, primary: region.primary, evidence: label.text, source: .labelledList, text: text,
+                    rowPrimary: region.rowPrimary, limits: region.rowVocabularies)
+            }
         }
         if matches.isEmpty {
             let lists = SymbolListLocator.regions(in: layout)
             guard lists.count == 1, let list = lists.first, let part = crop(image, list.bounds, padding: 12) else {
-                return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
+                let reason = layout.compactMap { SymbolRuleSyntax.shared.reviewReason(text: $0.text) }.first
+                return OCRDocument(text: text, permission: "", symbols: "", preview: nil, reviewReason: reason)
             }
-            return try recognizeParts([part], primary: list.primary, evidence: list.evidence, source: .symbolList, text: text)
+            return try recognizeParts([part], primary: list.primary, evidence: list.evidence, source: .symbolList, text: text, limits: [list.candidateVocabulary])
+        }
+        if let label = matches.first, let reason = SymbolRuleSyntax.shared.reviewReason(text: label.text) {
+            return OCRDocument(text: text, permission: "", symbols: "", preview: nil, reviewReason: reason)
         }
         guard let label = matches.first,
               let region = SymbolPermissionLocator.region(for: label, in: layout) else {
@@ -511,35 +577,59 @@ enum ScreenshotImporter {
         guard parts.count == region.rowBounds.count else {
             return OCRDocument(text: text, permission: "", symbols: "", preview: nil)
         }
-        return try recognizeParts(parts, primary: region.primary, evidence: label.text, source: .permissionStatement, text: text)
+        return try recognizeParts(parts, primary: region.primary, evidence: label.text, source: .permissionStatement, text: text, rowPrimary: region.rowPrimary, limits: region.rowVocabularies)
     }
 
-    private static func recognizeParts(_ parts: [CGImage], primary: [String], evidence: String, source: SymbolEvidenceSource, text: String) throws -> OCRDocument {
+    private static func recognizeParts(_ parts: [CGImage], primary: [String], evidence: String, source: SymbolEvidenceSource, text: String, rowPrimary: [[String]]? = nil, limits: [String?] = []) throws -> OCRDocument {
         var reread: [String] = []
-        var modelImages: [CGImage] = []
-        for part in parts {
+        var modelImages: [OCRModelImage] = []
+        var candidate = ""
+        var rowCandidates: [String] = []
+        for (index, part) in parts.enumerated() {
+            let limit = limits.indices.contains(index) ? limits[index] : nil
+            var rowRead: [String] = []
             try Task.checkCancellation()
-            modelImages.append(part)
-            reread += try read(part, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
+            modelImages.append(OCRModelImage(image: part, candidateVocabulary: limit, row: index))
+            rowRead += try read(part, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
             // Separation changes only spacing between original ink columns, not glyph shapes.
             if let separated = separatingGlyphs(part) {
-                reread += try read(separated, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
+                rowRead += try read(separated, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
             }
             // Large punctuation can merge into Latin/Japanese glyphs. A wider
             // spacing and enlarged view re-read the same pixels, without guessing.
             if let spaced = separatingGlyphs(part, gap: min(96, max(12, part.height))), let enlarged = enlarged(spaced) {
-                reread += try read(enlarged, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
-                modelImages.append(enlarged)
+                rowRead += try read(enlarged, languages: ["en-US"]).compactMap { $0.topCandidates(1).first?.string }
+                modelImages.append(OCRModelImage(image: enlarged, candidateVocabulary: limit, row: index))
             }
+            reread += rowRead
+            let sourceText = rowPrimary?[index] ?? (index == 0 ? primary : [])
+            let observed = SymbolEvidenceValidator.mergedOCRCandidate(primary: sourceText, reread: rowRead)
+            let rowCandidate = limit.map { allowed in String(observed.filter { allowed.contains($0) }) } ?? observed
+            rowCandidates.append(rowCandidate)
+            candidate = SymbolPolicy.shared.recognized(text: candidate + rowCandidate)
         }
-        let candidate = SymbolEvidenceValidator.mergedOCRCandidate(primary: primary, reread: reread)
         return OCRDocument(text: text + (reread.isEmpty ? "" : "\n\n記号行の再読取:\n" + reread.joined(separator: "\n")),
-            permission: evidence, symbols: candidate, preview: stacked(parts), modelImages: modelImages, source: source)
+            permission: evidence, symbols: candidate, preview: stacked(parts), modelImages: modelImages, source: source, rowCandidates: rowCandidates)
     }
 
     private static func layoutLines(_ rows: [VNRecognizedTextObservation]) -> [OCRLayoutLine] {
         rows.flatMap { row -> [OCRLayoutLine] in
             guard let text = row.topCandidates(1).first else { return [] }
+            if SymbolRuleSyntax.shared.reviewReason(text: text.string) != nil {
+                return [OCRLayoutLine(text: text.string, bounds: row.boundingBox)]
+            }
+            if SymbolRuleSyntax.shared.isLiteralHeading(text: text.string), let cells = splitLabelRow(text, observation: row) {
+                return cells
+            }
+            if let syntax = SymbolRuleSyntax.shared.parse(text: text.string), !syntax.spans.isEmpty {
+                let labelBounds = row.boundingBox
+                let values = syntax.spans.compactMap { span -> OCRLayoutLine? in
+                    guard let range = Range(NSRange(location: Int(span.start), length: Int(span.end - span.start)), in: text.string) else { return nil }
+                    let bounds = (try? text.boundingBox(for: range))?.boundingBox ?? row.boundingBox
+                    return OCRLayoutLine(text: String(text.string[range]), bounds: bounds, permissionLabelBounds: labelBounds, literalSymbols: span.symbols, modelVocabulary: syntax.modelVocabulary)
+                }
+                if values.count == syntax.spans.count { return [OCRLayoutLine(text: text.string, bounds: labelBounds)] + values }
+            }
             // Split the permission prefix from its same-line glyphs even if a
             // few glyphs were misread as kana. The locator validates the crop.
             if SymbolEvidenceValidator.isPermission(text.string),
@@ -550,22 +640,38 @@ enum ScreenshotImporter {
                 return [OCRLayoutLine(text: String(text.string[..<start]), bounds: prefix),
                         OCRLayoutLine(text: String(text.string[start...]), bounds: payload, permissionLabelBounds: prefix)]
             }
-            // Vision may emit either one observation per cell or a whole row.
-            // Preserve measured character boxes when splitting a combined row.
-            for name in SymbolTableLocator.labels {
-                guard let range = text.string.range(of: name, options: [.anchored, .caseInsensitive]) else { continue }
-                var start = range.upperBound
-                while start < text.string.endIndex && (text.string[start].isWhitespace || ":：".contains(text.string[start])) {
-                    start = text.string.index(after: start)
-                }
-                guard start < text.string.endIndex,
-                      let label = try? text.boundingBox(for: range),
-                      let payload = try? text.boundingBox(for: start..<text.string.endIndex) else { break }
-                return [OCRLayoutLine(text: String(text.string[range]), bounds: label.boundingBox),
-                    OCRLayoutLine(text: String(text.string[start...]), bounds: payload.boundingBox)]
+            if let cells = splitLabelRow(text, observation: row) { return cells }
+            if let items = SymbolRuleSyntax.shared.items(text: text.string) {
+                let symbols = SymbolPolicy.shared.recognized(text: items.spans.map(\.symbols).joined())
+                return [OCRLayoutLine(text: text.string, bounds: row.boundingBox, literalSymbols: symbols, modelVocabulary: items.modelVocabulary)]
             }
             return [OCRLayoutLine(text: text.string, bounds: row.boundingBox)]
         }
+    }
+
+    private static func splitLabelRow(_ text: VNRecognizedText, observation: VNRecognizedTextObservation) -> [OCRLayoutLine]? {
+        for name in SymbolTableLocator.labels {
+            guard let range = text.string.range(of: name, options: [.anchored, .caseInsensitive]) else { continue }
+            var start = range.upperBound
+            while start < text.string.endIndex && (text.string[start].isWhitespace || ":：".contains(text.string[start])) {
+                start = text.string.index(after: start)
+            }
+            guard start < text.string.endIndex else { continue }
+            let fullSyntax = SymbolRuleSyntax.shared.parse(text: text.string)
+            var end = text.string.endIndex
+            if let first = fullSyntax?.spans.first, let last = fullSyntax?.spans.last,
+               let payload = Range(NSRange(location: Int(first.start), length: Int(last.end - first.start)), in: text.string) {
+                start = payload.lowerBound; end = payload.upperBound
+            }
+            let labelBounds = (try? text.boundingBox(for: range))?.boundingBox ?? observation.boundingBox
+            let payloadBounds = (try? text.boundingBox(for: start..<end))?.boundingBox ?? observation.boundingBox
+            let value = String(text.string[start..<end])
+            let syntax = fullSyntax ?? SymbolRuleSyntax.shared.items(text: value)
+            let symbols = syntax.map { SymbolPolicy.shared.recognized(text: $0.spans.map(\.symbols).joined()) }
+            return [OCRLayoutLine(text: String(text.string[range]), bounds: labelBounds),
+                OCRLayoutLine(text: value, bounds: payloadBounds, permissionLabelBounds: labelBounds, literalSymbols: symbols, modelVocabulary: syntax?.modelVocabulary)]
+        }
+        return nil
     }
 
     private static func payloadStart(in text: String) -> String.Index? {

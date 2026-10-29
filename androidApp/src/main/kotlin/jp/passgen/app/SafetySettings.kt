@@ -59,12 +59,18 @@ import androidx.compose.ui.unit.dp
     }
 }
 
-@Composable fun SecurityGuideSheet(dismiss: () -> Unit) {
+@Composable fun SecurityGuideSheet(dismiss: () -> Unit, storageLesson: () -> Unit) {
     ModalBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("アカウントを守る", style = MaterialTheme.typography.headlineSmall)
             Text("長く、無作為に、サービスごとに", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Text("このアプリは生成専用です。作った値はサービスに登録し、管理アプリへ保存しましょう。")
+            OutlinedCard(onClick = storageLesson, modifier = Modifier.fillMaxWidth().semantics { testTag = "password-storage-guide" }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("なぜ使い回しは危険？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             GuideCard("強いパスワードの特徴", "長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。初期値は24文字です。",
                 "パスフレーズは無作為な単語の組み合わせです。名言や歌詞をそのまま使う方法とは異なります。数字だけの短い値は候補が少なく、推測されやすくなります。")
             GuideLink("NISTのパスワードガイド（英語）", "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")

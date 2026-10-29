@@ -105,6 +105,35 @@ class GeneratorUiTest {
         rule.onNodeWithText("アカウントを守る").assertExists()
     }
 
+    @Test fun storageLessonExplainsGuessingAndShowsReuseConsequences() {
+        rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
+        rule.onNodeWithTag("password-storage-guide").performClick()
+        rule.onNodeWithText("平文（ひらぶん）").assertExists()
+        rule.onNodeWithTag("hash-details").performScrollTo().performClick()
+        rule.onNodeWithTag("hash-guessing").assertExists()
+        rule.onNodeWithTag("storage-topic-1").performClick()
+        rule.onNodeWithTag("reuse-outcome").assertTextEquals("同じ値が別のサービスでも試されます。")
+        rule.onNodeWithTag("reuse-outcome").performScrollTo()
+        saveGuideScreenshot("storage-reuse.png")
+        rule.onNodeWithTag("reuse-unique").performScrollTo().performClick()
+        rule.onNodeWithTag("reuse-outcome").assertTextEquals("Aで漏れた値は、BとCのパスワードには一致しません。")
+        rule.onNodeWithTag("reuse-outcome").performScrollTo()
+        saveGuideScreenshot("storage-unique.png")
+        rule.onNodeWithTag("storage-back").performClick()
+        rule.onNodeWithText("アカウントを守る").assertExists()
+    }
+
+    private fun saveGuideScreenshot(name: String) {
+        rule.runOnIdle { assertTrue(model.results.isEmpty()); model.protectCapture = false }
+        rule.waitForIdle(); android.os.SystemClock.sleep(2000)
+        try {
+            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            File(context.getExternalFilesDir(null), name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        } finally { rule.runOnIdle { model.protectCapture = true } }
+    }
+
     @Test fun clipboardUsesConfiguredExpiry() {
         rule.runOnIdle { SecureClipboard(rule.activity).copy("fake-test-only", 5) }
         android.os.SystemClock.sleep(6000)

@@ -71,6 +71,25 @@ final class PassgenUITests: XCTestCase {
         let digits = XCTAttachment(screenshot: app.screenshot()); digits.name = "Disabled groups preview"; digits.lifetime = .keepAlways; add(digits)
     }
 
+    @MainActor func testStorageLessonExplainsGuessingAndShowsReuseConsequences() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        app.buttons["password-storage-guide"].tap()
+        XCTAssertTrue(app.navigationBars["保存方法と使い回し"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["平文（ひらぶん）"].exists)
+        XCTAssertTrue(app.staticTexts["ハッシュ化"].exists)
+        let details = app.buttons["ハッシュ化なら、漏れても安全？"]
+        for _ in 0..<5 { if details.isHittable { break }; app.swipeUp() }
+        details.tap(); XCTAssertTrue(app.staticTexts["hash-guessing"].exists)
+        let stored = XCTAttachment(screenshot: app.screenshot()); stored.name = "Hash storage explanation"; stored.lifetime = .keepAlways; add(stored)
+        app.segmentedControls.buttons["使い回し"].tap()
+        XCTAssertEqual(app.staticTexts["reuse-outcome"].label, "同じ値が別のサービスでも試されます。")
+        let same = XCTAttachment(screenshot: app.screenshot()); same.name = "Reused password scenario"; same.lifetime = .keepAlways; add(same)
+        app.segmentedControls.buttons["別々にする"].tap()
+        XCTAssertEqual(app.staticTexts["reuse-outcome"].label, "Aで漏れた値は、BとCのパスワードには一致しません。")
+        let unique = XCTAttachment(screenshot: app.screenshot()); unique.name = "Unique passwords scenario"; unique.lifetime = .keepAlways; add(unique)
+    }
+
     @MainActor func testCopyMarksRemainOnBothRowsAndGuideOpens() {
         let app = launchApp()
         let count = app.textFields["count"]; count.tap(); count.typeText(XCUIKeyboardKey.delete.rawValue + "2")

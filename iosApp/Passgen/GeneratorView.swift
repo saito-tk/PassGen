@@ -519,6 +519,14 @@ struct SecurityGuideView: View {
                     .font(.headline).foregroundStyle(Color.passgenAccent)
                 Text("このアプリは生成専用です。作った値はサービスに登録し、管理アプリへ保存してください。サービスの条件を満たす長さでも、安全性が同じとは限りません。")
             }
+            Section {
+                NavigationLink { PasswordStorageLessonView() } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("なぜ使い回しは危険？").font(.headline).foregroundStyle(Color.passgenAccent)
+                        Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る").font(.caption).foregroundStyle(.secondary)
+                    }.padding(.vertical, 6)
+                }.accessibilityIdentifier("password-storage-guide")
+            }
             Section("強いパスワードの特徴") {
                 Text("長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。このアプリの初期値は24文字です。")
                 Text("パスフレーズは無作為な単語を複数組み合わせます。好きな名言や歌詞をそのまま使う方法とは異なります。数字だけの短い値は候補が少なく、英数字の長いパスワードより推測されやすくなります。")
@@ -547,6 +555,171 @@ struct SecurityGuideView: View {
                 Link("Googleのパスキーガイド", destination: URL(string: "https://support.google.com/accounts/answer/13548313?hl=ja")!)
             }
         }.navigationTitle("アカウントを守る").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct PasswordStorageLessonView: View {
+    @State private var topic = 0
+    @State private var reuse = true
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("図解のテーマ", selection: $topic) {
+                Text("保存の違い").tag(0); Text("使い回し").tag(1)
+            }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if topic == 0 { storageContent } else { reuseContent }
+                    Divider()
+                    DisclosureGroup("根拠を読む（英語）") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Link("OWASP：パスワードの保存", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")!)
+                            Link("NIST：漏えいしたハッシュへの攻撃", destination: URL(string: "https://pages.nist.gov/800-63-4/sp800-63b/passwords/")!)
+                            Link("OWASP：使い回しを狙う攻撃", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html")!)
+                            Link("OWASP：HTTPSによる通信の保護", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html")!)
+                        }.font(.subheadline).padding(.top, 10)
+                    }.font(.caption.weight(.semibold))
+                }.padding(16).frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }.id(topic)
+        }.background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("保存方法と使い回し").navigationBarTitleDisplayMode(.inline)
+    }
+    private var storageContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("預けた先の保存方法で、漏れた後の危険が変わる。").font(.title2.weight(.semibold))
+            Text("本来は適切にハッシュ化して保存すべきですが、平文で保存する実装が残っている可能性もあります。利用者には外から確かめにくい部分です。").font(.subheadline)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    StorageComparisonCard(hashed: false).frame(minWidth: 280)
+                    StorageComparisonCard(hashed: true).frame(minWidth: 280)
+                }
+                VStack(spacing: 12) { StorageComparisonCard(hashed: false); StorageComparisonCard(hashed: true) }
+            }
+            LessonPanel(title: "ログイン時は、計算して照合") {
+                Text("入力したパスワードを、保存時と同じソルト・設定で計算します。保存済みの値と一致するかで確認します。").font(.subheadline)
+                if typeSize.isAccessibilitySize {
+                    LessonValueBox(caption: "今回の入力から計算", value: "今回の計算結果")
+                    Text("照合").font(.headline).foregroundStyle(Color.passgenAccent)
+                    LessonValueBox(caption: "サービスに保存済み", value: "保存済みの値")
+                } else {
+                    HStack(spacing: 8) {
+                        LessonValueBox(caption: "今回の入力から計算", value: "今回の計算結果")
+                        Text("照合").font(.caption.weight(.semibold))
+                        LessonValueBox(caption: "サービスに保存済み", value: "保存済みの値")
+                    }
+                }
+            }
+            Text("HTTPSの鍵マークは通信の保護です。サービス内での保存方法までは示しません。").font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("攻撃者は候補を次々に計算し、漏れた値と比べて元のパスワードを探せます。短い値・よくある値は特に推測されやすくなります。")
+                        .accessibilityIdentifier("hash-guessing")
+                    Text("サービス側はパスワードごとにランダムな「ソルト」を加え、推測の計算に時間やメモリがかかる専用の保存方式を使います。ソルトだけでは短い値や使い回しを守れません。")
+                    Text("暗号化は鍵で元へ戻せる方式です。ハッシュ化は元へ戻す鍵を持たず、計算結果の照合に使います。")
+                }.font(.subheadline).padding(.top, 10)
+            } label: { Text("ハッシュ化なら、漏れても安全？").font(.subheadline.weight(.semibold)) }
+                .padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            Button("使い回しで何が起きる？") { topic = 1 }
+                .frame(maxWidth: .infinity, minHeight: 44).buttonStyle(.borderedProminent)
+        }
+    }
+    private var reuseContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("1か所で知られた値が、ほかの入口にも使われる。").font(.title2.weight(.semibold))
+            Picker("パスワードの使い方", selection: $reuse) {
+                Text("同じ値を使う").tag(true); Text("別々にする").tag(false)
+            }.pickerStyle(.segmented).accessibilityIdentifier("reuse-choice")
+            LessonPanel(title: "1  ショップAでパスワードが判明") {
+                Text("平文の漏えいや、漏れたハッシュからの推測などで知られた場合の図です。").font(.caption).foregroundStyle(.secondary)
+                LessonValueBox(caption: "攻撃者に知られた値", value: "Aのパスワード")
+            }
+            LessonBranch().stroke(reuse ? Color.red.opacity(0.6) : Color.passgenAccent.opacity(0.6), lineWidth: 1.5)
+                .frame(height: 24).accessibilityHidden(true)
+            if typeSize.isAccessibilitySize {
+                VStack(spacing: 10) { ReuseTargetCard(name: "メールB", reuse: reuse); ReuseTargetCard(name: "SNS C", reuse: reuse) }
+            } else {
+                HStack(alignment: .top, spacing: 10) { ReuseTargetCard(name: "メールB", reuse: reuse); ReuseTargetCard(name: "SNS C", reuse: reuse) }
+            }
+            Text(reuse ? "同じ値が別のサービスでも試されます。" : "Aで漏れた値は、BとCのパスワードには一致しません。")
+                .font(.headline).foregroundStyle(reuse ? Color.red : Color.passgenAccent).accessibilityIdentifier("reuse-outcome")
+            Text("同じメールアドレスなどのログインIDと組み合わせ、別のサービスにも入ろうとする攻撃です。相手側が適切にハッシュ化していても、正しいパスワードでのログインを試される点は変わりません。").font(.subheadline)
+            Text("別々の値でも、そのサービス自身の漏えいや偽サイトへの入力などは防げません。").font(.caption).foregroundStyle(.secondary)
+            LessonPanel(title: "自分でできる、3つの備え") {
+                Text("① サービスごとに長くランダムな別の値を使う")
+                Text("② 管理アプリに保存して、自動入力する")
+                Text("③ パスキーや2要素認証を追加する")
+            }.font(.subheadline)
+            DisclosureGroup("漏えいに気づいたら？") {
+                Text("使い回している全サービスで別々の値に変更し、不審なログインや有効なセッションを確認してください。変更は正規アプリや公式サイトから行いましょう。")
+                    .font(.subheadline).padding(.top, 8)
+            }.font(.subheadline).padding(16)
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+}
+
+private struct LessonPanel<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline); content()
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct LessonValueBox: View {
+    let caption: String
+    let value: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(caption).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.system(.subheadline, design: .monospaced, weight: .medium))
+        }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+            .accessibilityElement(children: .combine)
+    }
+}
+
+private struct StorageComparisonCard: View {
+    let hashed: Bool
+    var body: some View {
+        LessonPanel(title: hashed ? "ハッシュ化" : "平文（ひらぶん）") {
+            Text(hashed ? "照合に使う値へ変換して保存" : "そのまま読める形で保存").font(.subheadline)
+            LessonValueBox(caption: "入力", value: "入力した文字列")
+            Text(hashed ? "↓ 一方向の計算" : "↓ そのまま保存").font(.caption.weight(.semibold))
+                .foregroundStyle(hashed ? Color.passgenAccent : Color.red).frame(maxWidth: .infinity)
+            LessonValueBox(caption: "サービス内に保存", value: hashed ? "a7f0…9c2e" : "入力した文字列")
+            Text(hashed ? "値の表示は模式図です。元の文字列へ読み戻すための仕組みではありません。" : "保存先を見られると、パスワードもそのまま読まれます。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ReuseTargetCard: View {
+    let name: String
+    let reuse: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(name).font(.subheadline.weight(.semibold))
+            Text(reuse ? "Aと同じパスワード" : "Aとは別のパスワード").font(.caption)
+            Text(reuse ? "侵入を試される" : "漏れた値は不一致").font(.caption.weight(.semibold))
+                .foregroundStyle(reuse ? Color.red : Color.passgenAccent)
+        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(reuse ? Color.red.opacity(0.4) : Color.passgenAccent.opacity(0.4)))
+            .accessibilityElement(children: .combine)
+    }
+}
+
+private struct LessonBranch: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY)); path.addLine(to: CGPoint(x: rect.midX, y: rect.midY))
+        path.move(to: CGPoint(x: rect.width * 0.25, y: rect.maxY)); path.addLine(to: CGPoint(x: rect.width * 0.25, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.width * 0.75, y: rect.midY)); path.addLine(to: CGPoint(x: rect.width * 0.75, y: rect.maxY))
+        return path
     }
 }
 

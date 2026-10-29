@@ -9,7 +9,7 @@ enum RecipeMode: String, CaseIterable, Identifiable, Sendable, Codable {
     var core: GenerationMode { switch self { case .password: .password; case .passphrase: .passphrase } }
 }
 
-struct Recipe: Sendable, Codable {
+struct Recipe: Sendable, Codable, Equatable {
     var mode: RecipeMode = .password
     var lengthText = "24"
     var countText = "1"
@@ -99,6 +99,7 @@ struct SecuritySettings: Codable, Sendable {
 @MainActor @Observable final class GeneratorModel {
     var recipe = Recipe() { didSet { persistPreferences() } }
     private(set) var results: [SecretItem] = []
+    private var generatedRecipe: Recipe?
     private(set) var state: GenerationState = .idle
     private(set) var goal = 1
     var revealed = false { didSet { persistPreferences() } }
@@ -136,6 +137,11 @@ struct SecuritySettings: Codable, Sendable {
         preferences.set(data, forKey: "generation.preferences.v1")
     }
     var busy: Bool { state != .idle }
+    var generationActionTitle: String {
+        if state == .cancelling { return "停止中…" }
+        if busy { return "停止" }
+        return !results.isEmpty && generatedRecipe == recipe.sanitized() ? "再生成" : "生成"
+    }
     var isDigitsOnly: Bool { recipe.mode == .password && recipe.digits && !recipe.uppercase && !recipe.lowercase && !recipe.symbolsEnabled }
     var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
 
@@ -161,6 +167,7 @@ struct SecuritySettings: Codable, Sendable {
         }
         recipe.normalize()
         let snapshot = recipe
+        generatedRecipe = snapshot.sanitized()
         let token = GenerationCancellation()
         cancellation = token
         epoch += 1
@@ -198,10 +205,11 @@ struct SecuritySettings: Codable, Sendable {
 
     func clear() {
         guard !busy else { return }
-        results = []; copiedIDs = []
+        results = []; copiedIDs = []; generatedRecipe = nil
     }
     func background() {
         epoch += 1; cancellation.cancel(); task?.cancel(); task = nil
-        results = []; copiedIDs = []; message = nil; state = .idle
+        // Keep completed rows and copy marks in memory; invalidate late work.
+        message = nil; state = .idle
     }
 }

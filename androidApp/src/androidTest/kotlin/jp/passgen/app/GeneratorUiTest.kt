@@ -24,7 +24,7 @@ class GeneratorUiTest {
 
     @Before fun resetTestOwnedConfiguration() {
         rule.runOnIdle {
-            model.background(); model.autoClearClipboard = true; model.clipboardSecondsText = "30"; model.protectCapture = true; model.revealed = false; model.mode = jp.passgen.core.GenerationMode.PASSWORD
+            model.background(); model.clear(); model.autoClearClipboard = true; model.clipboardSecondsText = "30"; model.protectCapture = true; model.revealed = false; model.mode = jp.passgen.core.GenerationMode.PASSWORD
             model.lengthText = "24"; model.countText = "1"; model.words = 7; model.separator = " "
             model.uppercase = true; model.lowercase = true; model.digits = true; model.symbolsEnabled = true
             model.symbols = "!@#\u0024%&*-_+=?"; model.excludeSimilar = true; model.requireEach = true; model.noAdjacent = false
@@ -107,7 +107,7 @@ class GeneratorUiTest {
         rule.waitUntil(5000) { !model.busy }
         rule.runOnIdle { assertTrue(model.revealed); model.generateOrStop() }
         rule.waitUntil(5000) { !model.busy }
-        rule.runOnIdle { assertTrue(model.revealed); model.background(); assertTrue(model.revealed); assertTrue(model.results.isEmpty()) }
+        rule.runOnIdle { assertTrue(model.revealed); model.background(); assertTrue(model.revealed); assertTrue(model.results.isNotEmpty()) }
     }
 
     @Test fun launchDoesNotGenerateAndWindowIsSecure() {
@@ -139,6 +139,28 @@ class GeneratorUiTest {
         rule.onNodeWithTag("regenerate").performClick()
         rule.waitUntil(5000) { !model.busy }
         rule.runOnIdle { assertTrue(model.revealed) }
+    }
+
+    @Test fun actionTitleAndBackgroundRetentionFollowCurrentGenerationSettings() {
+        rule.onNodeWithTag("generate").assertTextEquals("生成").performClick()
+        rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
+        rule.onNodeWithTag("regenerate").assertTextEquals("再生成")
+        rule.onNodeWithTag("copy-0").performClick()
+        val before = rule.runOnIdle { model.results.map { it.value } }
+        rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.waitForIdle()
+        rule.runOnIdle {
+            assertEquals(before, model.results.map { it.value }); assertEquals(setOf(0), model.copiedIndices)
+            model.symbols = "@"; assertEquals("生成", model.generationActionTitle)
+            model.generateOrStop()
+        }
+        rule.waitUntil(5000) { !model.busy }
+        rule.onNodeWithTag("regenerate").assertTextEquals("再生成")
+        rule.onNodeWithTag("clear-results").performClick()
+        rule.onNodeWithTag("generate").assertIsDisplayed().assertTextEquals("生成")
+        rule.onNodeWithTag("regenerate").assertDoesNotExist()
+        rule.runOnIdle { assertTrue(model.results.isEmpty()); assertTrue(model.copiedIndices.isEmpty()) }
     }
 
     @Test fun generationStartsMaskedAndCopiesFullValue() {
@@ -318,8 +340,8 @@ class GeneratorUiTest {
         rule.runOnIdle { assertFalse(rule.activity.getSystemService(ClipboardManager::class.java).hasPrimaryClip()) }
     }
 
-    @Test fun backgroundClearsResultsAndCancelsWork() {
-        rule.runOnIdle { model.lengthText = "999999"; model.countText = "10"; model.generateOrStop() }
+    @Test fun backgroundCancelsAndRejectsLateWork() {
+        rule.runOnIdle { model.lengthText = "999999"; model.countText = "10"; model.generateOrStop(); model.background() }
         rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         rule.waitForIdle()

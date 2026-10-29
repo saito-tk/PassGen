@@ -62,14 +62,52 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 8))
         XCTAssertEqual(visibility.value as? String, "表示中")
     }
-    @MainActor func testGenerateAndBackgroundClear() {
+    @MainActor func testClearCollapsesResultsAndChangedConditionsResetGenerationTitle() {
+        let app = launchApp(); let generate = app.buttons["generate"]
+        generate.tap(); XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        XCTAssertEqual(generate.label, "再生成")
+        let bar = app.navigationBars["生成結果 1件"]
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.93)))
+        let length = app.textFields["length"]; XCTAssertTrue(length.isHittable)
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap(); XCTAssertEqual(generate.label, "生成")
+        XCTAssertFalse(app.navigationBars["Passgen"].buttons["結果 1件"].exists)
+        generate.tap(); XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        XCTAssertEqual(generate.label, "再生成")
+        app.buttons["clear-results"].tap()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["results-visibility"])
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+        XCTAssertFalse(app.staticTexts["secret"].exists); XCTAssertTrue(length.isHittable)
+        XCTAssertEqual(generate.label, "生成")
+    }
+    @MainActor func testWideRetainedResultsCanBeOpenedWithoutRegenerating() throws {
+        let app = launchApp()
+        guard app.windows.firstMatch.frame.width > 700 else { throw XCTSkip("Wide-layout simulator required") }
+        app.buttons["generate"].tap()
+        let copy = app.buttons["copy-0"]; XCTAssertTrue(copy.waitForExistence(timeout: 5)); copy.tap()
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
+        let show = app.buttons["show-retained-results"]
+        for _ in 0..<2 {
+            if show.exists { break }
+            app.navigationBars["生成結果 1件"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+                thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        }
+        XCTAssertTrue(show.waitForExistence(timeout: 5)); show.tap()
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
+        XCTAssertEqual(app.buttons["generate"].label, "再生成")
+    }
+    @MainActor func testGenerateAndBackgroundRetainsResults() {
         let app = launchApp()
         XCTAssertFalse(app.staticTexts["secret"].exists)
         app.buttons["generate"].tap()
         XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         app.activate()
-        XCTAssertFalse(app.staticTexts["secret"].exists)
+        XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["generate"].label, "再生成")
     }
     @MainActor func testCopiedPasswordCanBePastedAfterBackground() {
         let app = launchApp()
@@ -80,8 +118,10 @@ final class PassgenUITests: XCTestCase {
         app.buttons["generate"].tap()
         let copy = app.buttons["copy-0"]; XCTAssertTrue(copy.waitForExistence(timeout: 5)); copy.tap()
         XCUIDevice.shared.press(.home); app.activate()
-        XCTAssertFalse(app.staticTexts["secret"].exists)
-        app.swipeDown()
+        XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
+        let bar = app.navigationBars["生成結果 1件"]
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.93)))
         app.segmentedControls.buttons["記号"].tap()
         let symbols = app.switches["記号を含める"]
         XCTAssertTrue(symbols.waitForExistence(timeout: 3))

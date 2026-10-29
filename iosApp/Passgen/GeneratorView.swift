@@ -112,11 +112,6 @@ struct GeneratorView: View {
             }
             .navigationTitle("Passgen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if !model.results.isEmpty || model.busy {
-                        Button("結果 \(model.results.count)件") { resultDetent = .large; activeSheet = .results }.font(.subheadline)
-                    }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .privacy } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
                 }
@@ -127,7 +122,7 @@ struct GeneratorView: View {
                 case .privacy: PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .results:
                     ResultsList(model: model, copy: copy,
-                        collapsed: usesPersistentResults && resultDetent == .height(peekHeight), generate: generate)
+                        collapsed: usesPersistentResults && resultDetent == .height(peekHeight), generate: generate, clear: clearResults)
                         .sensitiveScene(enabled: model.security.protectAppSwitcher)
                         .presentationDetents(usesPersistentResults ? [.height(peekHeight), .medium, .large] : [.medium, .large], selection: $resultDetent)
                         .presentationBackgroundInteraction(usesPersistentResults ? .enabled(upThrough: .height(peekHeight)) : .disabled)
@@ -143,9 +138,6 @@ struct GeneratorView: View {
         .onChange(of: phase) { _, value in
             if value == .background {
                 model.background()
-                if activeSheet == .results {
-                    if usesPersistentResults { resultDetent = .height(peekHeight) } else { activeSheet = nil }
-                }
             } else if value == .active { restoreResultDock() }
         }
         .onAppear { restoreResultDock() }
@@ -174,8 +166,12 @@ struct GeneratorView: View {
                     .foregroundStyle((model.estimate ?? 0) < 80 ? Color.orange : Color.primary)
             }
             Spacer(minLength: 0)
+            if !model.results.isEmpty {
+                Button("結果を表示") { resultDetent = .large; activeSheet = .results }
+                    .font(.subheadline).accessibilityIdentifier("show-retained-results")
+            }
             Button(action: generate) {
-                Text(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : "生成")
+                Text(model.generationActionTitle)
                     .font(.headline)
             }.modifier(PrimaryActionStyle()).controlSize(.regular)
                 .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
@@ -193,6 +189,12 @@ struct GeneratorView: View {
             activeSheet = .results
         }
         model.generateOrStop()
+    }
+    private func clearResults() {
+        guard !model.busy else { return }
+        model.clear()
+        if usesPersistentResults { resultDetent = .height(peekHeight) }
+        else { activeSheet = nil }
     }
     private func copy(_ item: SecretItem) {
         guard !(protection.isCaptured && model.security.protectCapture), phase == .active else { return }
@@ -471,6 +473,7 @@ struct ResultsList: View {
     var copy: (SecretItem) -> Void
     var collapsed = false
     var generate: () -> Void
+    var clear: () -> Void
     @Environment(ScreenProtectionState.self) private var protection
     var body: some View {
         NavigationStack {
@@ -526,12 +529,12 @@ struct ResultsList: View {
                             .accessibilityValue(visible ? "表示中" : "非表示").accessibilityIdentifier("results-visibility")
                     }
                     ToolbarItem(placement: .bottomBar) {
-                        Button("消去", role: .destructive, action: model.clear).disabled(model.busy || model.results.isEmpty)
+                        Button("消去", role: .destructive, action: clear).disabled(model.busy || model.results.isEmpty).accessibilityIdentifier("clear-results")
                     }
                     ToolbarItem(placement: .bottomBar) { Spacer() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(model.state == .cancelling ? "停止中…" : model.busy ? "停止" : model.results.isEmpty ? "生成" : "再生成", action: generate)
+                    Button(model.generationActionTitle, action: generate)
                         .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
                 }
             }
@@ -569,7 +572,7 @@ struct PrivacyView: View {
                     Text("iOSでは静止画のスクリーンショットを禁止できません。収録の停止後は選んでいた表示状態に戻ります。")
                         .font(.footnote).foregroundStyle(.secondary)
                 } header: { Label("画面の保護", systemImage: "record.circle") }
-                footer: { Text("画面を隠す設定をオフにすると、アプリ切替画面などに内容が映る場合があります。収録中の保護は別に設定できます。背景移行時の生成結果の消去は常に有効です。") }
+                footer: { Text("画面を隠す設定をオフにすると、アプリ切替画面などに内容が映る場合があります。収録中の保護は別に設定できます。生成結果は背景へ移ってもメモリ内に保持し、消去・再生成・アプリの終了で破棄します。") }
                 Section("データの扱い") {
                     Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。パスワード・画像・読み取りテキストは保存しません。")
                     Text("画像はVisionと、対応するiOS 27端末ではApple Intelligenceの画像モデルで端末内処理します。読み取り候補は画像と照合して適用してください。iCloud写真を選ぶ際はOSが元画像を取得することがあります。")

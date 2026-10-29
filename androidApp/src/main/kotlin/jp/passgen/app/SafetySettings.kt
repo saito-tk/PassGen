@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
             HorizontalDivider()
             Text("画面の保護", style = MaterialTheme.typography.titleMedium)
             SettingsSwitch("スクリーンショット・画面収録を防ぐ", model.protectCapture, "protect-capture") { model.protectCapture = it }
-            Text("オフにすると結果やアプリ切替時のプレビューが撮影・共有される可能性があります。背景へ移ると生成結果を消す処理は常に有効です。", style = MaterialTheme.typography.bodySmall)
+            Text("オフにすると結果やアプリ切替時のプレビューが撮影・共有される可能性があります。生成結果は背景へ移ってもメモリ内に保持し、消去・再生成・アプリの終了で破棄します。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             Text("データの扱い", style = MaterialTheme.typography.titleMedium)
             Text("生成用の通信・アカウント・履歴はありません。保存するのは生成条件と表示・保護設定だけです。例：24文字、単語数、使う記号、コピーの消去秒数。生成結果は保存・送信しません。✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodyMedium)

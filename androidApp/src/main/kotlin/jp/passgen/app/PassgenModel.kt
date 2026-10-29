@@ -45,6 +45,15 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var protectCapture by mutableStateOf(true)
     val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
     val clipboardSummary get() = if (autoClearClipboard) "コピーの消去は${clipboardSeconds}秒後が目安" else "コピーの時間による自動消去はオフ"
+    private var generatedConfiguration by mutableStateOf<List<Any>?>(null)
+    private fun generationConfiguration(): List<Any> = listOf(mode, length, count, words, separator,
+        uppercase, lowercase, digits, symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent,
+        uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
+    val generationActionTitle: String get() = when (work) {
+        WorkState.CANCELLING -> "停止中…"
+        WorkState.RUNNING -> "停止"
+        WorkState.IDLE -> if (results.isNotEmpty() && generatedConfiguration == generationConfiguration()) "再生成" else "生成"
+    }
     private var job: Job? = null
     private var cancel = AtomicBoolean(false)
     private var epoch = 0L
@@ -124,6 +133,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         }
         normalize()
         val request = request()
+        generatedConfiguration = generationConfiguration()
         val target = count
         val token = AtomicBoolean(false)
         cancel = token
@@ -146,7 +156,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
                     }
                 }
             } catch (_: CancellationException) {
-                // Manual stop preserves completed rows; background invalidates the run and clears them.
+                // Manual stop and background both preserve completed rows; late work is invalidated.
             } catch (e: GenerationException) {
                 if (run == epoch && e.code != "CANCELLED") message = when (e.code) {
                     "INVALID_CONFIGURATION" -> "文字種と記号を確認してください。少なくとも1種類必要です。"
@@ -157,11 +167,11 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         }
     }
 
-    fun clear() { if (!busy) { results = emptyList(); copiedIndices = emptySet() } }
+    fun clear() { if (!busy) { results = emptyList(); copiedIndices = emptySet(); generatedConfiguration = null } }
     fun background() {
         preferences?.edit { putString("generation.preferences.v1", preferencesJSON()) }
         ++epoch; cancel.set(true); job?.cancel(); job = null
-        results = emptyList(); copiedIndices = emptySet(); work = WorkState.IDLE; message = null
+        work = WorkState.IDLE; message = null
     }
     override fun onCleared() { cancel.set(true) }
 }

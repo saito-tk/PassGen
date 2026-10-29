@@ -6931,6 +6931,45 @@ private actor ImportAnalysisGate {
         model.background(); XCTAssertTrue(model.revealed); XCTAssertTrue(model.results.isEmpty)
     }
 
+    func testActionTitleTracksGenerationConditionsButNotDisplayOrSecurity() async throws {
+        let model = GeneratorModel(); XCTAssertEqual(model.generationActionTitle, "生成")
+        model.generateOrStop()
+        for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
+        XCTAssertFalse(model.results.isEmpty); XCTAssertEqual(model.generationActionTitle, "再生成")
+        let original = model.recipe
+        let changes: [(inout Recipe) -> Void] = [
+            { $0.lengthText = "64" }, { $0.countText = "3" }, { $0.symbols = "@" },
+            { $0.uppercaseCharacters = "AZ" }, { $0.requireEach.toggle() },
+            { $0.mode = .passphrase }, { $0.words = 9 }, { $0.separator = "-" }
+        ]
+        for change in changes {
+            change(&model.recipe); XCTAssertEqual(model.generationActionTitle, "生成")
+            model.recipe = original; XCTAssertEqual(model.generationActionTitle, "再生成")
+        }
+        model.revealed.toggle(); model.security.protectAppSwitcher.toggle()
+        XCTAssertEqual(model.generationActionTitle, "再生成")
+        model.clear(); XCTAssertEqual(model.generationActionTitle, "生成")
+    }
+    func testBackgroundRetainsResultsAndCopiedMarksButCannotAppendLateWork() async throws {
+        let model = GeneratorModel(); model.recipe.countText = "3"; model.generateOrStop()
+        for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
+        XCTAssertEqual(model.results.count, 3)
+        let before = model.results.map(\.value); model.copiedIDs = [1]
+        model.background()
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(model.results.map(\.value), before); XCTAssertEqual(model.copiedIDs, [1])
+        XCTAssertEqual(model.generationActionTitle, "再生成"); XCTAssertFalse(model.busy)
+        model.clear(); XCTAssertTrue(model.results.isEmpty); XCTAssertTrue(model.copiedIDs.isEmpty)
+    }
+    func testBackgroundStopsAnActiveBatchAndKeepsItsCompletedPrefix() async throws {
+        let model = GeneratorModel(); model.recipe.lengthText = "1000"; model.recipe.countText = "1000"
+        model.generateOrStop()
+        for _ in 0..<200 { if !model.results.isEmpty { break }; try await Task.sleep(for: .milliseconds(2)) }
+        XCTAssertFalse(model.results.isEmpty)
+        let before = model.results.map(\.value)
+        model.background(); try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(model.results.map(\.value), before); XCTAssertFalse(model.busy)
+    }
     func testCopiedMarksArePerRowAndExpireWithResults() async throws {
         let model = GeneratorModel(); model.recipe.countText = "2"; model.generateOrStop()
         for _ in 0..<100 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }

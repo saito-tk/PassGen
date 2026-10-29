@@ -73,7 +73,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.End) {
                     Button(onClick = ::generate, enabled = model.work != WorkState.CANCELLING,
                         modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
-                        Text(when (model.work) { WorkState.IDLE -> "生成"; WorkState.RUNNING -> "停止"; WorkState.CANCELLING -> "停止中…" }, style = MaterialTheme.typography.titleMedium)
+                        Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }
@@ -335,7 +335,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (model.revealed) "表示中" else "非表示" }) { Text(if (model.revealed) "隠す" else "表示") }
                 Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onClick = generate, enabled = model.work != WorkState.CANCELLING, modifier = Modifier.semantics { testTag = "regenerate" }) {
-                    Text(when (model.work) { WorkState.IDLE -> "再生成"; WorkState.RUNNING -> "停止"; WorkState.CANCELLING -> "停止中…" })
+                    Text(model.generationActionTitle)
                 }
             }
             model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -375,7 +375,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     }
                 }
             }
-            TextButton(onClick = model::clear, enabled = !model.busy && model.results.isNotEmpty()) { Text("消去") }
+            TextButton(onClick = { model.clear(); dismiss() }, enabled = !model.busy && model.results.isNotEmpty(), modifier = Modifier.semantics { testTag = "clear-results" }) { Text("消去") }
         }
     }
 }

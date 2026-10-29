@@ -33,10 +33,10 @@ import androidx.window.layout.FoldingFeature
                 Text("保存方法と使い回し", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 TextButton(back, modifier = Modifier.semantics { testTag = "storage-back" }) { Text("戻る") }
             }
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min)) {
                 listOf("保存の違い", "使い回し").forEachIndexed { index, title ->
                     SegmentedButton(topic == index, { topic = index }, shape = SegmentedButtonDefaults.itemShape(index, 2),
-                        modifier = Modifier.semantics { testTag = "storage-topic-$index" }) { Text(title) }
+                        modifier = Modifier.fillMaxHeight().semantics { testTag = "storage-topic-$index" }) { Text(title) }
                 }
             }
             key(topic) {
@@ -66,10 +66,10 @@ import androidx.window.layout.FoldingFeature
                         Button({ topic = 1 }, Modifier.fillMaxWidth()) { Text("使い回しで何が起きる？") }
                     } else {
                         Text("1か所で知られた値が、ほかの入口にも使われる。", style = MaterialTheme.typography.headlineSmall)
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                             listOf(true to "同じ値を使う", false to "別々にする").forEachIndexed { index, (same, title) ->
                                 SegmentedButton(reuse == same, { reuse = same }, shape = SegmentedButtonDefaults.itemShape(index, 2),
-                                    modifier = Modifier.semantics { testTag = if (same) "reuse-same" else "reuse-unique" }) { Text(title) }
+                                    modifier = Modifier.fillMaxHeight().semantics { testTag = if (same) "reuse-same" else "reuse-unique" }) { Text(title) }
                             }
                         }
                         LessonPanel("1  ショップAでパスワードが判明") {
@@ -139,7 +139,7 @@ import androidx.window.layout.FoldingFeature
     }
 }
 
-@Composable private fun LessonPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
+@Composable internal fun LessonPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium); content()

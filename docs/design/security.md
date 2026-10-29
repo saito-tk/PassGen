@@ -64,3 +64,16 @@ Google / JetBrains / Appleの保守されている標準・公式ライブラリ
 - 1Password: https://support.1password.com/category/getting-started/
 - Clipboard localOnly: https://developer.apple.com/documentation/uikit/uipasteboard/optionskey/localonly
 - Foundation Models image attachment: https://developer.apple.com/documentation/foundationmodels/attachment
+
+### 保存・使い回し・認証の図解（2026-10-29確認）
+
+- OWASP Password Storage: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+- NIST オフライン推測攻撃: https://pages.nist.gov/800-63-4/sp800-63b/passwords/
+- OWASP Credential Stuffing: https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html
+- OWASP TLS: https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html
+- NIST 要素の分類・同種の重複・秘密の質問の扱い: https://pages.nist.gov/800-63-4/sp800-63/model/
+- NCSC 2SV / 2FAの呼称: https://www.ncsc.gov.uk/guidance/setting-2-step-verification-2sv
+- FIDO Passkeys FAQ（User Verificationを要求する場合の複数要素）: https://fidoalliance.org/passkeys/
+- OWASP MFA（方式ごとの特徴とフィッシング）: https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
+
+ガイドはサービスの保存方式や認証方式を検査しない。模式図に本物のパスワードを入力させず、生成結果・設定値を教材へ渡さない。アプリから外部リンクを明示操作で開く以外に、教材の通信は行わない。秘密の質問の例は推奨として扱わない。

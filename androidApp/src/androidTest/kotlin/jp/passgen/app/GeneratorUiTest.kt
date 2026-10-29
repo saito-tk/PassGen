@@ -14,6 +14,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Before
+import org.junit.After
 import java.io.File
 
 class GeneratorUiTest {
@@ -31,6 +32,10 @@ class GeneratorUiTest {
             model.digitCharacters = jp.passgen.core.CharacterPolicy.DIGITS
             model.similarExclusions = jp.passgen.core.CharacterPolicy.SIMILAR
         }
+    }
+
+    @After fun restoreTestCaptureProtection() {
+        rule.runOnIdle { model.protectCapture = true }
     }
 
     @Test fun onlySettingsAndRevealPreferenceSurviveNewModel() {
@@ -106,6 +111,7 @@ class GeneratorUiTest {
     }
 
     @Test fun storageLessonExplainsGuessingAndShowsReuseConsequences() {
+        allowGuideScreenshots()
         rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
         rule.onNodeWithTag("password-storage-guide").performClick()
         rule.onNodeWithText("平文（ひらぶん）").assertExists()
@@ -121,17 +127,53 @@ class GeneratorUiTest {
         saveGuideScreenshot("storage-unique.png")
         rule.onNodeWithTag("storage-back").performClick()
         rule.onNodeWithText("アカウントを守る").assertExists()
+        rule.runOnIdle { model.protectCapture = true }
+    }
+
+    @Test fun authenticationLessonDistinguishesStepsFromFactors() {
+        allowGuideScreenshots()
+        rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
+        rule.onNodeWithTag("authentication-guide").performScrollTo().performClick()
+        rule.onNodeWithTag("auth-steps").assertTextEquals("2段階")
+        rule.onNodeWithTag("auth-count").assertTextEquals("2種類")
+        val choices = (0..2).map { rule.onNodeWithTag("auth-example-$it").getUnclippedBoundsInRoot() }
+        assertTrue("Example buttons must align even at large font sizes", choices.all { kotlin.math.abs(((it.bottom - it.top) - (choices.first().bottom - choices.first().top)).value) < 1f })
+        rule.onNodeWithTag("auth-outcome").assertTextEquals("2段階で、異なる2つの要素を確認します。")
+        saveGuideScreenshot("auth-app.png")
+        rule.onNodeWithTag("auth-example-0").performClick()
+        rule.onNodeWithTag("auth-steps").assertTextEquals("2段階")
+        rule.onNodeWithTag("auth-count").assertTextEquals("1種類")
+        rule.onNodeWithTag("auth-outcome").assertTextEquals("2回確認しても、2要素にはなりません。")
+        rule.onNodeWithTag("auth-example-2").performClick()
+        rule.onNodeWithTag("auth-steps").assertTextEquals("一連の操作")
+        rule.onNodeWithTag("auth-count").assertTextEquals("2種類")
+        rule.onNodeWithTag("auth-outcome").assertTextEquals("一連の操作で、複数の要素を確認できます。")
+        saveGuideScreenshot("auth-passkey.png")
+        rule.onNodeWithTag("auth-factors").performScrollTo().performClick()
+        rule.onNodeWithText("知っていること").assertExists()
+        rule.onNodeWithTag("auth-methods").performScrollTo().performClick()
+        rule.onNodeWithText("SMSの一時コード").assertExists()
+        rule.onNodeWithTag("auth-back").performClick()
+        rule.onNodeWithText("アカウントを守る").assertExists()
+        rule.runOnIdle { model.protectCapture = true }
+    }
+
+    private fun allowGuideScreenshots() {
+        // Dialog windows inherit FLAG_SECURE when opened. Disable it before opening
+        // these test-only diagrams, which never generate or display credentials.
+        rule.runOnIdle { assertTrue(model.results.isEmpty()); model.protectCapture = false }
+        rule.waitForIdle()
     }
 
     private fun saveGuideScreenshot(name: String) {
-        rule.runOnIdle { assertTrue(model.results.isEmpty()); model.protectCapture = false }
-        rule.waitForIdle(); android.os.SystemClock.sleep(2000)
-        try {
-            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            File(context.getExternalFilesDir(null), name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            bitmap.recycle()
-        } finally { rule.runOnIdle { model.protectCapture = true } }
+        rule.runOnIdle { assertTrue(model.results.isEmpty()); assertFalse(model.protectCapture) }
+        rule.waitForIdle(); android.os.SystemClock.sleep(500)
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val colors = (1..20).flatMap { x -> (1..20).map { y -> bitmap.getPixel(bitmap.width * x / 21, bitmap.height * y / 21) } }.toSet()
+        assertTrue("Guide screenshot must contain visible content", colors.size > 4)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        File(context.getExternalFilesDir(null), name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
     }
 
     @Test fun clipboardUsesConfiguredExpiry() {

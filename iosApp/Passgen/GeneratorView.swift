@@ -526,6 +526,12 @@ struct SecurityGuideView: View {
                         Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る").font(.caption).foregroundStyle(.secondary)
                     }.padding(.vertical, 6)
                 }.accessibilityIdentifier("password-storage-guide")
+                NavigationLink { AuthenticationFactorsLessonView() } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("2要素と2段階、何が違う？").font(.headline).foregroundStyle(Color.passgenAccent)
+                        Text("手順と要素を、3つの例で見比べる").font(.caption).foregroundStyle(.secondary)
+                    }.padding(.vertical, 6)
+                }.accessibilityIdentifier("authentication-guide")
             }
             Section("強いパスワードの特徴") {
                 Text("長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。このアプリの初期値は24文字です。")
@@ -720,6 +726,151 @@ private struct LessonBranch: Shape {
         path.move(to: CGPoint(x: rect.width * 0.25, y: rect.maxY)); path.addLine(to: CGPoint(x: rect.width * 0.25, y: rect.midY))
         path.addLine(to: CGPoint(x: rect.width * 0.75, y: rect.midY)); path.addLine(to: CGPoint(x: rect.width * 0.75, y: rect.maxY))
         return path
+    }
+}
+
+private enum AuthFactor: String, CaseIterable {
+    case knowledge = "知識", possession = "所持", biometric = "生体"
+    var color: Color {
+        switch self { case .knowledge: .primary; case .possession: .passgenAccent; case .biometric: .primary }
+    }
+    var meaning: String {
+        switch self { case .knowledge: "知っていること"; case .possession: "機器や鍵を使えること"; case .biometric: "自分の身体の特徴" }
+    }
+    var examples: String {
+        switch self { case .knowledge: "パスワード・PIN"; case .possession: "認証アプリ・セキュリティキー"; case .biometric: "指紋・顔" }
+    }
+}
+
+private enum AuthExample: String, CaseIterable {
+    case question = "質問", app = "アプリ", passkey = "パスキー"
+    var title: String {
+        switch self { case .question: "パスワード ＋ 秘密の質問"; case .app: "パスワード ＋ 認証アプリ"; case .passkey: "指紋で本人確認するパスキー" }
+    }
+    var first: String { self == .passkey ? "端末にある暗号鍵" : "パスワード" }
+    var second: String {
+        switch self { case .question: "秘密の質問の答え"; case .app: "アプリの一時コード"; case .passkey: "指紋で鍵を使用" }
+    }
+    var firstFactor: AuthFactor { self == .passkey ? .possession : .knowledge }
+    var secondFactor: AuthFactor {
+        switch self { case .question: .knowledge; case .app: .possession; case .passkey: .biometric }
+    }
+    var steps: String { self == .passkey ? "一連の操作" : "2段階" }
+    var factors: String { self == .question ? "1種類" : "2種類" }
+    var result: String {
+        switch self {
+        case .question: "2回確認しても、2要素にはなりません。"
+        case .app: "2段階で、異なる2つの要素を確認します。"
+        case .passkey: "一連の操作で、複数の要素を確認できます。"
+        }
+    }
+    var explanation: String {
+        switch self {
+        case .question: "どちらも「知っていること」です。これは違いを説明するための例です。秘密の質問は推測や調査で知られやすく、NISTでも認証手段として認められていません。"
+        case .app: "パスワードを知っていることと、認証アプリの秘密鍵を使えることを確かめます。コードを入力する操作でも、ここでは「所持」の証明です。"
+        case .passkey: "端末の暗号鍵と、鍵を使うための指紋確認を組み合わせる例です。指紋の情報そのものをサービスへ送る仕組みではありません。"
+        }
+    }
+}
+
+private struct AuthenticationFactorsLessonView: View {
+    @State private var example = AuthExample.app
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("2段階は「手順」、2要素は「種類」。").font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 8)
+            Picker("比較する例", selection: $example) {
+                ForEach(AuthExample.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 10)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(example.title).font(.title3.weight(.semibold))
+                    HStack(alignment: .top, spacing: 10) {
+                        authMetric("確認の流れ", example.steps)
+                        authMetric("要素の種類", example.factors)
+                    }
+                    LessonPanel(title: example == .passkey ? "鍵を使うときに、本人確認" : "確認を順番に重ねる") {
+                        if typeSize.isAccessibilitySize {
+                            AuthStepCard(title: example.first, factor: example.firstFactor)
+                            connector.frame(maxWidth: .infinity)
+                            AuthStepCard(title: example.second, factor: example.secondFactor)
+                        } else {
+                            HStack(spacing: 8) {
+                                AuthStepCard(title: example.first, factor: example.firstFactor)
+                                connector
+                                AuthStepCard(title: example.second, factor: example.secondFactor)
+                            }
+                        }
+                        Text(example.result).font(.headline).foregroundStyle(Color.passgenAccent).accessibilityIdentifier("auth-outcome")
+                    }
+                    Text(example.explanation).font(.subheadline)
+                    if example == .passkey {
+                        Text("この例は利用時の本人確認が必須の構成です。PINなら「所持＋知識」になります。すべてのパスキーが常に2要素として扱われるわけではなく、サービスの要求と実装によります。").font(.caption)
+                    }
+                    LessonPanel(title: "名前だけで、強さは決まりません") {
+                        Text("「2段階認証」という名前で2要素を使うサービスもあります。何を組み合わせ、どの攻撃を防げるかを確認しましょう。").font(.subheadline)
+                    }
+                    DisclosureGroup("3つの要素とは？") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(AuthFactor.allCases, id: \.self) { factor in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Text(factor.rawValue).font(.subheadline.weight(.semibold)).foregroundStyle(factor.color)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(factor.meaning).font(.subheadline)
+                                        Text(factor.examples).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            Text("生体情報は通常、機器の鍵を使うための本人確認に使います。顔や指紋だけを単独でネットの相手へ証明するものではありません。2種類以上なら「多要素認証（MFA）」と呼びます。").font(.caption)
+                        }.padding(.top, 12)
+                    }.font(.subheadline.weight(.semibold))
+                    DisclosureGroup("どれを設定したらいい？") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            authMethod("パスキー・FIDOセキュリティキー", "正規のサイトと結び付き、偽サイトへ認証情報を渡す攻撃に強い方式です。同期先・復旧方法も確認しましょう。")
+                            authMethod("認証アプリの一時コード", "パスワードだけの認証に保護を追加できます。ただし偽サイトへのコード入力で盗まれることがあります。")
+                            authMethod("SMSの一時コード", "追加の保護になりますが、電話番号の乗っ取りや偽サイトに弱い面があります。ほかの方法も選べるか確認しましょう。")
+                            Divider()
+                            Text("心当たりのない認証要求は承認せず、コードを人に教えないでください。復旧コードは安全に保管し、機種変更前に引き継ぎ方法を確認しましょう。").font(.caption)
+                        }.padding(.top, 12)
+                    }.font(.subheadline.weight(.semibold))
+                    Divider()
+                    DisclosureGroup("根拠を読む（英語）") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Link("NIST：要素の分類", destination: URL(string: "https://pages.nist.gov/800-63-4/sp800-63/model/")!)
+                            Link("NCSC：2段階認証の呼び方", destination: URL(string: "https://www.ncsc.gov.uk/guidance/setting-2-step-verification-2sv")!)
+                            Link("FIDO：パスキーと本人確認", destination: URL(string: "https://fidoalliance.org/passkeys/")!)
+                            Link("OWASP：認証方式ごとの特徴", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html")!)
+                        }.font(.subheadline).padding(.top, 10)
+                    }.font(.caption.weight(.semibold))
+                }.padding(16).frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }.id(example)
+        }.background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("2要素と2段階").navigationBarTitleDisplayMode(.inline)
+    }
+    private var connector: some View { Text(example == .passkey ? "＋" : typeSize.isAccessibilitySize ? "↓" : "→").font(.headline).accessibilityHidden(true) }
+    private func authMetric(_ caption: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(caption).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.headline).accessibilityIdentifier(caption == "確認の流れ" ? "auth-steps" : "auth-count")
+        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.passgenAccent.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+    }
+    private func authMethod(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) { Text(title).font(.subheadline.weight(.semibold)); Text(detail).font(.subheadline) }
+    }
+}
+
+private struct AuthStepCard: View {
+    let title: String
+    let factor: AuthFactor
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(factor.rawValue).font(.caption.weight(.semibold)).foregroundStyle(factor.color)
+            Text(title).font(.subheadline)
+        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(factor.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
     }
 }
 

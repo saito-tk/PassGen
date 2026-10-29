@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.dp
     }
 }
 
-@Composable fun SecurityGuideSheet(dismiss: () -> Unit, storageLesson: () -> Unit) {
+@Composable fun SecurityGuideSheet(dismiss: () -> Unit, storageLesson: () -> Unit, authLesson: () -> Unit) {
     ModalBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("アカウントを守る", style = MaterialTheme.typography.headlineSmall)
@@ -69,6 +69,12 @@ import androidx.compose.ui.unit.dp
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("なぜ使い回しは危険？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     Text("平文・ハッシュ化の違いと、漏えいの広がりを図で見る", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            OutlinedCard(onClick = authLesson, modifier = Modifier.fillMaxWidth().semantics { testTag = "authentication-guide" }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("2要素と2段階、何が違う？", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("手順と要素を、3つの例で見比べる", style = MaterialTheme.typography.bodySmall)
                 }
             }
             GuideCard("強いパスワードの特徴", "長さがあり、推測できない無作為な文字や単語で構成されることが大切です。まず15文字以上を目安に、利用先が許す範囲で長くしましょう。初期値は24文字です。",

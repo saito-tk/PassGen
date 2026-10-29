@@ -90,6 +90,36 @@ final class PassgenUITests: XCTestCase {
         let unique = XCTAttachment(screenshot: app.screenshot()); unique.name = "Unique passwords scenario"; unique.lifetime = .keepAlways; add(unique)
     }
 
+    @MainActor func testAuthenticationLessonDistinguishesStepsFromFactors() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        let link = app.buttons["authentication-guide"]
+        for _ in 0..<6 { if link.isHittable { break }; app.swipeUp() }
+        link.tap()
+        XCTAssertTrue(app.navigationBars["2要素と2段階"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["auth-steps"].label, "2段階")
+        XCTAssertEqual(app.staticTexts["auth-count"].label, "2種類")
+        XCTAssertEqual(app.staticTexts["auth-outcome"].label, "2段階で、異なる2つの要素を確認します。")
+        let initial = XCTAttachment(screenshot: app.screenshot()); initial.name = "Authenticator factors"; initial.lifetime = .keepAlways; add(initial)
+        app.segmentedControls.buttons["質問"].tap()
+        XCTAssertEqual(app.staticTexts["auth-steps"].label, "2段階")
+        XCTAssertEqual(app.staticTexts["auth-count"].label, "1種類")
+        XCTAssertEqual(app.staticTexts["auth-outcome"].label, "2回確認しても、2要素にはなりません。")
+        app.segmentedControls.buttons["パスキー"].tap()
+        XCTAssertEqual(app.staticTexts["auth-steps"].label, "一連の操作")
+        XCTAssertEqual(app.staticTexts["auth-count"].label, "2種類")
+        XCTAssertEqual(app.staticTexts["auth-outcome"].label, "一連の操作で、複数の要素を確認できます。")
+        let passkey = XCTAttachment(screenshot: app.screenshot()); passkey.name = "Passkey factors"; passkey.lifetime = .keepAlways; add(passkey)
+        let factors = app.buttons["3つの要素とは？"]
+        for _ in 0..<5 { if factors.isHittable { break }; app.swipeUp() }
+        factors.tap(); XCTAssertTrue(app.staticTexts["知っていること"].exists)
+        let methods = app.buttons["どれを設定したらいい？"]
+        for _ in 0..<5 { if methods.isHittable { break }; app.swipeUp() }
+        methods.tap(); XCTAssertTrue(app.staticTexts["SMSの一時コード"].exists)
+        app.navigationBars["2要素と2段階"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["アカウントを守る"].exists)
+    }
+
     @MainActor func testCopyMarksRemainOnBothRowsAndGuideOpens() {
         let app = launchApp()
         let count = app.textFields["count"]; count.tap(); count.typeText(XCUIKeyboardKey.delete.rawValue + "2")

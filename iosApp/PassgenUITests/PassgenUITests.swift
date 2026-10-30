@@ -4,6 +4,13 @@ final class PassgenUITests: XCTestCase {
     @MainActor private func launchApp() -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--uitest-ephemeral-settings"]; app.launch(); return app
     }
+    @MainActor private func dismissPresets(_ app: XCUIApplication) {
+        let bar = app.navigationBars["プリセット"]
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: bar)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
     @MainActor private func chooseOnlyDigits(_ app: XCUIApplication) {
         for group in ["大文字", "小文字", "記号"] {
             app.segmentedControls.buttons[group].tap()
@@ -23,7 +30,7 @@ final class PassgenUITests: XCTestCase {
         app.buttons["preset-save"].tap()
         XCTAssertTrue(app.buttons["Mailを読み込む"].waitForExistence(timeout: 3))
         let preview = XCTAttachment(screenshot: app.screenshot()); preview.name = "Named generation presets"; preview.lifetime = .keepAlways; add(preview)
-        app.navigationBars["プリセット"].buttons["完了"].tap()
+        dismissPresets(app)
         if app.windows.firstMatch.frame.width < 700 { XCTAssertTrue(app.navigationBars["生成結果 0件"].waitForExistence(timeout: 5)) }
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: app.buttons["generate"])
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
@@ -51,7 +58,7 @@ final class PassgenUITests: XCTestCase {
         app.buttons["「Backup」を削除"].tap()
         let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["Backupを読み込む"])
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
-        app.navigationBars["プリセット"].buttons["完了"].tap()
+        dismissPresets(app)
         XCTAssertTrue(app.buttons["generate"].waitForExistence(timeout: 5))
     }
     @MainActor func testPeekSheetAllowsSettingsAndMovesGenerationToHeader() {

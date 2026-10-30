@@ -122,7 +122,7 @@ struct GeneratorView: View {
             }
             .sheet(item: $activeSheet, onDismiss: restoreResultDock) { sheet in
                 switch sheet {
-                case .presets: PresetsView(model: model, done: { activeSheet = nil }).sensitiveScene(enabled: model.security.protectAppSwitcher).presentationDetents([.large])
+                case .presets: PresetsView(model: model, done: { activeSheet = nil }).sensitiveScene(enabled: model.security.protectAppSwitcher).presentationDetents([.large]).presentationDragIndicator(.visible)
                 case .symbols: SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .privacy: PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .results:
@@ -318,6 +318,7 @@ private struct CharacterEditor: View {
 
 private struct CharacterOverview: View {
     let model: GeneratorModel
+    var identifierPrefix = "overview"
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         if model.recipe.mode == .password {
@@ -344,7 +345,7 @@ private struct CharacterOverview: View {
                         }.accessibilityElement(children: .ignore)
                             .accessibilityLabel(item.title)
                             .accessibilityValue("生成対象: \(effective.isEmpty ? "なし" : effective.map(String.init).joined(separator: " "))")
-                            .accessibilityIdentifier("overview-\(item.rawValue)")
+                            .accessibilityIdentifier("\(identifierPrefix)-\(item.rawValue)")
                     }
                 }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -575,7 +576,7 @@ struct PresetsView: View {
         NavigationStack {
             List { saveSection; savedSection }
             .navigationTitle("プリセット").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了", action: done) } }
+            .accessibilityAction(.escape, done)
             .confirmationDialog("現在の設定で上書きしますか？", isPresented: $showReplaceConfirmation, titleVisibility: .visible, presenting: replacing) { preset in
                 Button("「\(preset.name)」を上書き", role: .destructive) { perform({ try model.replacePreset(preset.id) }, success: "更新しました。") }
             }
@@ -586,18 +587,25 @@ struct PresetsView: View {
     }
     private var saveSection: some View {
         Section {
+            if model.recipe.mode == .password { CharacterOverview(model: model, identifierPrefix: "preset-overview") }
             Text(model.recipe.presetSummary).font(.caption).foregroundStyle(.secondary)
             TextField("プリセット名", text: $name).textInputAutocapitalization(.never).autocorrectionDisabled().focused($nameFocused).submitLabel(.done)
                 .onSubmit { nameFocused = false }.accessibilityIdentifier("preset-name")
             if !name.isEmpty, let error = model.presetNameError(name) { Text(error).font(.caption).foregroundStyle(.red) }
-            Button("保存") {
-                nameFocused = false
-                perform({ try model.savePreset(name: name); name = "" }, success: "保存しました。")
-            }.disabled(model.busy || model.presetNameError(name) != nil || model.presetStorageIssue != nil)
-                .accessibilityIdentifier("preset-save")
             if let status { Text(status).font(.caption).accessibilityIdentifier("preset-status") }
             if let issue = model.presetStorageIssue { Text(issue).font(.caption).foregroundStyle(.red) }
-        } header: { Text("現在の設定を保存") } footer: { Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。") }
+        } header: {
+            HStack {
+                Text("現在の設定を保存").font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                Spacer()
+                Button("保存") {
+                    nameFocused = false
+                    perform({ try model.savePreset(name: name); name = "" }, success: "保存しました。")
+                }.modifier(PrimaryActionStyle()).controlSize(.regular).fixedSize()
+                    .disabled(model.busy || model.presetNameError(name) != nil || model.presetStorageIssue != nil)
+                    .accessibilityIdentifier("preset-save")
+            }.textCase(nil)
+        } footer: { Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。") }
     }
     private var savedSection: some View {
         Section("保存済み · \(model.presets.count)件") {

@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.WindowManager
+import android.view.KeyEvent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.viewModelScope
@@ -95,9 +96,9 @@ class GeneratorUiTest {
             rule.onNodeWithTag("presets").performClick()
             rule.onNodeWithTag("preset-name").performTextInput(name)
             rule.onNodeWithTag("preset-name").performImeAction()
-            rule.onNodeWithTag("preset-save").performClick()
+            rule.onNodeWithTag("preset-save").assertIsDisplayed().assertIsEnabled().performClick()
             rule.runOnIdle { owned = model.presets.first { it.name == name }.id }
-            rule.onNodeWithText("完了").performClick()
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             rule.runOnIdle { model.lengthText = "24" }
             rule.onNodeWithTag("presets").performClick()
             rule.onNodeWithContentDescription("${name}を読み込む").performClick()
@@ -109,7 +110,7 @@ class GeneratorUiTest {
             rule.onNodeWithContentDescription("${name}-newの編集").performClick(); rule.onNodeWithText("削除").performClick()
             rule.onNodeWithTag("preset-confirm").performClick()
             rule.runOnIdle { assertTrue(model.presets.none { it.id == owned }) }
-            rule.onNodeWithText("完了").performClick()
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             rule.onNodeWithTag("generate").assertIsDisplayed()
         } finally { rule.runOnIdle { owned?.let { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
     }

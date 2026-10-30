@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.window.layout.FoldingFeature
+import jp.passgen.core.GenerationMode
 
 @Composable fun PresetsSheet(model: PassgenModel, fold: FoldingFeature?, dismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
@@ -36,24 +37,24 @@ import androidx.window.layout.FoldingFeature
         Column(Modifier.fillMaxWidth().fillMaxHeight(.9f).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("プリセット", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = dismiss) { Text("完了") }
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("現在の設定を保存", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Button(onClick = {
+                    focus.clearFocus(); keyboard?.hide()
+                    perform("保存しました。") { model.savePreset(name); name = "" }
+                }, enabled = !model.busy && model.presetNameError(name) == null && model.presetStorageIssue == null,
+                    modifier = Modifier.semantics { testTag = "preset-save" }) { Text("保存") }
             }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("現在の設定を保存", style = MaterialTheme.typography.titleSmall)
+                        if (model.mode == GenerationMode.PASSWORD) CategoryOverview(model, identifierPrefix = "preset-overview")
                         Text(PresetRecipe.capture(model).summary, style = MaterialTheme.typography.bodySmall)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(name, { name = it; status = null }, label = { Text("プリセット名") }, singleLine = true,
-                                modifier = Modifier.weight(1f).semantics { testTag = "preset-name" }, enabled = !model.busy,
-                                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); keyboard?.hide() }))
-                            Button(onClick = {
-                                focus.clearFocus(); keyboard?.hide()
-                                perform("保存しました。") { model.savePreset(name); name = "" }
-                            }, enabled = !model.busy && model.presetNameError(name) == null && model.presetStorageIssue == null,
-                                modifier = Modifier.semantics { testTag = "preset-save" }) { Text("保存") }
-                        }
+                        OutlinedTextField(name, { name = it; status = null }, label = { Text("プリセット名") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth().semantics { testTag = "preset-name" }, enabled = !model.busy,
+                            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); keyboard?.hide() }))
                         if (name.isNotEmpty()) model.presetNameError(name)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                         Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         status?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.semantics { testTag = "preset-status"; liveRegion = LiveRegionMode.Polite }) }

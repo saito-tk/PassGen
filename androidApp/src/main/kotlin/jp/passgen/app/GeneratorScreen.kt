@@ -243,7 +243,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     CategoryOverview(model)
 }
 
-@Composable private fun CategoryOverview(model: PassgenModel) {
+@Composable internal fun CategoryOverview(model: PassgenModel, identifierPrefix: String = "overview") {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("現在選択中の文字", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Surface(shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -253,7 +253,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
                     val effective = if (enabled) CharacterPolicy.effective(selected, tab.alphabet, model.excludeSimilar, model.similarExclusions) else ""
                     val description = "${tab.title}、生成対象: ${effective.toList().joinToString(" ").ifEmpty { "なし" }}"
-                    val row = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description; testTag = "overview-${tab.name}" }
+                    val row = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description; testTag = "$identifierPrefix-${tab.name}" }
                     if (LocalDensity.current.fontScale >= 2f) {
                         Column(row, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(tab.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

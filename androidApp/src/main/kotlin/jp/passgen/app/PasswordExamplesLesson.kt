@@ -22,13 +22,12 @@ import jp.passgen.core.SecurityGuideExamples
     var topic by remember { mutableIntStateOf(initialTopic) }
     val density = LocalDensity.current
     val topics = listOf("避けたい例", "長さ", "パスフレーズ")
-    ModalBottomSheet(onDismissRequest = back, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = if (fold == null) Modifier else Modifier.padding(start = with(density) { fold.bounds.right.toDp() }),
-        sheetMaxWidth = if (fold == null) 720.dp else Dp.Unspecified) {
+    PassgenSheet(back, fold, maxWidth = 720.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconAction(R.drawable.ic_arrow_back, "戻る", Modifier.semantics { testTag = "password-examples-back" }, action = back)
+                Spacer(Modifier.width(8.dp))
                 Text("パスワードを例で見る", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(back, Modifier.semantics { testTag = "password-examples-back" }) { Text("戻る") }
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 10.dp).height(IntrinsicSize.Min)) {
                 topics.forEachIndexed { index, title ->

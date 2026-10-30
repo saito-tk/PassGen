@@ -2,6 +2,9 @@
 
 package jp.passgen.app
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -87,21 +90,17 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         Scaffold(modifier = Modifier.padding(start = region.start.dp, end = (maxWidth.value - region.start - region.length).coerceAtLeast(0f).dp),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { showPresets = true }, modifier = Modifier.semantics { testTag = "presets" }) { Text("プリセット") }
-                    Text("Passgen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
-                }
+                CenterAlignedTopAppBar(title = { Text("Passgen") },
+                    navigationIcon = { IconAction(R.drawable.ic_bookmark, "プリセット", Modifier.semantics { testTag = "presets" }) { showPresets = true } },
+                    actions = { IconAction(R.drawable.ic_settings, "設定と安全性", Modifier.semantics { testTag = "safety-settings" }) { showPrivacy = true } },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
             }, bottomBar = {
                 if (!inline && !showResults) Surface(tonalElevation = 2.dp) {
                     Row(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        if (model.results.isNotEmpty()) TextButton(onClick = { resultsRequested = true }) { Text("結果 ${model.results.size}件") }
-                        Button(onClick = ::generate, enabled = model.generationActionEnabled,
-                            modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
-                            Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
-                        }
+                        ConfigurationIssue(model, Modifier.weight(1f))
+                        if (model.results.isNotEmpty()) TextButton(onClick = { resultsRequested = true }) { ActionLabel(R.drawable.ic_expand_less, "結果 ${model.results.size}件") }
+                        ResultGenerationAction(model, inline = true, generate = ::generate)
                     }
                 }
             }
@@ -140,18 +139,18 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 }
             }
         }
-        if (showPresets) PresetsSheet(model, verticalFold) { showPresets = false }
-        if (showResults) ResultSheet(model, copy, resultsScroll, { resultsRequested = false }, ::generate, ::clear)
-        if (showSymbols) SymbolSheet(model) { showSymbols = false }
-        if (showPrivacy) PrivacySheet(model, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
-        if (showGuide) SecurityGuideSheet(
+        if (showPresets) PresetsSheet(model, fold) { model.editorSession.clearPresets(); showPresets = false }
+        if (showResults) ResultSheet(model, fold, copy, resultsScroll, { resultsRequested = false }, ::generate, ::clear)
+        if (showSymbols) SymbolSheet(model, fold) { model.editorSession.clearSymbols(); showSymbols = false }
+        if (showPrivacy) PrivacySheet(model, fold, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
+        if (showGuide) SecurityGuideSheet(fold = fold,
             dismiss = { showGuide = false },
             storageLesson = { showGuide = false; showStorageLesson = true },
             authLesson = { showGuide = false; showAuthLesson = true },
             examplesLesson = { topic -> showGuide = false; examplesTopic = topic })
-        if (showStorageLesson) PasswordStorageLessonSheet(verticalFold) { showStorageLesson = false; showGuide = true }
-        if (showAuthLesson) AuthenticationFactorsLessonSheet(verticalFold) { showAuthLesson = false; showGuide = true }
-        examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, verticalFold) { examplesTopic = null; showGuide = true } }
+        if (showStorageLesson) PasswordStorageLessonSheet(fold) { showStorageLesson = false; showGuide = true }
+        if (showAuthLesson) AuthenticationFactorsLessonSheet(fold) { showAuthLesson = false; showGuide = true }
+        examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, fold) { examplesTopic = null; showGuide = true } }
     }
 }
 
@@ -181,42 +180,45 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable private fun CoreSettings(model: PassgenModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("生成形式", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            model.estimate()?.let { bits ->
-                Text("推定 ${bits.toInt()} bits", style = MaterialTheme.typography.labelMedium,
-                    color = if (bits < 80) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            GenerationMode.entries.forEachIndexed { index, mode ->
-                SegmentedButton(selected = model.mode == mode, onClick = { model.chooseMode(mode) }, enabled = !model.busy,
-                    shape = SegmentedButtonDefaults.itemShape(index, 2)) {
-                    Text(when (mode) { GenerationMode.PASSWORD -> "パスワード"; GenerationMode.PASSPHRASE -> "パスフレーズ" }, fontSize = 13.sp)
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("生成形式", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                model.estimate()?.let { bits ->
+                    Text("推定 ${bits.toInt()} bits", style = MaterialTheme.typography.labelMedium,
+                        color = if (bits < 80) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-        if (LocalDensity.current.fontScale > 1.3f) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuantityField(model, true, Modifier.fillMaxWidth())
-                QuantityField(model, false, Modifier.fillMaxWidth())
-            }
-        } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuantityField(model, true, Modifier.weight(1f))
-            QuantityField(model, false, Modifier.weight(1f))
-        }
-        if (model.mode == GenerationMode.PASSPHRASE) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(" " to "スペース", "-" to "-", "_" to "_", "." to ".").forEach { (value, label) ->
-                    FilterChip(model.separator == value, { model.separator = value }, enabled = !model.busy, label = { Text(label) })
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                GenerationMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(selected = model.mode == mode, onClick = { model.chooseMode(mode) }, enabled = !model.busy,
+                        shape = SegmentedButtonDefaults.itemShape(index, 2)) {
+                        Text(when (mode) { GenerationMode.PASSWORD -> "パスワード"; GenerationMode.PASSPHRASE -> "パスフレーズ" }, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
+            if (LocalDensity.current.fontScale > 1.3f) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuantityField(model, true, Modifier.fillMaxWidth())
+                    QuantityField(model, false, Modifier.fillMaxWidth())
+                }
+            } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuantityField(model, true, Modifier.weight(1f))
+                QuantityField(model, false, Modifier.weight(1f))
+            }
+            if (model.mode == GenerationMode.PASSPHRASE) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(" " to "スペース", "-" to "-", "_" to "_", "." to ".").forEach { (value, label) ->
+                        FilterChip(model.separator == value, { model.separator = value }, enabled = !model.busy, label = { Text(label) },
+                            leadingIcon = if (model.separator == value) { { AppIcon(R.drawable.ic_check, Modifier.size(16.dp)) } } else null)
+                    }
+                }
+            }
+            if (model.isDigitsOnly) Text("数字だけの短いパスワードは、候補数が少なくなります。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (model.isDigitsOnly) Text("数字だけの短いパスワードは、候補数が少なくなります。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        model.configurationIssue?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
+
 
 @Composable private fun QuantityField(model: PassgenModel, lengthField: Boolean, modifier: Modifier) {
     if (lengthField && model.mode == GenerationMode.PASSPHRASE) {
@@ -224,18 +226,22 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                 Text("単語数", style = MaterialTheme.typography.labelMedium)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick = { model.words-- }, enabled = !model.busy && model.words > 6) { Text("−") }
+                    IconAction(R.drawable.ic_remove, "単語数を減らす", enabled = !model.busy && model.words > 6) { model.words-- }
                     Text("${model.words}", style = MaterialTheme.typography.titleLarge)
-                    TextButton(onClick = { model.words++ }, enabled = !model.busy && model.words < 12) { Text("＋") }
+                    IconAction(R.drawable.ic_add, "単語数を増やす", enabled = !model.busy && model.words < 12) { model.words++ }
                 }
             }
         }
-    } else OutlinedTextField(if (lengthField) model.lengthText else model.countText,
-        { if (lengthField) model.lengthText = it else model.countText = it }, enabled = !model.busy,
-        label = { Text(if (lengthField) "文字数" else "生成件数") }, singleLine = true,
-        textStyle = MaterialTheme.typography.titleLarge, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        supportingText = { Text(if (lengthField) "4–999,999" else "1–${model.maxCount}", fontSize = 11.sp) },
-        modifier = modifier.normalizeOnBlur(model::normalize))
+    } else {
+        val focus = LocalFocusManager.current
+        OutlinedTextField(if (lengthField) model.lengthText else model.countText,
+            { if (lengthField) model.lengthText = it else model.countText = it }, enabled = !model.busy,
+            label = { Text(if (lengthField) "文字数" else "生成件数") }, singleLine = true,
+            textStyle = MaterialTheme.typography.titleLarge, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+            supportingText = { Text(if (lengthField) "4–999,999" else "1–${model.maxCount}", fontSize = 11.sp) },
+            modifier = modifier.normalizeOnBlur(model::normalize))
+    }
 }
 
 @Composable private fun CharacterSettings(model: PassgenModel, tab: CharacterTab, selectTab: (CharacterTab) -> Unit, importSymbols: () -> Unit) {
@@ -250,50 +256,67 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         when (tab) { CharacterTab.UPPER -> model.uppercase = value; CharacterTab.LOWER -> model.lowercase = value; CharacterTab.DIGITS -> model.digits = value; CharacterTab.SYMBOLS -> model.symbolsEnabled = value }
     }
     val excluded = if (model.excludeSimilar && tab != CharacterTab.SYMBOLS) tab.alphabet.filter { it in model.similarExclusions } else ""
-    Surface(shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("文字セット", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Text("大${if (model.uppercase) model.uppercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 小${if (model.lowercase) model.lowercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 数${if (model.digits) model.digitCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 記${if (model.symbolsEnabled) model.symbols.length else 0}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.5f).padding(start = 8.dp))
-            }
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                CharacterTab.entries.forEachIndexed { index, item ->
-                    SegmentedButton(selected = tab == item, onClick = { selectTab(item) }, enabled = !model.busy,
-                        shape = SegmentedButtonDefaults.itemShape(index, 4), icon = {}) { Text(item.title, fontSize = 12.sp) }
+    var selectionMenu by remember { mutableStateOf(false) }
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("文字セット", style = MaterialTheme.typography.titleMedium)
+            Text("大${if (model.uppercase) model.uppercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 小${if (model.lowercase) model.lowercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 数${if (model.digits) model.digitCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 記${if (model.symbolsEnabled) model.symbols.length else 0}",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (LocalDensity.current.fontScale > 1.3f) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CharacterTab.entries.forEach { item ->
+                        FilterChip(tab == item, { selectTab(item) }, enabled = !model.busy, label = { Text(item.title) },
+                            leadingIcon = if (tab == item) { { AppIcon(R.drawable.ic_check, Modifier.size(16.dp)) } } else null)
+                    }
+                }
+            } else SecondaryTabRow(selectedTabIndex = tab.ordinal, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
+                CharacterTab.entries.forEach { item ->
+                    Tab(selected = tab == item, onClick = { selectTab(item) }, enabled = !model.busy,
+                        text = { Text(item.title, style = MaterialTheme.typography.labelLarge) })
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(enabled, ::toggleCategory, enabled = !model.busy)
-                Text("${tab.title}を含める", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { update(tab.alphabet) }, enabled = enabled && !model.busy) { Text("全選択", fontSize = 12.sp) }
-                TextButton(onClick = { update("") }, enabled = enabled && !model.busy) { Text("解除", fontSize = 12.sp) }
+                RuleToggle("${tab.title}を含める", enabled, !model.busy, Modifier.weight(1f), ::toggleCategory)
+                Box {
+                    IconAction(R.drawable.ic_more_vert, "${tab.title}の選択を変更", enabled = enabled && !model.busy) { selectionMenu = true }
+                    DropdownMenu(selectionMenu, { selectionMenu = false }) {
+                        DropdownMenuItem(text = { Text("全選択") }, leadingIcon = { AppIcon(R.drawable.ic_select_all) }, onClick = { update(tab.alphabet); selectionMenu = false })
+                        DropdownMenuItem(text = { Text("選択を解除") }, leadingIcon = { AppIcon(R.drawable.ic_deselect) }, onClick = { update(""); selectionMenu = false })
+                    }
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 tab.alphabet.forEach { character ->
                     val isExcluded = character in excluded
-                    val checked = character in selected && !isExcluded
+                    val checked = enabled && character in selected && !isExcluded
                     Surface(onClick = { update(if (character in selected) selected.replace(character.toString(), "") else selected + character) },
                         enabled = enabled && !model.busy && !isExcluded,
-                        modifier = Modifier.size(44.dp).semantics {
+                        modifier = Modifier.size(maxOf(48f, 32f + 16f * LocalDensity.current.fontScale).dp).semantics {
+                            toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off; role = Role.Checkbox
                             contentDescription = "${tab.title} $character"
                             stateDescription = if (isExcluded) "似た文字として除外中" else if (checked) "選択" else "未選択"
                             testTag = "character-$character"
                         }, shape = RoundedCornerShape(10.dp),
-                        color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (checked) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .5f)) else null) {
-                        Box(contentAlignment = Alignment.Center) { Text(character.toString(), fontSize = 18.sp, fontFamily = FontFamily.Monospace,
-                            color = if (!enabled || isExcluded) MaterialTheme.colorScheme.onSurface.copy(alpha = .3f) else MaterialTheme.colorScheme.onSurface) }
+                        color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        border = if (checked) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(character.toString(), fontSize = 18.sp, lineHeight = 22.sp, fontFamily = FontFamily.Monospace,
+                                color = if (!enabled || isExcluded) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f) else MaterialTheme.colorScheme.onSurface)
+                            if (checked) AppIcon(R.drawable.ic_check, Modifier.align(Alignment.TopEnd).padding(3.dp).size(10.dp))
+                        }
                     }
                 }
             }
             if (excluded.isNotEmpty()) Text("$excluded は「似た文字を除外」で除外中", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { Text("記号一覧を貼り付け", fontSize = 13.sp) }
+            if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { ActionLabel(R.drawable.ic_content_paste, "記号一覧を貼り付け") }
         }
     }
     CategoryOverview(model)
 }
 
 @Composable internal fun CategoryOverview(model: PassgenModel, identifierPrefix: String = "overview") {
+    val labelSize = MaterialTheme.typography.labelMedium.fontSize
+    val labelWidth = with(LocalDensity.current) { maxOf(42.dp, labelSize.toDp() * 3.5f) }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("現在選択中の文字", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Surface(shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -311,7 +334,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                         }
                     } else {
                         Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-                            Text(tab.title, modifier = Modifier.width(42.dp).padding(top = 2.dp), style = MaterialTheme.typography.labelMedium,
+                            Text(tab.title, modifier = Modifier.width(labelWidth).padding(top = 2.dp), style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.weight(1f))
                         }
@@ -323,10 +346,12 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable private fun CharacterPreviewGlyphs(alphabet: String, effective: String, modifier: Modifier) {
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    val spacing = with(LocalDensity.current) { maxOf(3.dp, 3.sp.toDp()) }
+    val glyphWidth = with(LocalDensity.current) { maxOf(11.dp, 11.sp.toDp()) }
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalArrangement = Arrangement.spacedBy(spacing)) {
         alphabet.forEach { character ->
             val active = character in effective
-            Text(character.toString(), modifier = Modifier.widthIn(min = 11.dp), fontSize = 14.sp, lineHeight = 20.sp,
+            Text(character.toString(), modifier = Modifier.widthIn(min = glyphWidth), fontSize = 14.sp, lineHeight = 20.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f))
         }
@@ -335,11 +360,13 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 
 @Composable private fun RuleCard(model: PassgenModel, expanded: Boolean, expand: (Boolean) -> Unit) {
     if (model.mode == GenerationMode.PASSPHRASE) return
-    Surface(shape = RoundedCornerShape(18.dp)) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-            TextButton(onClick = { expand(!expanded) }, modifier = Modifier.fillMaxWidth()) {
-                Text("生成ルール", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                Text(if (expanded) "閉じる" else "設定", fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { expand(!expanded) },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(R.drawable.ic_tune)
+                Text("生成ルール", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                AppIcon(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
             }
             if (expanded) {
                 if (model.mode == GenerationMode.PASSWORD) {
@@ -364,38 +391,45 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
 }
 
-@Composable private fun RuleToggle(label: String, value: Boolean, enabled: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun RuleToggle(label: String, value: Boolean, enabled: Boolean, modifier: Modifier = Modifier, change: (Boolean) -> Unit) {
+    Row(modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(value, enabled = enabled, role = Role.Switch, onValueChange = change),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Switch(value, change, enabled = enabled)
+        Switch(value, onCheckedChange = null, enabled = enabled)
     }
 }
 
-@Composable private fun ResultSheet(model: PassgenModel, copy: (String) -> Boolean, scroll: LazyListState,
+@Composable private fun ResultSheet(model: PassgenModel, fold: FoldingFeature?, copy: (String) -> Boolean, scroll: LazyListState,
     dismiss: () -> Unit, generate: () -> Unit, clear: () -> Unit) {
     val density = LocalDensity.current
     val rows = minOf(if (model.busy) model.goal else model.results.size, 6)
     val desiredHeight = (190 + maxOf(1, rows) * if (model.revealed) 110 else 80).dp
         .coerceAtMost(with(density) { (LocalWindowInfo.current.containerSize.height * .85f).toDp() })
-    ModalBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = Modifier.semantics { testTag = "results-sheet" }, sheetMaxWidth = 640.dp) {
+    PassgenSheet(dismiss, fold, modifier = Modifier.semantics { testTag = "results-sheet" }) {
         Column(Modifier.fillMaxWidth().height(desiredHeight).padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ResultContent(model, copy, scroll, inline = false, generate = generate, clear = clear)
         }
     }
 }
 
+@Composable private fun ConfigurationIssue(model: PassgenModel, modifier: Modifier = Modifier) {
+    val issue = if (model.busy) null else model.configurationIssue
+    if (issue != null) Text(issue, modifier.semantics { testTag = "configuration-issue"; liveRegion = LiveRegionMode.Polite },
+        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+}
+
 @Composable private fun ResultVisibility(model: PassgenModel) {
     val revealed = model.revealed
-    TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty(),
+    IconAction(if (revealed) R.drawable.ic_visibility_off else R.drawable.ic_visibility,
+        if (revealed) "生成結果を隠す" else "生成結果を表示", enabled = model.results.isNotEmpty(),
         modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (revealed) "表示中" else "非表示" }) {
-        Text(if (revealed) "隠す" else "表示")
+        model.revealed = !model.revealed
     }
 }
 
 @Composable private fun ResultGenerationAction(model: PassgenModel, inline: Boolean, generate: () -> Unit) {
-    Button(onClick = generate, enabled = model.generationActionEnabled, modifier = Modifier.semantics { testTag = if (inline) "generate" else "regenerate" }) {
-        Text(model.generationActionTitle)
+    Button(onClick = generate, enabled = model.generationActionEnabled, modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = if (inline) "generate" else "regenerate" }) {
+        ActionLabel(if (model.busy) R.drawable.ic_stop else if (model.generationActionTitle == "再生成") R.drawable.ic_refresh else R.drawable.ic_key, model.generationActionTitle)
     }
 }
 
@@ -414,6 +448,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             ResultGenerationAction(model, inline, generate)
         }
     }
+    ConfigurationIssue(model)
     if (model.results.isNotEmpty()) {
         val shortest = model.results.minOf { it.value.length }
         val longest = model.results.maxOf { it.value.length }
@@ -429,50 +464,48 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
     model.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     LazyColumn(Modifier.weight(1f).semantics { testTag = "result-list" }, state = scroll, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (model.results.isEmpty() && !model.busy) item { Text("生成結果はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 16.dp)) }
+        if (model.results.isEmpty() && !model.busy) item {
+            Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(R.drawable.ic_key)
+                Text("生成結果はありません。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         items(model.results, key = { it.index }) { row ->
             // Observe during composition, not from callbacks on detached / prefetched lazy nodes.
             val copied = row.index in model.copiedIndices
-            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("${row.index + 1}", style = MaterialTheme.typography.labelSmall)
                         Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
                             modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
                     }
-                    TextButton(onClick = {
+                    IconAction(R.drawable.ic_content_copy, if (copied) "コピー済み。もう一度コピー" else "コピー",
+                        Modifier.semantics { testTag = "copy-${row.index}" }, badge = copied) {
                         if (copy(row.value)) model.copiedIndices = model.copiedIndices + row.index
                         else model.message = "コピーできませんでした。OSが長い値を扱えない場合があります。"
-                    }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).semantics {
-                                contentDescription = if (copied) "コピー済み。もう一度コピー" else "コピー"
-                        testTag = "copy-${row.index}"
-                    }) {
-                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                            Icon(painterResource(R.drawable.ic_content_copy), null, Modifier.size(24.dp))
-                                    if (copied) {
-                                Surface(Modifier.align(Alignment.TopEnd).size(14.dp), shape = androidx.compose.foundation.shape.CircleShape,
-                                    color = MaterialTheme.colorScheme.surface) {
-                                    Icon(painterResource(R.drawable.ic_check_circle), null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
     }
-    TextButton(onClick = { clear() }, enabled = !model.busy && model.results.isNotEmpty(), modifier = Modifier.semantics { testTag = "clear-results" }) { Text("消去") }
+    if (model.results.isNotEmpty()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(onClick = { clear() }, enabled = !model.busy,
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier.semantics { testTag = "clear-results" }) { ActionLabel(R.drawable.ic_delete, "消去") }
+    }
 }
 
-@Composable private fun SymbolSheet(model: PassgenModel, dismiss: () -> Unit) {
-    var text by remember { mutableStateOf("") }
-    var info by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = dismiss) {
+@Composable private fun SymbolSheet(model: PassgenModel, fold: FoldingFeature?, dismiss: () -> Unit) {
+    var text by model.editorSession.symbolText
+    var info by model.editorSession.symbolInfo
+    PassgenSheet(dismiss, fold) {
         val focus = LocalFocusManager.current
         val keyboard = LocalSoftwareKeyboardController.current
         fun finishInput() { focus.clearFocus(); keyboard?.hide() }
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("記号一覧を反映", style = MaterialTheme.typography.titleLarge)
+            SheetHeading("記号一覧を反映", R.drawable.ic_content_paste)
             OutlinedTextField(text, { text = it; info = null }, label = { Text("使える記号の一覧を貼り付け") },
                 modifier = Modifier.fillMaxWidth().semantics { testTag = "symbol-paste-input" }, singleLine = true, enabled = !model.busy,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

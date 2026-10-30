@@ -25,13 +25,13 @@ import kotlinx.coroutines.*
 import jp.passgen.core.GenerationMode
 
 @Composable fun PresetsSheet(model: PassgenModel, fold: FoldingFeature?, dismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+    var name by model.editorSession.presetName
     var status by remember { mutableStateOf<String?>(null) }
-    var editing by remember { mutableStateOf<GeneratorPreset?>(null) }
-    var action by remember { mutableStateOf("") }
-    var newName by remember { mutableStateOf("") }
-    var sharing by remember { mutableStateOf<GeneratorPreset?>(null) }
-    var incoming by remember { mutableStateOf<GeneratorPreset?>(null) }
+    var editing by model.editorSession.editing
+    var action by model.editorSession.action
+    var newName by model.editorSession.newName
+    var sharing by model.editorSession.sharing
+    var incoming by model.editorSession.incoming
     var reading by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -52,9 +52,7 @@ import jp.passgen.core.GenerationMode
     fun perform(success: String? = null, operation: () -> Unit): Boolean = try {
         operation(); status = success; true
     } catch (e: PresetException) { status = e.message; false }
-    ModalBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = if (fold == null) Modifier else Modifier.padding(start = with(density) { fold.bounds.right.toDp() }),
-        sheetMaxWidth = if (fold == null) 640.dp else androidx.compose.ui.unit.Dp.Unspecified) {
+    PassgenSheet(dismiss, fold, maxWidth = 640.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.9f).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val exported = sharing
             val imported = incoming
@@ -64,10 +62,12 @@ import jp.passgen.core.GenerationMode
                 PresetQrReview(imported, model, back = { incoming = null }, saved = { incoming = null; status = "プリセットを登録しました。" })
             } else {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    AppIcon(R.drawable.ic_bookmark)
+                    Spacer(Modifier.width(12.dp))
                     Text("プリセット", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { focus.clearFocus(); keyboard?.hide(); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    IconAction(R.drawable.ic_qr_code_scanner, "QRを読み込む", action = { focus.clearFocus(); keyboard?.hide(); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                         enabled = !reading && !model.busy && model.presetStorageIssue == null,
-                        modifier = Modifier.semantics { testTag = "preset-qr-read" }) { Text("QRを読み込む") }
+                        modifier = Modifier.semantics { testTag = "preset-qr-read" })
                 }
                 if (reading) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(Modifier.size(20.dp)); Text("端末内で読み取り中…", style = MaterialTheme.typography.bodySmall)
@@ -78,7 +78,7 @@ import jp.passgen.core.GenerationMode
                         focus.clearFocus(); keyboard?.hide()
                         perform("保存しました。") { model.savePreset(name); name = "" }
                     }, enabled = !model.busy && model.presetNameError(name) == null && model.presetStorageIssue == null,
-                        modifier = Modifier.semantics { testTag = "preset-save" }) { Text("保存") }
+                        modifier = Modifier.semantics { testTag = "preset-save" }) { ActionLabel(R.drawable.ic_save, "保存") }
                 }
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item {
@@ -102,21 +102,24 @@ import jp.passgen.core.GenerationMode
                         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                             Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 TextButton(onClick = { perform { model.applyPreset(preset.id); dismiss() } }, enabled = !model.busy,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                                     modifier = Modifier.weight(1f).semantics { contentDescription = "${preset.name}を読み込む"; stateDescription = preset.recipe.summary }) {
                                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(preset.name, style = MaterialTheme.typography.titleMedium)
                                         Text(preset.recipe.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        if (preset.recipe == PresetRecipe.capture(model)) Text("現在の設定", style = MaterialTheme.typography.labelSmall)
+                                        if (preset.recipe == PresetRecipe.capture(model)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            AppIcon(R.drawable.ic_check_circle, Modifier.size(16.dp))
+                                            Text("現在の設定", style = MaterialTheme.typography.labelSmall)
+                                        }
                                     }
                                 }
                                 Box {
-                                    TextButton(onClick = { menu = true }, enabled = !model.busy,
-                                        modifier = Modifier.semantics { contentDescription = "${preset.name}の編集" }) { Text("編集") }
+                                    IconAction(R.drawable.ic_more_vert, "${preset.name}の編集", enabled = !model.busy) { menu = true }
                                     DropdownMenu(menu, { menu = false }) {
-                                        DropdownMenuItem(text = { Text("QRコードで共有") }, onClick = { menu = false; sharing = preset })
-                                        DropdownMenuItem(text = { Text("名前を変更") }, onClick = { menu = false; editing = preset; newName = preset.name; action = "rename" })
-                                        DropdownMenuItem(text = { Text("現在の設定で上書き") }, onClick = { menu = false; editing = preset; action = "replace" })
-                                        DropdownMenuItem(text = { Text("削除") }, onClick = { menu = false; editing = preset; action = "delete" })
+                                        DropdownMenuItem(text = { Text("QRコードで共有") }, leadingIcon = { AppIcon(R.drawable.ic_qr_code_2) }, onClick = { menu = false; sharing = preset })
+                                        DropdownMenuItem(text = { Text("名前を変更") }, leadingIcon = { AppIcon(R.drawable.ic_edit) }, onClick = { menu = false; editing = preset; newName = preset.name; action = "rename" })
+                                        DropdownMenuItem(text = { Text("現在の設定で上書き") }, leadingIcon = { AppIcon(R.drawable.ic_save) }, onClick = { menu = false; editing = preset; action = "replace" })
+                                        DropdownMenuItem(text = { Text("削除") }, leadingIcon = { AppIcon(R.drawable.ic_delete) }, onClick = { menu = false; editing = preset; action = "delete" })
                                     }
                                 }
                             }

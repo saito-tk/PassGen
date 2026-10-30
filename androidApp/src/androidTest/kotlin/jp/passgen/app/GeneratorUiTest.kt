@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -264,9 +265,13 @@ class GeneratorUiTest {
             File(rule.activity.getExternalFilesDir(null), "task37-qr-share-ui.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
             screenshot.recycle()
             rule.onNodeWithTag("preset-qr-share").performClick()
-            rule.waitUntil(5000) { rule.activity.lifecycle.currentState != Lifecycle.State.RESUMED }
-            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-            rule.waitUntil(5000) { rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED }
+            // Activity pause precedes the chooser's input focus. Wait for the actual system window.
+            rule.waitUntil(10000) {
+                val owner = InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow?.packageName?.toString()
+                owner == "com.android.intentresolver" || owner == "android"
+            }
+            emulatorShell("input keyevent KEYCODE_BACK")
+            rule.waitUntil(10000) { rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED }
             rule.onNodeWithTag("preset-qr-back").performClick()
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             var saved = false
@@ -372,10 +377,14 @@ class GeneratorUiTest {
         rule.runOnIdle {
             val prefs = rule.activity.getSharedPreferences("test.preferences.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
             val first = PassgenModel(prefs)
+            first.editorSession.presetName.value = "未保存"
+            first.editorSession.symbolText.value = "!@#"
             first.lengthText = "48"; first.uppercaseCharacters = "AZ"; first.revealed = true
             first.noAdjacent = true; first.words = 9; first.separator = "_"; first.background()
             first.clipboardSecondsText = "90"; first.protectCapture = false; first.background()
             val restored = PassgenModel(prefs)
+            assertEquals("", restored.editorSession.presetName.value)
+            assertEquals("", restored.editorSession.symbolText.value)
             assertEquals(48, restored.length); assertEquals("AZ", restored.uppercaseCharacters)
             assertTrue(restored.revealed); assertTrue(restored.noAdjacent); assertEquals(9, restored.words)
             assertEquals("_", restored.separator); assertTrue(restored.results.isEmpty())
@@ -787,7 +796,7 @@ class GeneratorUiTest {
             model.uppercaseCharacters = "A"; model.lowercase = false; model.digits = false; model.symbolsEnabled = false
             model.lengthText = "64"
         }
-        rule.onNodeWithTag("character-Z").performClick()
+        rule.onNodeWithTag("character-Z").performScrollTo().performClick()
         rule.runOnIdle { assertEquals("AZ", model.uppercaseCharacters) }
         rule.onNodeWithTag("generate").performClick()
         rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
@@ -813,6 +822,135 @@ class GeneratorUiTest {
         rule.onNodeWithTag("generate").performClick()
         rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
         rule.runOnIdle { assertEquals(7, model.results.first().value.split('_').size) }
+    }
+
+    @Test fun officialMaterialIconGalleryInLightAndDark() {
+        val names = "bookmark settings visibility visibility_off refresh stop delete add remove expand_more expand_less tune content_paste qr_code_scanner qr_code_2 share arrow_back more_vert save edit chevron_right open_in_new verified_user key menu_book select_all deselect close check_circle content_copy check".split(" ")
+        rule.runOnIdle {
+            assertTrue(model.results.isEmpty())
+            rule.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            rule.activity.setContent {
+                androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.fillMaxSize().systemBarsPadding()) {
+                    listOf(false, true).forEach { dark ->
+                        val configuration = android.content.res.Configuration(androidx.compose.ui.platform.LocalConfiguration.current)
+                        configuration.uiMode = (configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                            if (dark) android.content.res.Configuration.UI_MODE_NIGHT_YES else android.content.res.Configuration.UI_MODE_NIGHT_NO
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalConfiguration provides configuration) {
+                            PassgenTheme {
+                                androidx.compose.material3.Surface(androidx.compose.ui.Modifier.weight(1f).fillMaxWidth()) {
+                                    androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(8.dp)) {
+                                        names.chunked(7).forEach { row ->
+                                            androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.fillMaxWidth()) {
+                                                row.forEach { name ->
+                                                    androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.weight(1f).heightIn(min = 60.dp),
+                                                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                                        val icon = rule.activity.resources.getIdentifier("ic_$name", "drawable", rule.activity.packageName)
+                                                        AppIcon(icon)
+                                                        androidx.compose.material3.Text(name, fontSize = 8.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        rule.waitForIdle(); android.os.SystemClock.sleep(500)
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(rule.activity.getExternalFilesDir(null), "task39-icons-light-dark.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        rule.runOnIdle { rule.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+
+    @Test fun presetDraftSurvivesRecreationWithoutBeingSaved() {
+        rule.onNodeWithTag("presets").performClick()
+        rule.onNodeWithTag("preset-name").performTextInput("未保存の下書き")
+        rule.onNodeWithTag("preset-name").performImeAction()
+        rule.activityRule.scenario.recreate()
+        rule.onNodeWithTag("preset-name").assertTextContains("未保存の下書き")
+        rule.runOnIdle { assertTrue(model.presets.none { it.name == "未保存の下書き" }) }
+    }
+
+    @Test fun pastedSymbolDraftSurvivesRecreationUntilDismissed() {
+        rule.onNodeWithText("記号").performClick()
+        rule.onNodeWithText("記号一覧を貼り付け").performScrollTo().performClick()
+        rule.onNodeWithTag("symbol-paste-input").performTextInput("!@#")
+        rule.onNodeWithTag("symbol-paste-input").performImeAction()
+        rule.activityRule.scenario.recreate()
+        rule.onNodeWithTag("symbol-paste-input").assertTextContains("!@#")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("symbol-paste-input").fetchSemanticsNodes().isEmpty() }
+        rule.runOnIdle { assertEquals("", model.editorSession.symbolText.value) }
+    }
+
+    @Test fun materialControlsHaveAccessibleNamesAndTouchTargets() {
+        rule.onNodeWithTag("presets").assertContentDescriptionEquals("プリセット").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        rule.onNodeWithTag("safety-settings").assertContentDescriptionEquals("設定と安全性").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        rule.onNodeWithTag("character-A").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).assertIsOn()
+        rule.onNodeWithText("大文字を含める").performClick()
+        rule.onNodeWithTag("character-A").assertIsOff().assertIsNotEnabled()
+        rule.onNodeWithText("大文字を含める").performClick()
+        rule.onNodeWithTag("character-A").assertIsOn()
+        rule.onNodeWithText("数字").performClick()
+        rule.onNodeWithContentDescription("数字の選択を変更").performClick()
+        rule.onNodeWithText("選択を解除").performClick()
+        rule.runOnIdle { assertTrue(model.digitCharacters.isEmpty()); assertNull(model.configurationIssue) }
+        rule.onNodeWithContentDescription("数字の選択を変更").performClick()
+        rule.onNodeWithText("全選択").performClick()
+        rule.onNodeWithTag("character-9").assertIsOn()
+        rule.onNodeWithTag("configuration-issue").assertDoesNotExist()
+        rule.runOnIdle { model.uppercase = false; model.lowercase = false; model.digits = false; model.symbolsEnabled = false }
+        rule.onNodeWithTag("configuration-issue").assertIsDisplayed()
+        rule.onNodeWithTag("generate").assertIsNotEnabled()
+    }
+
+    private fun captureReview(name: String) {
+        rule.runOnIdle { model.protectCapture = false; assertFalse(model.revealed) }
+        rule.waitForIdle(); android.os.SystemClock.sleep(500)
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val label = InstrumentationRegistry.getArguments().getString("reviewLabel") ?: "default"
+        File(rule.activity.getExternalFilesDir(null), "task39-$label-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+    }
+
+    @Test fun androidScreensWorkWithCurrentSizeThemeAndFont() {
+        android.os.SystemClock.sleep(4000) // Let the OS clipboard overlay from earlier tests expire.
+        captureReview("main")
+        rule.onNodeWithText("記号").performClick()
+        captureReview("symbols")
+        rule.onNodeWithTag("overview-SYMBOLS").performScrollTo()
+        captureReview("overview")
+        rule.onNodeWithText("生成ルール").performScrollTo().performClick()
+        rule.onNodeWithText("同じ文字を連続させない").performScrollTo()
+        captureReview("rules")
+        rule.onNodeWithText("生成形式").performScrollTo()
+        rule.onNodeWithText("パスフレーズ").performClick()
+        rule.onNodeWithContentDescription("単語数を増やす").assertWidthIsAtLeast(48.dp).performClick()
+        rule.runOnIdle { assertEquals(8, model.words) }
+        rule.onNodeWithContentDescription("単語数を減らす").performClick()
+        rule.runOnIdle { assertEquals(7, model.words) }
+        captureReview("passphrase")
+        rule.onNodeWithText("パスワード").performClick()
+        rule.onNodeWithTag("presets").performClick()
+        rule.onNodeWithTag("preset-name").assertExists()
+        captureReview("presets")
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("preset-name").fetchSemanticsNodes().isEmpty() }
+        rule.onNodeWithTag("safety-settings").performClick()
+        captureReview("settings")
+        rule.onNodeWithTag("security-guide").performScrollTo().performClick()
+        captureReview("guide")
+        rule.onNodeWithContentDescription("閉じる").performClick()
+        rule.runOnIdle { model.lengthText = "64"; model.countText = "20" }
+        rule.onNodeWithTag("generate").performClick()
+        rule.waitUntil(10000) { !model.busy && model.results.size == 20 }
+        rule.onNodeWithTag("results-visibility").assertContentDescriptionEquals("生成結果を表示")
+        rule.onNodeWithTag("copy-0").assertContentDescriptionEquals("コピー")
+        captureReview("results")
     }
 
     @Test fun screenshotForVisualReviewContainsNoGeneratedSecret() {

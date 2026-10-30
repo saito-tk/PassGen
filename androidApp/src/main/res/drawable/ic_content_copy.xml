@@ -1,5 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Google Material Symbols Outlined, Apache-2.0. Coordinates normalized from 960 to 24. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FF000000" android:pathData="M9,18 Q8.175,18 7.5875,17.4125 T7,16 L7,4 Q7,3.175 7.5875,2.5875 T9,2 L18,2 Q18.825,2 19.4125,2.5875 T20,4 L20,16 Q20,16.825 19.4125,17.4125 T18,18 L9,18 Z M9,16 L18,16 L18,4 L9,4 L9,16 Z M5,22 Q4.175,22 3.5875,21.4125 T3,20 L3,6 L5,6 L5,20 L16,20 L16,22 L5,22 Z M9,16 L9,4 L9,16 Z" />
+<!-- Google Material Symbols Outlined: content_copy. Apache-2.0; see assets/licenses/material-symbols-LICENSE.txt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:autoMirrored="true">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M360,720Q327,720 303.5,696.5Q280,673 280,640L280,160Q280,127 303.5,103.5Q327,80 360,80L720,80Q753,80 776.5,103.5Q800,127 800,160L800,640Q800,673 776.5,696.5Q753,720 720,720L360,720ZM360,640L720,640Q720,640 720,640Q720,640 720,640L720,160Q720,160 720,160Q720,160 720,160L360,160Q360,160 360,160Q360,160 360,160L360,640Q360,640 360,640Q360,640 360,640ZM200,880Q167,880 143.5,856.5Q120,833 120,800L120,240L200,240L200,800Q200,800 200,800Q200,800 200,800L640,800L640,880L200,880ZM360,640Q360,640 360,640Q360,640 360,640L360,160Q360,160 360,160Q360,160 360,160L360,160Q360,160 360,160Q360,160 360,160L360,640Q360,640 360,640Q360,640 360,640L360,640Z"/>
 </vector>

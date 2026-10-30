@@ -19,6 +19,7 @@ class SecretRow(val value: String, val bits: Double, val index: Int) {
 }
 
 class PassgenModel(private val preferences: SharedPreferences? = null) : ViewModel() {
+    internal val editorSession = EditorSession()
     var mode by mutableStateOf(GenerationMode.PASSWORD)
     var lengthText by mutableStateOf("24")
     var countText by mutableStateOf("1")
@@ -221,5 +222,5 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         ++epoch; cancel.set(true); job?.cancel(); job = null
         work = WorkState.IDLE; message = null
     }
-    override fun onCleared() { cancel.set(true) }
+    override fun onCleared() { cancel.set(true); editorSession.clear() }
 }

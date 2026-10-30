@@ -29,7 +29,7 @@ import kotlinx.coroutines.*
         catch (_: Exception) { error = "QRコードを作成できませんでした。" }
     }
     Row(Modifier.fillMaxWidth()) {
-        TextButton(onClick = back, modifier = Modifier.semantics { testTag = "preset-qr-back" }) { Text("戻る") }
+        IconAction(R.drawable.ic_arrow_back, "戻る", Modifier.semantics { testTag = "preset-qr-back" }, action = back)
         Text("QRコードで共有", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(12.dp))
     }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -43,7 +43,7 @@ import kotlinx.coroutines.*
             Button(onClick = {
                 try { PresetQrImage.share(context, image) }
                 catch (_: Exception) { error = "共有画面を開けませんでした。" }
-            }, modifier = Modifier.semantics { testTag = "preset-qr-share" }) { Text("QR画像を共有") }
+            }, modifier = Modifier.semantics { testTag = "preset-qr-share" }) { ActionLabel(R.drawable.ic_share, "QR画像を共有") }
         } ?: run { if (error == null) CircularProgressIndicator() }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Text("受け取った人は「QRを読み込む」から登録できます。QRにはプリセット名と生成条件だけが含まれます。",
@@ -52,16 +52,16 @@ import kotlinx.coroutines.*
 }
 
 @Composable internal fun PresetQrReview(preset: GeneratorPreset, model: PassgenModel, back: () -> Unit, saved: () -> Unit) {
-    var name by remember(preset) { mutableStateOf(preset.name) }
+    var name by model.editorSession.reviewName(preset)
     var error by remember { mutableStateOf<String?>(null) }
     val focus = LocalFocusManager.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(onClick = back) { Text("戻る") }
+        IconAction(R.drawable.ic_arrow_back, "戻る", action = back)
         Button(onClick = {
             focus.clearFocus()
             try { model.importPreset(preset, name); saved() } catch (e: PresetException) { error = e.message }
         }, enabled = !model.busy && model.presetStorageIssue == null && model.presetNameError(name) == null,
-            modifier = Modifier.semantics { testTag = "preset-qr-register" }) { Text("登録") }
+            modifier = Modifier.semantics { testTag = "preset-qr-register" }) { ActionLabel(R.drawable.ic_save, "登録") }
     }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("プリセットを確認", style = MaterialTheme.typography.titleLarge)

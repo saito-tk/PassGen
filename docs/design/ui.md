@@ -111,3 +111,10 @@ Androidの分離ヒンジはWindowLayoutInfoのウインドウ座標から表示
 iPhoneはInfo.plistで縦向きだけを宣言する。Androidは小画面だけ縦向きを要求し、大画面では向き指定を外す。これは縦固定が古いOSの大画面を狭めることも防ぐ。Android 17の大画面では向き固定がOSに無視され、iPadのリサイズ環境もOSのウインドウ管理に従うため、全端末への縦固定は保証しない。iPadの全方向対応や動的リサイズを廃止する互換モードは追加せず、横向きや狭いウインドウでも利用可能な配置に切り替える。
 
 根拠: [Android 17の大画面制約](https://developer.android.com/about/versions/17/changes/ff-restrictions-ignored)、[Apple TN3192](https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key)。
+
+
+## Androidの操作部品（2026-10-31）
+
+標準のCenterAlignedTopAppBar、文字種のタブ、行全体を押せるスイッチ、48dp以上の文字タイルを使用する。設定・戻る・編集・表示・コピーは公式Material Symbolsと日本語の操作名・ツールチップを併用。生成・保存・消去はアイコンとラベルを組み合わせ、優先度を区別する。選択は枠・チェック・下線でも示す。
+
+配色は明暗のsurfaceContainer、inverse、surfaceTintまで定義する。設定とガイドは終了操作付きの見出しを固定し、分離ヒンジがある場合は共通シートで片側へ収める。設定が無効な理由は、生成ボタンの近くへ表示する。詳細は [Android UI監査](android-ui.md)。

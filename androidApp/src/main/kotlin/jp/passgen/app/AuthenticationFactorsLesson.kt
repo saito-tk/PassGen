@@ -43,13 +43,12 @@ private enum class AuthExample(val tab: String, val title: String, val first: St
 @Composable fun AuthenticationFactorsLessonSheet(fold: FoldingFeature?, back: () -> Unit) {
     var example by remember { mutableStateOf(AuthExample.APP) }
     val density = LocalDensity.current
-    ModalBottomSheet(onDismissRequest = back, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = if (fold == null) Modifier else Modifier.padding(start = with(density) { fold.bounds.right.toDp() }),
-        sheetMaxWidth = if (fold == null) 720.dp else Dp.Unspecified) {
+    PassgenSheet(back, fold, maxWidth = 720.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconAction(R.drawable.ic_arrow_back, "戻る", Modifier.semantics { testTag = "auth-back" }, action = back)
+                Spacer(Modifier.width(8.dp))
                 Text("2要素と2段階", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(back, modifier = Modifier.semantics { testTag = "auth-back" }) { Text("戻る") }
             }
             Text("2段階は「手順」、2要素は「種類」。", style = MaterialTheme.typography.titleMedium)
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 10.dp).height(IntrinsicSize.Min)) {
@@ -146,7 +145,7 @@ private enum class AuthExample(val tab: String, val title: String, val first: St
             "NCSC：2段階認証の呼び方" to "https://www.ncsc.gov.uk/guidance/setting-2-step-verification-2sv",
             "FIDO：パスキーと本人確認" to "https://fidoalliance.org/passkeys/",
             "OWASP：認証方式ごとの特徴" to "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html").forEach { (title, link) ->
-            TextButton({ uri.openUri(link) }) { Text(title) }
+            GuideLink(title, link)
         }
     }
 }

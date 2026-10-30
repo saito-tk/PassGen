@@ -26,13 +26,12 @@ import jp.passgen.core.StorageLessonExamples
     var topic by remember { mutableIntStateOf(0) }
     var reuse by remember { mutableStateOf(true) }
     val density = LocalDensity.current
-    ModalBottomSheet(onDismissRequest = back, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = if (fold == null) Modifier else Modifier.padding(start = with(density) { fold.bounds.right.toDp() }),
-        sheetMaxWidth = if (fold == null) 720.dp else Dp.Unspecified) {
+    PassgenSheet(back, fold, maxWidth = 720.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconAction(R.drawable.ic_arrow_back, "戻る", Modifier.semantics { testTag = "storage-back" }, action = back)
+                Spacer(Modifier.width(8.dp))
                 Text("保存方法と使い回し", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(back, modifier = Modifier.semantics { testTag = "storage-back" }) { Text("戻る") }
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min)) {
                 listOf("保存の違い", "使い回し").forEachIndexed { index, title ->
@@ -118,10 +117,10 @@ import jp.passgen.core.StorageLessonExamples
                     HorizontalDivider()
                     TextButton({ sources = !sources }) { Text(if (sources) "根拠を閉じる" else "根拠を読む（英語）") }
                     if (sources) {
-                        TextButton({ uri.openUri("https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html") }) { Text("OWASP：パスワードの保存") }
-                        TextButton({ uri.openUri("https://pages.nist.gov/800-63-4/sp800-63b/passwords/") }) { Text("NIST：漏えいしたハッシュへの攻撃") }
-                        TextButton({ uri.openUri("https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html") }) { Text("OWASP：使い回しを狙う攻撃") }
-                        TextButton({ uri.openUri("https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html") }) { Text("OWASP：HTTPSによる通信の保護") }
+                        GuideLink("OWASP：パスワードの保存", "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")
+                        GuideLink("NIST：漏えいしたハッシュへの攻撃", "https://pages.nist.gov/800-63-4/sp800-63b/passwords/")
+                        GuideLink("OWASP：使い回しを狙う攻撃", "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html")
+                        GuideLink("OWASP：HTTPSによる通信の保護", "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html")
                     }
                 }
             }

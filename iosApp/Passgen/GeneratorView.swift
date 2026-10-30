@@ -179,7 +179,7 @@ struct GeneratorView: View {
                 Text(model.generationActionTitle)
                     .font(.headline)
             }.modifier(PrimaryActionStyle()).controlSize(.regular)
-                .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
+                .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
         }.padding(.horizontal, 16).padding(.vertical, 8).background(.bar)
     }
     private func restoreResultDock() {
@@ -309,7 +309,7 @@ private struct CharacterEditor: View {
                     Button("記号一覧を貼り付け・画像から読み取る", systemImage: "doc.viewfinder") { showSymbols = true }
                         .font(.subheadline).frame(minHeight: 44)
                 }
-                if model.estimate == nil { Text("有効な文字を各文字種で1つ以上選択してください。").font(.caption).foregroundStyle(.red) }
+                if let issue = model.configurationIssue { Text(issue).font(.caption).foregroundStyle(.red) }
             }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .disabled(model.busy)
         }
@@ -550,7 +550,7 @@ struct ResultsList: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(model.generationActionTitle, action: generate)
-                        .disabled(model.state == .cancelling).accessibilityIdentifier("generate")
+                        .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
                 }
             }
         }

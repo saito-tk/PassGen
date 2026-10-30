@@ -80,7 +80,7 @@ class PasswordEngineTest {
         val cases = listOf(
             GenerationRequest(length = 3), GenerationRequest(length = 1_000_000),
             GenerationRequest(uppercase = false, lowercase = false, digits = false, symbolsEnabled = false),
-            GenerationRequest(symbols = ""), GenerationRequest(symbols = "!😀"),
+            GenerationRequest(symbols = "!😀"),
             GenerationRequest(uppercase = false, lowercase = false, digits = false, symbols = "!", noAdjacent = true),
             GenerationRequest(mode = GenerationMode.PASSPHRASE, wordCount = 5),
             GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = ""),
@@ -147,12 +147,73 @@ class PasswordEngineTest {
         assertTrue(result.entropyBits > 2999)
     }
 
-    @Test fun emptyOrUnsupportedEnabledCharacterSelectionsFailClosed() {
-        listOf(GenerationRequest(uppercaseCharacters = ""), GenerationRequest(lowercaseCharacters = "a😀"),
-            GenerationRequest(digitCharacters = "１"), GenerationRequest(uppercaseCharacters = "OI"),
+    @Test fun unsupportedEnabledCharacterSelectionsFailClosed() {
+        listOf(GenerationRequest(lowercaseCharacters = "a😀"),
+            GenerationRequest(digitCharacters = "１"),
             GenerationRequest(similarExclusions = "A")).forEach { request ->
             assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> { engine().generate(request, neverCancel) }.code)
         }
+    }
+
+    @Test fun emptyEnabledGroupsMatchDisabledGroups() {
+        for (group in 0..3) for (requireEach in listOf(false, true)) for (noAdjacent in listOf(false, true)) {
+            fun request(enabled: Boolean) = GenerationRequest(
+                length = 64, requireEach = requireEach, noAdjacent = noAdjacent,
+                uppercase = group != 0 || enabled, lowercase = group != 1 || enabled,
+                digits = group != 2 || enabled, symbolsEnabled = group != 3 || enabled,
+                uppercaseCharacters = if (group == 0) "" else CharacterPolicy.UPPERCASE,
+                lowercaseCharacters = if (group == 1) "" else CharacterPolicy.LOWERCASE,
+                digitCharacters = if (group == 2) "" else CharacterPolicy.DIGITS,
+                symbols = if (group == 3) "" else "!?",
+            )
+            // The same test entropy must produce the exact same output and bits.
+            val enabled = request(true)
+            val disabled = request(false)
+            val actual = engine().generate(enabled, neverCancel)
+            val expected = engine().generate(disabled, neverCancel)
+            assertEquals(expected.value, actual.value)
+            assertEquals(expected.entropyBits, actual.entropyBits)
+            assertEquals(engine().estimatedEntropy(disabled), engine().estimatedEntropy(enabled))
+        }
+    }
+
+    @Test fun groupsEmptiedByExclusionsAreAlsoUnused() {
+        val request = GenerationRequest(length = 64, uppercaseCharacters = "OI", lowercaseCharacters = "ol",
+            digitCharacters = "79", symbols = "")
+        val disabled = GenerationRequest(length = 64, uppercase = false, lowercase = false,
+            digitCharacters = "79", symbolsEnabled = false)
+        val result = engine().generate(request, neverCancel)
+        assertEquals(engine().generate(disabled, neverCancel).value, result.value)
+        assertEquals(64.0, result.entropyBits, 0.000001)
+        assertEquals("79", CharacterPolicy.effectivePasswordAlphabet(request))
+        assertTrue(CharacterPolicy.isDigitsOnly(request))
+        assertFalse(CharacterPolicy.isDigitsOnly(GenerationRequest()))
+        assertFalse(CharacterPolicy.isDigitsOnly(GenerationRequest(mode = GenerationMode.PASSPHRASE)))
+    }
+
+    @Test fun anEmptyAlphabetStillFailsClosed() {
+        val cases = listOf(
+            GenerationRequest(uppercase = false, lowercase = false, digits = false, symbolsEnabled = false),
+            GenerationRequest(uppercaseCharacters = "", lowercaseCharacters = "", digitCharacters = "", symbols = ""),
+            GenerationRequest(uppercaseCharacters = "OI", lowercaseCharacters = "ol", digitCharacters = "01", symbols = ""),
+        )
+        for (request in cases) {
+            assertEquals("", CharacterPolicy.effectivePasswordAlphabet(request))
+            assertFalse(CharacterPolicy.isDigitsOnly(request))
+            assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> { engine().estimatedEntropy(request) }.code)
+            assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> { engine().generate(request, neverCancel) }.code)
+        }
+    }
+
+    @Test fun requiredGroupsIgnoreEmptiesButAdjacencyMustRemainPossible() {
+        fun request(noAdjacent: Boolean) = GenerationRequest(length = 4, uppercaseCharacters = "",
+            lowercaseCharacters = "", digitCharacters = "7", symbols = "", noAdjacent = noAdjacent)
+        val result = engine().generate(request(false), neverCancel)
+        assertEquals("7777", result.value)
+        assertEquals(0.0, result.entropyBits)
+        assertEquals("INVALID_CONFIGURATION", assertFailsWith<GenerationException> {
+            engine().generate(request(true), neverCancel)
+        }.code)
     }
 
     @Test fun exclusionsAreIndividuallyConfigurable() {

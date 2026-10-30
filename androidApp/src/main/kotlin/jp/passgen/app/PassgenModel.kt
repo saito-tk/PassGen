@@ -139,7 +139,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         commitPresets(presets.filter { it.id != id })
     }
     val busy get() = work != WorkState.IDLE
-    val isDigitsOnly get() = mode == GenerationMode.PASSWORD && digits && !uppercase && !lowercase && !symbolsEnabled
+    val isDigitsOnly get() = CharacterPolicy.isDigitsOnly(request())
     val length get() = InputPolicy.normalizedInteger(lengthText, 24, 4, InputPolicy.MAX_LENGTH)
     val maxCount get() = if (mode == GenerationMode.PASSPHRASE) 1000 else InputPolicy.maximumCount(length)
     val count get() = InputPolicy.normalizedInteger(countText, 1, 1, maxCount)
@@ -154,6 +154,13 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent, separator,
         uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
     fun estimate(): Double? = try { PasswordEngine().estimatedEntropy(request()) } catch (_: GenerationException) { null }
+    val generationActionEnabled get() = work != WorkState.CANCELLING && (busy || estimate() != null)
+    val configurationIssue: String? get() = when {
+        estimate() != null -> null
+        mode == GenerationMode.PASSWORD && CharacterPolicy.effectivePasswordAlphabet(request()).isEmpty() ->
+            "生成に使える文字を1文字以上選択してください。"
+        else -> "生成条件を満たせません。文字の選択と生成ルールを確認してください。"
+    }
 
     fun generateOrStop() {
         if (work == WorkState.CANCELLING) return
@@ -191,7 +198,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
                 // Manual stop and background both preserve completed rows; late work is invalidated.
             } catch (e: GenerationException) {
                 if (run == epoch && e.code != "CANCELLED") message = when (e.code) {
-                    "INVALID_CONFIGURATION" -> "文字種と記号を確認してください。少なくとも1種類必要です。"
+                    "INVALID_CONFIGURATION" -> "生成に使える文字と生成ルールを確認してください。"
                     "CONDITIONS_TOO_STRICT" -> "条件を満たせませんでした。文字数を増やすか条件を見直してください。"
                     else -> "安全な乱数を取得できませんでした。生成を中止しました。"
                 }

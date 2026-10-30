@@ -194,6 +194,27 @@ class GeneratorUiTest {
         rule.onNodeWithTag("generate").assertIsEnabled()
     }
 
+    @Test fun emptyEnabledGroupsGenerateUntilNoUsableCharactersRemain() {
+        rule.runOnIdle {
+            model.uppercaseCharacters = ""; model.lowercaseCharacters = ""; model.symbols = ""
+            model.digitCharacters = "79"
+            assertNotNull(model.estimate()); assertNull(model.configurationIssue); assertTrue(model.isDigitsOnly)
+        }
+        rule.onNodeWithTag("generate").assertIsEnabled().performClick()
+        rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
+        rule.runOnIdle {
+            assertTrue(model.results.single().value.all { it in "79" })
+            assertTrue(model.uppercase && model.lowercase && model.symbolsEnabled)
+        }
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        rule.runOnIdle { model.digitCharacters = ""; assertFalse(model.isDigitsOnly) }
+        rule.onNodeWithTag("generate").assertIsNotEnabled()
+        rule.onNodeWithText("生成に使える文字を1文字以上選択してください。").assertIsDisplayed()
+        rule.runOnIdle { model.uppercase = false; model.lowercase = false; model.digits = false; model.symbolsEnabled = false }
+        rule.onNodeWithTag("generate").assertIsNotEnabled()
+        rule.onNodeWithText("生成に使える文字を1文字以上選択してください。").assertIsDisplayed()
+    }
+
     @Test fun resultPreviewBreaksAtEveryCharacterAndPreservesCopyValue() {
         val original = "abcd/".repeat(12) + "wxyz"
         assertEquals(64, original.length)

@@ -42,19 +42,14 @@ class PasswordEngine internal constructor(private val entropy: EntropySource) {
             if (r.uppercase && r.uppercaseCharacters.any { it !in CharacterPolicy.UPPERCASE }) invalid()
             if (r.lowercase && r.lowercaseCharacters.any { it !in CharacterPolicy.LOWERCASE }) invalid()
             if (r.digits && r.digitCharacters.any { it !in CharacterPolicy.DIGITS }) invalid()
-            if (r.symbolsEnabled && (r.symbols.isEmpty() || r.symbols.any { it !in SymbolPolicy.SUPPORTED })) invalid()
+            if (r.symbolsEnabled && r.symbols.any { it !in SymbolPolicy.SUPPORTED }) invalid()
             val pools = pools(r)
-            if (pools.isEmpty() || pools.any { it.isEmpty() } || (r.requireEach && r.length < pools.size)) invalid()
+            if (pools.isEmpty() || (r.requireEach && r.length < pools.size)) invalid()
             if (r.noAdjacent && pools.sumOf { it.length } < 2) invalid()
         }
     }
 
-    private fun pools(r: GenerationRequest): List<String> = buildList {
-        if (r.uppercase) add(CharacterPolicy.effective(r.uppercaseCharacters, CharacterPolicy.UPPERCASE, r.excludeSimilar, r.similarExclusions))
-        if (r.lowercase) add(CharacterPolicy.effective(r.lowercaseCharacters, CharacterPolicy.LOWERCASE, r.excludeSimilar, r.similarExclusions))
-        if (r.digits) add(CharacterPolicy.effective(r.digitCharacters, CharacterPolicy.DIGITS, r.excludeSimilar, r.similarExclusions))
-        if (r.symbolsEnabled) add(SymbolPolicy.recognized(r.symbols))
-    }
+    private fun pools(r: GenerationRequest): List<String> = CharacterPolicy.passwordPools(r)
 
     private fun characters(r: GenerationRequest, pools: List<String>, random: SecureSampler, requireEach: Boolean): GeneratedSecret {
         val alphabet = pools.joinToString("")

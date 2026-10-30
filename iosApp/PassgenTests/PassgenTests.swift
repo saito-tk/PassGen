@@ -7058,6 +7058,28 @@ private actor ImportAnalysisGate {
         XCTAssertLessThan(model.results.count, model.goal)
     }
 
+    func testEmptyEnabledGroupsUseRemainingCharactersAndAllEmptyIsInvalid() async throws {
+        let model = GeneratorModel()
+        model.recipe.uppercaseCharacters = ""; model.recipe.lowercaseCharacters = ""; model.recipe.symbols = ""
+        model.recipe.digitCharacters = "79"
+        XCTAssertNotNil(model.estimate); XCTAssertNil(model.configurationIssue); XCTAssertTrue(model.isDigitsOnly)
+        XCTAssertTrue(model.generationActionEnabled)
+        model.generateOrStop()
+        for _ in 0..<100 {
+            if !model.busy { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(model.results.count, 1)
+        XCTAssertTrue(model.results.first?.value.allSatisfy { "79".contains($0) } == true)
+        XCTAssertTrue(model.recipe.uppercase && model.recipe.lowercase && model.recipe.symbolsEnabled)
+        model.recipe.digitCharacters = ""
+        XCTAssertNil(model.estimate); XCTAssertFalse(model.isDigitsOnly); XCTAssertFalse(model.generationActionEnabled)
+        XCTAssertEqual(model.configurationIssue, "生成に使える文字を1文字以上選択してください。")
+        model.recipe.uppercase = false; model.recipe.lowercase = false
+        model.recipe.digits = false; model.recipe.symbolsEnabled = false
+        XCTAssertNil(model.estimate); XCTAssertNotNil(model.configurationIssue)
+    }
+
     func testManualDigitsOnlySelectionUsesPasswordMode() async throws {
         let model = GeneratorModel(); model.recipe.uppercase = false; model.recipe.lowercase = false
         model.recipe.symbolsEnabled = false; model.recipe.digits = true; model.recipe.excludeSimilar = false

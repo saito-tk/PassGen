@@ -240,8 +240,16 @@ extension Recipe {
         if busy { return "停止" }
         return !results.isEmpty && generatedRecipe == recipe.sanitized() ? "再生成" : "生成"
     }
-    var isDigitsOnly: Bool { recipe.mode == .password && recipe.digits && !recipe.uppercase && !recipe.lowercase && !recipe.symbolsEnabled }
+    var isDigitsOnly: Bool { CharacterPolicy.shared.isDigitsOnly(request: recipe.request()) }
     var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
+    var generationActionEnabled: Bool { state != .cancelling && (busy || estimate != nil) }
+    var configurationIssue: String? {
+        guard estimate == nil else { return nil }
+        if recipe.mode == .password && CharacterPolicy.shared.effectivePasswordAlphabet(request: recipe.request()).isEmpty {
+            return "生成に使える文字を1文字以上選択してください。"
+        }
+        return "生成条件を満たせません。文字の選択と生成ルールを確認してください。"
+    }
 
     func chooseMode(_ mode: RecipeMode) {
         guard !busy else { return }

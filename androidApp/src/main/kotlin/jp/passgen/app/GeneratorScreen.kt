@@ -72,7 +72,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                     if (model.results.isNotEmpty()) TextButton(onClick = { showResults = true }) { Text("結果 ${model.results.size}件") }
-                    Button(onClick = ::generate, enabled = model.work != WorkState.CANCELLING,
+                    Button(onClick = ::generate, enabled = model.generationActionEnabled,
                         modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
                         Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
                     }
@@ -163,7 +163,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             }
         }
         if (model.isDigitsOnly) Text("数字だけの短いパスワードは、候補数が少なくなります。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (model.estimate() == null) Text("有効な文字を各文字種で1つ以上選択してください。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        model.configurationIssue?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -336,7 +336,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty(),
                     modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (model.revealed) "表示中" else "非表示" }) { Text(if (model.revealed) "隠す" else "表示") }
                 Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = generate, enabled = model.work != WorkState.CANCELLING, modifier = Modifier.semantics { testTag = "regenerate" }) {
+                TextButton(onClick = generate, enabled = model.generationActionEnabled, modifier = Modifier.semantics { testTag = "regenerate" }) {
                     Text(model.generationActionTitle)
                 }
             }

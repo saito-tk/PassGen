@@ -69,4 +69,20 @@ object CharacterPolicy {
     fun canonical(selected: String, alphabet: String): String = alphabet.filter { it in selected }
     fun effective(selected: String, alphabet: String, excludeSimilar: Boolean, exclusions: String): String =
         canonical(selected, alphabet).filterNot { excludeSimilar && it in exclusions }
+
+    /** Empty effective groups have the same generation semantics as disabled groups. */
+    internal fun passwordPools(r: GenerationRequest): List<String> = buildList {
+        if (r.uppercase) add(effective(r.uppercaseCharacters, UPPERCASE, r.excludeSimilar, r.similarExclusions))
+        if (r.lowercase) add(effective(r.lowercaseCharacters, LOWERCASE, r.excludeSimilar, r.similarExclusions))
+        if (r.digits) add(effective(r.digitCharacters, DIGITS, r.excludeSimilar, r.similarExclusions))
+        if (r.symbolsEnabled) add(SymbolPolicy.recognized(r.symbols))
+    }.filter { it.isNotEmpty() }
+
+    fun effectivePasswordAlphabet(request: GenerationRequest): String =
+        if (request.mode == GenerationMode.PASSWORD) passwordPools(request).joinToString("") else ""
+
+    fun isDigitsOnly(request: GenerationRequest): Boolean {
+        val alphabet = effectivePasswordAlphabet(request)
+        return alphabet.isNotEmpty() && alphabet.all { it in DIGITS }
+    }
 }

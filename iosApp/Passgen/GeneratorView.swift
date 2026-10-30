@@ -479,6 +479,12 @@ struct ResultsList: View {
     var generate: () -> Void
     var clear: () -> Void
     @Environment(ScreenProtectionState.self) private var protection
+    private var resultSummary: String? {
+        let lengths = model.results.map(\.length)
+        guard let shortest = lengths.min(), let longest = lengths.max() else { return nil }
+        let length = shortest == longest ? "\(longest)文字" : "\(shortest)〜\(longest)文字"
+        return length + (longest > 100 ? " / 先頭100文字のみ表示" : "")
+    }
     var body: some View {
         NavigationStack {
             Group {
@@ -501,7 +507,7 @@ struct ResultsList: View {
                             ForEach(model.results) { item in
                                 HStack(spacing: 10) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(item.id + 1) · \(item.length)文字\(item.length > 100 ? " / 先頭100文字のみ表示" : "")").font(.caption2).foregroundStyle(.secondary)
+                                        Text("\(item.id + 1)").font(.caption2).foregroundStyle(.secondary)
                                         SecretPreview(value: protection.allowsSecret(revealed: model.revealed, protectCapture: model.security.protectCapture) ? String(item.value.prefix(100)) : SecretPresentation.shared.MASK)
                                             .privacySensitive()
                                     }.frame(maxWidth: .infinity, alignment: .leading)
@@ -515,6 +521,10 @@ struct ResultsList: View {
                                             }
                                     }.buttonStyle(.bordered).disabled(protection.isCaptured && model.security.protectCapture).accessibilityLabel(model.copiedIDs.contains(item.id) ? "コピー済み。もう一度コピー" : "コピー").accessibilityIdentifier("copy-\(item.id)")
                                 }.padding(.vertical, 3)
+                            }
+                        } header: {
+                            if let resultSummary {
+                                Text(resultSummary).textCase(nil).accessibilityIdentifier("results-summary")
                             }
                         } footer: {
                             if let first = model.results.first { Text("推定エントロピー \(Int(first.bits)) bits · \(model.security.clipboardSummary)") }

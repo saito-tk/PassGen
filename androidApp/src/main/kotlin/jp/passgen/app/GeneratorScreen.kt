@@ -340,6 +340,14 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     Text(model.generationActionTitle)
                 }
             }
+            if (model.results.isNotEmpty()) {
+                val shortest = model.results.minOf { it.value.length }
+                val longest = model.results.maxOf { it.value.length }
+                val length = if (shortest == longest) "${longest}文字" else "${shortest}〜${longest}文字"
+                Text(length + if (longest > 100) " / 先頭100文字のみ表示" else "",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { testTag = "results-summary" })
+            }
             model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (model.busy) {
                 LinearProgressIndicator(progress = { model.results.size.toFloat() / model.goal }, modifier = Modifier.fillMaxWidth())
@@ -352,7 +360,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("${row.index + 1} · ${row.value.length}文字${if (row.value.length > 100) " / 先頭100文字のみ表示" else ""}", style = MaterialTheme.typography.labelSmall)
+                                Text("${row.index + 1}", style = MaterialTheme.typography.labelSmall)
                                 Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
                             }

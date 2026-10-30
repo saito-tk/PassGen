@@ -7133,6 +7133,60 @@ final class SecretPreviewLayoutTests: XCTestCase {
 }
 
 @MainActor final class GenerationPresetTests: XCTestCase {
+    func testQRImageRoundTripAndImportRetainsExistingState() async throws {
+        let store = defaults(); let model = GeneratorModel(preferences: store)
+        model.recipe.lengthText = "64"; model.recipe.countText = "3"
+        model.recipe.uppercaseCharacters = "AZ"; model.recipe.lowercaseCharacters = "bm"
+        model.recipe.digitCharacters = "27"; model.recipe.symbols = "!{}\\"
+        model.recipe.uppercase = false; model.recipe.symbolsEnabled = false
+        model.recipe.excludeSimilar = false; model.recipe.requireEach = false
+        model.recipe.noAdjacent = true; model.recipe.similarExclusions = "0"
+        let expected = model.recipe.sanitized()
+        try model.savePreset(name: "共有設定")
+        let original = try XCTUnwrap(model.presets.first)
+        let text = try model.presetQR(original)
+        let png = try XCTUnwrap(PresetQRImage.encode(text).pngData())
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = "Passgen-PG1-iOS-QR"; attachment.lifetime = .keepAlways; add(attachment)
+        XCTAssertEqual(try PresetQRImage.decode(data: png), text)
+        let incoming = try model.decodedPresetQR(text)
+        XCTAssertEqual(incoming.recipe, expected); XCTAssertEqual(incoming.name, original.name)
+        model.recipe = Recipe(); model.recipe.mode = .passphrase; model.recipe.separator = "_"
+        model.generateOrStop()
+        for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
+        model.copiedIDs = [0]; model.revealed = true; model.security.protectCapture = false
+        let current = model.recipe; let results = model.results.map(\.value)
+        XCTAssertThrowsError(try model.importPreset(incoming, name: incoming.name))
+        XCTAssertEqual(model.presets.count, 1)
+        try model.importPreset(incoming, name: "受け取った設定")
+        XCTAssertEqual(model.presets.count, 2); XCTAssertEqual(model.presets.last, original)
+        XCTAssertNotEqual(model.presets.first?.id, original.id)
+        XCTAssertEqual(model.presets.first?.recipe, expected)
+        XCTAssertEqual(model.recipe, current); XCTAssertEqual(model.results.map(\.value), results)
+        XCTAssertEqual(model.copiedIDs, [0]); XCTAssertTrue(model.revealed); XCTAssertFalse(model.security.protectCapture)
+        let restored = GeneratorModel(preferences: store)
+        XCTAssertEqual(restored.presets.first?.recipe, expected)
+        XCTAssertEqual(restored.presets.last, original)
+    }
+    func testQRKnownVectorAndInvalidImagesCannotRegister() throws {
+        let model = GeneratorModel()
+        let vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
+        let decoded = try model.decodedPresetQR(vector)
+        XCTAssertEqual(decoded.name, "Example"); XCTAssertEqual(decoded.recipe, Recipe().sanitized())
+        XCTAssertEqual(try model.presetQR(decoded), vector)
+        XCTAssertThrowsError(try model.decodedPresetQR(vector.replacingOccurrences(of: "PG1:", with: "PG2:")))
+        XCTAssertThrowsError(try PresetQRImage.decode(data: Data("not an image".utf8)))
+        XCTAssertTrue(model.presets.isEmpty)
+        let longest = GeneratorPreset(id: UUID(), name: String(repeating: "字", count: 40), recipe: Recipe())
+        let text = try model.presetQR(longest)
+        XCTAssertEqual(try PresetQRImage.decode(data: XCTUnwrap(PresetQRImage.encode(text).pngData())), text)
+    }
+    func testRecipeChangesRequireExplicitQRCompatibilityReview() {
+        let transferred: Set<String> = ["mode", "lengthText", "countText", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
+            "symbols", "excludeSimilar", "requireEach", "noAdjacent", "uppercaseCharacters", "lowercaseCharacters", "digitCharacters", "similarExclusions"]
+        XCTAssertEqual(Set(Mirror(reflecting: Recipe()).children.compactMap(\.label)), transferred,
+            "Recipe変更時はQR形式・旧版デコーダー・移行時の明示的な初期値・固定fixtureを確認する")
+    }
     private func defaults() -> UserDefaults {
         let name = "passgen.presets.tests.\(UUID().uuidString)"
         addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }

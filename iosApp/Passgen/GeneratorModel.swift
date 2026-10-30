@@ -217,6 +217,30 @@ extension Recipe {
         guard let preset = presets.first(where: { $0.id == id }) else { throw PresetError.missing }
         recipe = preset.recipe.sanitized()
     }
+    func presetQR(_ preset: GeneratorPreset) throws -> String {
+        let value = preset.recipe.sanitized()
+        return try PresetQrCodec.shared.encode(preset: SharedPreset(name: preset.name, request: value.request(), count: Int32(value.count)))
+    }
+    func decodedPresetQR(_ text: String) throws -> GeneratorPreset {
+        let shared = try PresetQrCodec.shared.decode(text: text)
+        let r = shared.request
+        var value = Recipe()
+        value.mode = r.mode == .password ? .password : .passphrase
+        value.lengthText = String(r.length); value.countText = String(shared.count)
+        value.words = Int(r.wordCount); value.separator = r.separator
+        value.uppercase = r.uppercase; value.lowercase = r.lowercase; value.digits = r.digits
+        value.symbolsEnabled = r.symbolsEnabled; value.symbols = r.symbols
+        value.excludeSimilar = r.excludeSimilar; value.requireEach = r.requireEach; value.noAdjacent = r.noAdjacent
+        value.uppercaseCharacters = r.uppercaseCharacters; value.lowercaseCharacters = r.lowercaseCharacters
+        value.digitCharacters = r.digitCharacters; value.similarExclusions = r.similarExclusions
+        return GeneratorPreset(id: UUID(), name: shared.name, recipe: value)
+    }
+    func importPreset(_ preset: GeneratorPreset, name value: String) throws {
+        let name = try Self.normalizedPresetName(value)
+        guard !presets.contains(where: { Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }
+        // Creates a fresh local ID. Import never applies settings or overwrites another preset.
+        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: preset.recipe)] + presets)
+    }
     func renamePreset(_ id: UUID, to value: String) throws {
         let name = try Self.normalizedPresetName(value)
         guard !presets.contains(where: { $0.id != id && Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }

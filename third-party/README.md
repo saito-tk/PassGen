@@ -7,3 +7,10 @@
 - Copyright Electronic Frontier Foundation; CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 - Attribution: https://www.eff.org/dice and https://www.eff.org/copyright
 - Unchanged source included; Kotlin representation contains every source word.
+
+## ZXing core (Android)
+
+- Version: 3.5.4, official stable bug-fix release. Only the encoding/decoding core is included; no scanner app or camera integration.
+- Source: https://github.com/zxing/zxing/tree/zxing-3.5.4/core
+- License: Apache License 2.0. The unchanged [license text](../androidApp/src/main/assets/licenses/zxing-LICENSE.txt) is bundled in the APK and accessible in settings.
+- Maven Central artifacts and their published SHA-1 values were matched before pinning SHA-256 in Gradle's strict dependency verification metadata.

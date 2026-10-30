@@ -61,6 +61,38 @@ final class PassgenUITests: XCTestCase {
         dismissPresets(app)
         XCTAssertTrue(app.buttons["generate"].waitForExistence(timeout: 5))
     }
+    // Before running, seed Photos with the Android-generated PG1 Example fixture (see docs/design/preset-qr.md).
+    @MainActor func testPresetQrShareAndImageImport() {
+        let app = launchApp()
+        let length = app.textFields["length"]
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap(); app.buttons["presets"].tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let name = app.textFields["preset-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Export\n")
+        app.buttons["preset-save"].tap()
+        XCTAssertTrue(app.buttons["Exportの編集"].waitForExistence(timeout: 5)); app.buttons["Exportの編集"].tap()
+        app.buttons["QRコードで共有"].tap()
+        XCTAssertTrue(app.images["preset-qr-image"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["preset-qr-share"].isEnabled)
+        let qr = XCTAttachment(screenshot: app.screenshot()); qr.name = "Preset QR sharing"; qr.lifetime = .keepAlways; add(qr)
+        app.navigationBars["QRコードで共有"].buttons.firstMatch.tap()
+        app.buttons["preset-qr-read"].tap()
+        let photo = app.images.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
+            "PXGGridLayout-Info", "写真,", "Photo,")).firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 8))
+        let picker = XCTAttachment(screenshot: app.screenshot()); picker.name = "QR photo picker"; picker.lifetime = .keepAlways; add(picker)
+        photo.tap()
+        let receivedName = app.textFields["preset-qr-name"]
+        XCTAssertTrue(receivedName.waitForExistence(timeout: 10))
+        XCTAssertEqual(receivedName.value as? String, "Example")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.7))
+        let review = XCTAttachment(screenshot: app.screenshot()); review.name = "Received QR preset review"; review.lifetime = .keepAlways; add(review)
+        app.buttons["preset-qr-register"].tap()
+        XCTAssertTrue(app.buttons["Exampleを読み込む"].waitForExistence(timeout: 5))
+        dismissPresets(app)
+        XCTAssertEqual(length.value as? String, "64")
+    }
     @MainActor func testPeekSheetAllowsSettingsAndMovesGenerationToHeader() {
         let app = launchApp()
         let generate = app.buttons["generate"]

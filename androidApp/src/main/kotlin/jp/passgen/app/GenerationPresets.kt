@@ -13,6 +13,9 @@ data class PresetRecipe(
     val uppercaseCharacters: String, val lowercaseCharacters: String, val digitCharacters: String,
     val similarExclusions: String,
 ) {
+    fun request() = GenerationRequest(mode, length, words, uppercase, lowercase, digits, symbolsEnabled,
+        symbols, excludeSimilar, requireEach, noAdjacent, separator, uppercaseCharacters,
+        lowercaseCharacters, digitCharacters, similarExclusions)
     val summary get() = if (mode == GenerationMode.PASSWORD) "パスワード · ${length}文字 · ${count}件"
         else "パスフレーズ · ${words}単語 · ${count}件 · ${if (separator == " ") "スペース" else separator}区切り"
     fun json() = JSONObject().apply {
@@ -32,6 +35,11 @@ data class PresetRecipe(
         model.digitCharacters = digitCharacters; model.similarExclusions = similarExclusions
     }
     companion object {
+        fun fromTransfer(p: SharedPreset): PresetRecipe = with(p.request) {
+            PresetRecipe(mode, length, p.count, wordCount, separator, uppercase, lowercase, digits,
+                symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent,
+                uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
+        }
         fun capture(model: PassgenModel): PresetRecipe = with(model) {
             PresetRecipe(mode, length, count, words.coerceIn(6, 12), separator.takeIf { it in listOf(" ", "-", "_", ".") } ?: " ",
                 uppercase, lowercase, digits, symbolsEnabled, SymbolPolicy.recognized(symbols), excludeSimilar, requireEach, noAdjacent,

@@ -10,12 +10,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable fun PrivacySheet(model: PassgenModel, dismiss: () -> Unit, guide: () -> Unit) {
+    val context = LocalContext.current
+    var license by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("設定と安全性", style = MaterialTheme.typography.headlineSmall)
@@ -46,9 +49,16 @@ import androidx.compose.ui.unit.dp
             Text("EFF Long Wordlist © Electronic Frontier Foundation / CC BY 4.0", style = MaterialTheme.typography.bodySmall)
             GuideLink("EFFの単語リスト", "https://www.eff.org/dice")
             GuideLink("CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/")
+            Text("ZXing core 3.5.4 © ZXing authors", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { license = context.assets.open("licenses/zxing-LICENSE.txt").bufferedReader().use { it.readText() } }) {
+                Text("Apache License 2.0")
+            }
             TextButton(dismiss, Modifier.align(Alignment.End)) { Text("閉じる") }
         }
     }
+    license?.let { text -> AlertDialog(onDismissRequest = { license = null }, title = { Text("ZXing core · Apache License 2.0") },
+        text = { Text(text, modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall) },
+        confirmButton = { TextButton(onClick = { license = null }) { Text("閉じる") } }) }
 }
 
 @Composable private fun SettingsSwitch(title: String, value: Boolean, tag: String, change: (Boolean) -> Unit) {

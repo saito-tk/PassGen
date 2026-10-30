@@ -2,6 +2,9 @@ import SwiftUI
 import PassgenCore
 import UIKit
 import Observation
+import PhotosUI
+import CoreImage
+import ImageIO
 
 @MainActor @Observable final class ScreenProtectionState {
     private(set) var isCaptured = false
@@ -567,6 +570,13 @@ struct PresetsView: View {
     @State private var deleting: GeneratorPreset?
     @State private var showReplaceConfirmation = false
     @State private var showDeleteConfirmation = false
+    @State private var sharing: GeneratorPreset?
+    @State private var showQR = false
+    @State private var incoming: GeneratorPreset?
+    @State private var showImport = false
+    @State private var qrSelection: PhotosPickerItem?
+    @State private var readingQR = false
+    @State private var qrError: String?
     @FocusState private var nameFocused: Bool
     @FocusState private var renameFocused: Bool
     private func perform(_ operation: () throws -> Void, success: String? = nil) {
@@ -574,8 +584,38 @@ struct PresetsView: View {
     }
     var body: some View {
         NavigationStack {
-            List { saveSection; savedSection }
+            List {
+                if readingQR { HStack { ProgressView(); Text("端末内で読み取り中…") } }
+                if let qrError { Text(qrError).font(.subheadline).foregroundStyle(.red).accessibilityIdentifier("preset-qr-error") }
+                saveSection; savedSection
+            }
             .navigationTitle("プリセット").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    PhotosPicker(selection: $qrSelection, matching: .images, preferredItemEncoding: .current) {
+                        Label("QRを読み込む", systemImage: "qrcode.viewfinder")
+                    }.disabled(readingQR || model.busy || model.presetStorageIssue != nil)
+                        .accessibilityIdentifier("preset-qr-read")
+                }
+            }
+            .navigationDestination(isPresented: $showQR) {
+                if let sharing { PresetQRShareView(preset: sharing, model: model) }
+            }
+            .navigationDestination(isPresented: $showImport) {
+                if let incoming { PresetQRReviewView(preset: incoming, model: model) { showImport = false; self.incoming = nil; status = "プリセットを登録しました。" } }
+            }
+            .task(id: qrSelection) {
+                guard let selected = qrSelection else { return }
+                readingQR = true; qrError = nil
+                defer { readingQR = false; qrSelection = nil }
+                do {
+                    guard let data = try await selected.loadTransferable(type: Data.self), data.count <= 16 * 1024 * 1024 else { throw PresetQRImageError.invalid }
+                    let text = try await Task.detached(priority: .userInitiated) { try PresetQRImage.decode(data: data) }.value
+                    try Task.checkCancellation()
+                    incoming = try model.decodedPresetQR(text); showImport = true
+                } catch is CancellationError { }
+                catch { qrError = PresetQRImageError.invalid.localizedDescription }
+            }
             .accessibilityAction(.escape, done)
             .confirmationDialog("現在の設定で上書きしますか？", isPresented: $showReplaceConfirmation, titleVisibility: .visible, presenting: replacing) { preset in
                 Button("「\(preset.name)」を上書き", role: .destructive) { perform({ try model.replacePreset(preset.id) }, success: "更新しました。") }
@@ -647,6 +687,7 @@ struct PresetsView: View {
                 }.buttonStyle(.borderless).accessibilityLabel(preset.name + "を読み込む").accessibilityHint(preset.recipe.presetSummary)
                 if preset.recipe == model.recipe.sanitized() { Image(systemName: "checkmark").foregroundStyle(Color.passgenAccent).accessibilityLabel("現在の設定と一致") }
                 Menu {
+                    Button("QRコードで共有", systemImage: "qrcode") { sharing = preset; showQR = true }
                     Button("名前を変更") { renameText = preset.name; renaming = preset; renameFocused = true }
                     Button("現在の設定で上書き") { replacing = preset; showReplaceConfirmation = true }
                     Button("削除", role: .destructive) { deleting = preset; showDeleteConfirmation = true }
@@ -656,6 +697,116 @@ struct PresetsView: View {
         }
     }
 
+}
+
+enum PresetQRImageError: LocalizedError {
+    case invalid
+    var errorDescription: String? { "プリセットのQRコードを読み取れませんでした。対応するQR画像を1つ選んでください。" }
+}
+
+enum PresetQRImage {
+    static func encode(_ text: String) throws -> UIImage {
+        guard text.count <= Int(PresetQrCodec.shared.MAX_TEXT_LENGTH),
+              let filter = CIFilter(name: "CIQRCodeGenerator") else { throw PresetQRImageError.invalid }
+        filter.setValue(Data(text.utf8), forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let code = filter.outputImage else { throw PresetQRImageError.invalid }
+        let extent = code.extent.insetBy(dx: -4, dy: -4)
+        let image = code.composited(over: CIImage(color: .white).cropped(to: extent)).transformed(by: CGAffineTransform(scaleX: 12, y: 12))
+        guard let cgImage = CIContext().createCGImage(image, from: image.extent) else { throw PresetQRImageError.invalid }
+        return UIImage(cgImage: cgImage)
+    }
+    static func decode(data: Data) throws -> String {
+        guard data.count <= 16 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 2048, kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else { throw PresetQRImageError.invalid }
+        guard let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(),
+            options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]) else { throw PresetQRImageError.invalid }
+        let codes = Set(detector.features(in: CIImage(cgImage: image)).compactMap {
+            ($0 as? CIQRCodeFeature)?.messageString
+        }.filter { $0.hasPrefix("PG") })
+        guard codes.count == 1, let text = codes.first else { throw PresetQRImageError.invalid }
+        // The parser validates the version, size, integrity and every parameter before any registration.
+        _ = try PresetQrCodec.shared.decode(text: text)
+        return text
+    }
+}
+
+private struct PresetQRShareView: View {
+    let preset: GeneratorPreset
+    let model: GeneratorModel
+    @State private var image: UIImage?
+    @State private var error: String?
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(preset.name).font(.title2.bold())
+                Text(preset.recipe.presetSummary).font(.subheadline).foregroundStyle(.secondary)
+                if let image {
+                    Image(uiImage: image).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 360)
+                        .accessibilityLabel(preset.name + "のプリセットQRコード").accessibilityIdentifier("preset-qr-image")
+                    ShareLink(item: Image(uiImage: image), preview: SharePreview(preset.name + " · プリセットQR", image: Image(uiImage: image))) {
+                        Label("QR画像を共有", systemImage: "square.and.arrow.up")
+                    }.modifier(PrimaryActionStyle()).accessibilityIdentifier("preset-qr-share")
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+                Text("受け取った人は「QRを読み込む」から登録できます。QRにはプリセット名と生成条件だけが含まれます。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }.frame(maxWidth: 520, alignment: .leading).padding().frame(maxWidth: .infinity)
+        }.navigationTitle("QRコードで共有").navigationBarTitleDisplayMode(.inline)
+            .task { do { image = try PresetQRImage.encode(model.presetQR(preset)) } catch { self.error = "QRコードを作成できませんでした。" } }
+    }
+}
+
+private struct PresetQRReviewView: View {
+    let preset: GeneratorPreset
+    @Bindable var model: GeneratorModel
+    let saved: () -> Void
+    @State private var name: String
+    @State private var error: String?
+    @FocusState private var nameFocused: Bool
+    init(preset: GeneratorPreset, model: GeneratorModel, saved: @escaping () -> Void) {
+        self.preset = preset; self.model = model; self.saved = saved; _name = State(initialValue: preset.name)
+    }
+    private func state(_ flag: Bool) -> String { flag ? "ON" : "OFF" }
+    var body: some View {
+        Form {
+            Section {
+                TextField("プリセット名", text: $name).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .focused($nameFocused).submitLabel(.done).onSubmit { nameFocused = false }.accessibilityIdentifier("preset-qr-name")
+                if let issue = model.presetNameError(name) { Text(issue).font(.caption).foregroundStyle(.red) }
+                if let error { Text(error).font(.caption).foregroundStyle(.red) }
+            }
+            Section("生成条件") {
+                Text(preset.recipe.presetSummary)
+                if preset.recipe.mode == .password {
+                    ForEach(CharacterGroup.allCases) { group in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.title + " · " + state(group.enabled(in: preset.recipe))).font(.caption).foregroundStyle(.secondary)
+                            Text(group.selected(in: preset.recipe).isEmpty ? "選択なし" : group.selected(in: preset.recipe))
+                                .font(.system(.body, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    LabeledContent("各文字種を必ず含める", value: state(preset.recipe.requireEach))
+                    LabeledContent("似た文字を除外", value: state(preset.recipe.excludeSimilar))
+                    Text(preset.recipe.similarExclusions.isEmpty ? "除外文字の選択なし" : preset.recipe.similarExclusions).font(.system(.body, design: .monospaced))
+                }
+                LabeledContent("同じ文字を連続させない", value: state(preset.recipe.noAdjacent))
+            }
+        }.navigationTitle("プリセットを確認").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) {
+                Button("登録") {
+                    nameFocused = false
+                    do { try model.importPreset(preset, name: name); saved() } catch { self.error = error.localizedDescription }
+                }.disabled(model.busy || model.presetStorageIssue != nil || model.presetNameError(name) != nil)
+                    .accessibilityIdentifier("preset-qr-register")
+            } }
+            .safeAreaInset(edge: .bottom) { Text("共有元を確認してから登録してください。登録後、一覧から選ぶと主画面に適用できます。")
+                .font(.footnote).foregroundStyle(.secondary).padding().frame(maxWidth: .infinity).background(.bar) }
+    }
 }
 
 struct PrivacyView: View {

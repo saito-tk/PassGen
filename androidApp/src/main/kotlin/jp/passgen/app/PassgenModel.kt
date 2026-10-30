@@ -125,6 +125,15 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         val preset = presets.firstOrNull { it.id == id } ?: throw PresetException("プリセットが見つかりません。")
         preset.recipe.applyTo(this)
     }
+    fun presetQR(preset: GeneratorPreset): String = PresetQrCodec.encode(SharedPreset(preset.name, preset.recipe.request(), preset.recipe.count))
+    fun decodedPresetQR(text: String): GeneratorPreset {
+        val decoded = PresetQrCodec.decode(text)
+        return GeneratorPreset(UUID.randomUUID().toString(), decoded.name, PresetRecipe.fromTransfer(decoded))
+    }
+    fun importPreset(preset: GeneratorPreset, value: String) {
+        presetNameError(value)?.let { throw PresetException(it) }
+        commitPresets(listOf(GeneratorPreset(UUID.randomUUID().toString(), normalizedPresetName(value), preset.recipe)) + presets)
+    }
     fun renamePreset(id: String, value: String) {
         presetNameError(value, id)?.let { throw PresetException(it) }
         if (presets.none { it.id == id }) throw PresetException("プリセットが見つかりません。")

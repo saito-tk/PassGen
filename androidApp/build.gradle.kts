@@ -14,6 +14,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
+    sourceSets.getByName("androidTest").assets.srcDir("../test-fixtures/presets")
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -28,6 +29,7 @@ android {
 }
 dependencies {
     implementation(project(":shared"))
+    implementation(libs.zxing.core)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)

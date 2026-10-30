@@ -13,6 +13,10 @@ import kotlinx.coroutines.cancel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -40,6 +44,104 @@ class GeneratorUiTest {
 
     @After fun restoreTestCaptureProtection() {
         rule.runOnIdle { model.protectCapture = true }
+    }
+
+    @Test fun presetQrImageRestoresExactSettingsWithoutChangingCurrentState() {
+        rule.runOnIdle {
+            val fields = PresetRecipe::class.java.declaredFields.filterNot { it.isSynthetic || java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }.toSet()
+            assertEquals("設定変更時はQR形式・旧reader・互換値・固定fixtureを確認する", setOf("mode", "length", "count", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
+                "symbols", "excludeSimilar", "requireEach", "noAdjacent", "uppercaseCharacters", "lowercaseCharacters", "digitCharacters", "similarExclusions"), fields)
+            val prefs = rule.activity.getSharedPreferences("test.qr.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+            val first = PassgenModel(prefs)
+            var restored: PassgenModel? = null
+            try {
+                first.mode = jp.passgen.core.GenerationMode.PASSPHRASE; first.words = 12; first.separator = "."
+                first.lengthText = "64"; first.countText = "1000"; first.uppercaseCharacters = "AZ"
+                first.lowercaseCharacters = "bm"; first.digitCharacters = "27"; first.symbols = "!{}\\"
+                first.uppercase = false; first.symbolsEnabled = false; first.excludeSimilar = false
+                first.requireEach = false; first.noAdjacent = true; first.similarExclusions = "0"
+                first.savePreset("共有設定"); val original = first.presets.single()
+                val text = first.presetQR(original)
+                val image = PresetQrImage.encode(text)
+                assertEquals(text, PresetQrImage.decode(image))
+                val incoming = first.decodedPresetQR(text)
+                assertEquals(original.recipe, incoming.recipe)
+                first.mode = jp.passgen.core.GenerationMode.PASSWORD; first.lengthText = "24"
+                first.revealed = true; first.protectCapture = false; first.copiedIndices = setOf(0)
+                val before = PresetRecipe.capture(first)
+                assertThrows(PresetException::class.java) { first.importPreset(incoming, original.name) }
+                assertEquals(1, first.presets.size)
+                first.importPreset(incoming, "受け取った設定")
+                assertEquals(before, PresetRecipe.capture(first)); assertEquals(setOf(0), first.copiedIndices)
+                assertTrue(first.revealed); assertFalse(first.protectCapture)
+                assertEquals(original, first.presets.last()); assertNotEquals(original.id, first.presets.first().id)
+                val next = PassgenModel(prefs); restored = next
+                assertEquals(original.recipe, next.presets.first().recipe)
+                val vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
+                assertEquals(vector, first.presetQR(first.decodedPresetQR(vector)))
+                // Permanent image from Apple's encoder: verify interoperability, not just our own writer.
+                val fixture = InstrumentationRegistry.getInstrumentation().context.assets.open("ios-pg1.png").use {
+                    android.graphics.BitmapFactory.decodeStream(it)
+                }
+                val ios = first.decodedPresetQR(PresetQrImage.decode(fixture)).recipe
+                assertEquals(PresetRecipe(jp.passgen.core.GenerationMode.PASSWORD, 64, 3, 7, " ",
+                    false, true, true, false, "!{}\\", false, false, true, "AZ", "bm", "27", "0"), ios)
+                val known = PresetQrImage.encode(vector)
+                val exported = File(rule.activity.getExternalFilesDir(null), "task37-android-qr.png")
+                exported.outputStream().use { known.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                assertEquals(vector, PresetQrImage.read(rule.activity, android.net.Uri.fromFile(exported)))
+                val blank = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+                assertThrows(Exception::class.java) { PresetQrImage.decode(blank) }
+                assertThrows(Exception::class.java) { first.decodedPresetQR(vector.replace("PG1:", "PG2:")) }
+            } finally { first.viewModelScope.cancel(); restored?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
+        }
+    }
+
+    @Test fun presetQrShareAndReviewRequireExplicitNewRegistration() {
+        val name = "QR-${System.nanoTime()}"
+        val owned = mutableListOf<String>()
+        try {
+            lateinit var original: GeneratorPreset
+            rule.runOnIdle { model.protectCapture = false; model.savePreset(name); original = model.presets.first(); owned += original.id }
+            rule.onNodeWithTag("presets").performClick()
+            rule.onNodeWithTag("preset-qr-read").assertIsDisplayed().assertIsEnabled()
+            rule.onNodeWithContentDescription("${name}の編集").performClick()
+            rule.onNodeWithText("QRコードで共有").performClick()
+            rule.waitUntil(5000) { rule.onAllNodesWithTag("preset-qr-image").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("preset-qr-image").assertIsDisplayed()
+            rule.onNodeWithTag("preset-qr-share").assertIsEnabled()
+            rule.waitForIdle(); android.os.SystemClock.sleep(600) // Allow the rendered frame, not only its semantics, to reach the screenshot.
+            val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            File(rule.activity.getExternalFilesDir(null), "task37-qr-share-ui.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            screenshot.recycle()
+            rule.onNodeWithTag("preset-qr-share").performClick()
+            rule.waitUntil(5000) { rule.activity.lifecycle.currentState != Lifecycle.State.RESUMED }
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            rule.waitUntil(5000) { rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED }
+            rule.onNodeWithTag("preset-qr-back").performClick()
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            var saved = false
+            rule.runOnIdle {
+                rule.activity.setContent { PassgenTheme {
+                    androidx.compose.material3.Surface {
+                        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp)) {
+                            PresetQrReview(original, model, back = {}, saved = { saved = true })
+                        }
+                    }
+                } }
+            }
+            rule.onNodeWithTag("preset-qr-register").assertIsNotEnabled()
+            rule.onNodeWithTag("preset-qr-name").performTextReplacement("$name-import")
+            rule.onNodeWithTag("preset-qr-name").performImeAction()
+            rule.onNodeWithTag("preset-qr-register").assertIsEnabled().performClick()
+            rule.runOnIdle {
+                assertTrue(saved)
+                val received = model.presets.first { it.name == "$name-import" }; owned += received.id
+                assertEquals(original.recipe, received.recipe)
+                assertEquals(original.recipe, PresetRecipe.capture(model))
+                assertEquals(original, model.presets.first { it.id == original.id })
+            }
+        } finally { rule.runOnIdle { owned.forEach { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
     }
 
     @Test fun namedPresetsRestoreGenerationSettingsWithoutSecretsOrSecurity() {
@@ -105,8 +207,10 @@ class GeneratorUiTest {
             rule.runOnIdle { assertEquals(64, model.length); assertTrue(model.results.isEmpty()) }
             rule.onNodeWithTag("presets").performClick()
             rule.onNodeWithContentDescription("${name}の編集").performClick(); rule.onNodeWithText("名前を変更").performClick()
-            rule.onNodeWithTag("preset-rename-name").performTextReplacement("${name}-new")
+            rule.onNodeWithTag("preset-rename-name").performClick().performTextReplacement("${name}-new")
+            rule.onNodeWithTag("preset-rename-name").performImeAction()
             rule.onNodeWithTag("preset-confirm").performClick()
+            rule.waitUntil(3000) { rule.onAllNodesWithContentDescription("${name}-newの編集").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithContentDescription("${name}-newの編集").performClick(); rule.onNodeWithText("削除").performClick()
             rule.onNodeWithTag("preset-confirm").performClick()
             rule.runOnIdle { assertTrue(model.presets.none { it.id == owned }) }

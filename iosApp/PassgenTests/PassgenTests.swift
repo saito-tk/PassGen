@@ -7108,6 +7108,16 @@ private actor ImportAnalysisGate {
 }
 
 final class SecretPreviewLayoutTests: XCTestCase {
+    func testPaneThresholdAndSettingsMaximumLeaveReadableResults() {
+        XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: 719))
+        XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: .nan))
+        XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: .infinity))
+        for width: CGFloat in [720, 744, 803, 1024, 1366, 1800] {
+            let left = GeneratorPaneLayout.settingsWidth(in: width)!
+            XCTAssertGreaterThanOrEqual(left, 344); XCTAssertLessThanOrEqual(left, 464)
+            XCTAssertGreaterThanOrEqual(width - left, 344)
+        }
+    }
     @MainActor func testSixtyFourCharactersWrapAtCharactersWithoutThreeLineTruncation() {
         let value = String(repeating: "abcd/", count: 12) + "wxyz"
         let label = SecretPreviewLabel()

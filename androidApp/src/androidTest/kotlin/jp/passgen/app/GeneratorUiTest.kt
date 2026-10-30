@@ -26,6 +26,155 @@ import java.io.File
 import jp.passgen.core.StorageLessonExamples
 
 class GeneratorUiTest {
+    private fun emulatorShell(command: String): String = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+    private fun changeFold(state: Int) {
+        emulatorShell("cmd device_state state $state")
+        emulatorShell("input keyevent KEYCODE_WAKEUP")
+        emulatorShell("wm dismiss-keyguard")
+    }
+    private var lastFoldWake = 0L
+    private fun keepFoldDisplayAwake() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastFoldWake > 1000) {
+            // Cover/inner display handover can power off after the first wake event.
+            emulatorShell("input keyevent KEYCODE_WAKEUP"); emulatorShell("wm dismiss-keyguard")
+            lastFoldWake = now
+        }
+    }
+    @Test fun paneWidthsRespectBoundariesAndPhysicalHinge() {
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, generatorOrientation(599))
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, generatorOrientation(600))
+        assertNull(generatorSplit(719f)); assertNull(generatorSplit(Float.NaN))
+        val smallest = generatorSplit(720f)!!
+        assertTrue(smallest.settingsWidth >= 344); assertTrue(720 - smallest.settingsWidth - smallest.gap >= 344)
+        assertEquals(464f, generatorSplit(1800f)!!.settingsWidth)
+        assertEquals(GeneratorSplit(390f, 20f), generatorSplit(800f, 390f, 410f))
+        assertEquals(GeneratorSplit(350f, 0f), generatorSplit(700f, 350f, 350f))
+        assertNull(generatorSplit(800f, 180f, 220f))
+        assertEquals(GeneratorRegion(220f, 580f), generatorRegion(800f, 180f, 220f, 344f))
+        assertEquals(GeneratorRegion(0f, 580f), generatorRegion(800f, 580f, 620f, 344f))
+        assertEquals(GeneratorRegion(0f, 800f), generatorRegion(800f, 390f, 410f, 344f))
+        assertEquals(GeneratorRegion(10f, 790f), generatorRegion(800f, -10f, 10f, 344f))
+        assertEquals(GeneratorRegion(0f, 790f), generatorRegion(800f, 790f, 810f, 344f))
+        assertEquals(GeneratorSplit(320f, 20f), generatorTabletop(700f, 320f, 340f))
+        assertNull(generatorTabletop(400f, 100f, 120f))
+    }
+    @Test fun foldTransitionsKeepResultsSettingsCopyMarksAndRevealState() {
+        org.junit.Assume.assumeTrue("専用emulatorのみで開閉を実行", android.os.Build.HARDWARE == "ranchu" &&
+            InstrumentationRegistry.getArguments().getString("foldTransitions") == "true")
+        changeFold(0)
+        try {
+            rule.waitUntil(15000) { keepFoldDisplayAwake(); rule.activity.resources.configuration.screenWidthDp < 600 &&
+                rule.onAllNodesWithTag("results-pane").fetchSemanticsNodes().isEmpty() &&
+                rule.onAllNodesWithTag("generate").fetchSemanticsNodes().isNotEmpty() }
+            rule.waitForIdle(); android.os.SystemClock.sleep(600)
+            rule.onNodeWithText("記号").performClick()
+            rule.onNodeWithText("生成ルール").performScrollTo().performClick()
+            rule.runOnIdle {
+                assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, rule.activity.requestedOrientation)
+                model.lengthText = "64"; model.countText = "20"; model.autoClearClipboard = false
+            }
+            rule.onNodeWithTag("generate").performClick()
+            rule.waitUntil(10000) { !model.busy && model.results.size == 20 }
+            rule.onNodeWithTag("results-visibility").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("copy-0").performClick()
+            lateinit var expected: List<String>
+            lateinit var recipe: PresetRecipe
+            rule.runOnIdle { expected = model.results.map { it.value }; recipe = PresetRecipe.capture(model) }
+            repeat(2) {
+                changeFold(2)
+                rule.waitUntil(15000) { keepFoldDisplayAwake(); rule.activity.resources.configuration.screenWidthDp >= 720 && rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED &&
+                    rule.onAllNodesWithTag("results-pane").fetchSemanticsNodes().isNotEmpty() }
+                rule.waitForIdle(); android.os.SystemClock.sleep(600)
+                rule.onNodeWithTag("results-sheet").assertDoesNotExist()
+                rule.onNodeWithText("記号を含める").assertExists()
+                rule.onNodeWithText("各文字種を必ず含める").assertExists()
+                rule.onNodeWithTag("generate").assertIsDisplayed().assertTextEquals("再生成")
+                rule.onNodeWithTag("results-visibility").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "表示中"))
+                rule.runOnIdle {
+                    assertTrue(expected == model.results.map { it.value }); assertEquals(recipe, PresetRecipe.capture(model))
+                    assertEquals(setOf(0), model.copiedIndices); assertTrue(model.revealed)
+                }
+                // The settings and results must be usable at the same time.
+                val left = rule.onNodeWithTag("settings-pane").fetchSemanticsNode().boundsInRoot
+                val right = rule.onNodeWithTag("results-pane").fetchSemanticsNode().boundsInRoot
+                assertTrue(left.right <= right.left)
+                changeFold(0)
+                rule.waitUntil(15000) { keepFoldDisplayAwake(); rule.activity.resources.configuration.screenWidthDp < 600 && rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED &&
+                    rule.onAllNodesWithTag("results-sheet").fetchSemanticsNodes().isNotEmpty() }
+                rule.waitForIdle(); android.os.SystemClock.sleep(600)
+                rule.onNodeWithTag("results-pane").assertDoesNotExist()
+                rule.onNodeWithTag("regenerate").assertTextEquals("再生成")
+                rule.onNodeWithTag("copy-0").assertContentDescriptionEquals("コピー済み。もう一度コピー")
+                rule.runOnIdle { assertTrue(expected == model.results.map { it.value }); assertEquals(recipe, PresetRecipe.capture(model)) }
+            }
+        } finally { changeFold(0) }
+    }
+    @Test fun inlineResultsRemainWhenSettingsChangeAndClear() {
+        org.junit.Assume.assumeTrue(rule.activity.resources.configuration.screenWidthDp >= 720)
+        rule.onNodeWithTag("results-pane").assertIsDisplayed()
+        rule.onNodeWithTag("generate").performClick()
+        rule.waitUntil(5000) { !model.busy && model.results.isNotEmpty() }
+        rule.onNodeWithTag("results-sheet").assertDoesNotExist()
+        rule.onNodeWithTag("copy-0").performClick()
+        lateinit var beforeEdit: List<String>
+        rule.runOnIdle { beforeEdit = model.results.map { it.value } }
+        rule.onNodeWithText("数字").performClick()
+        rule.onNodeWithContentDescription("数字 9").performClick()
+        rule.runOnIdle {
+            assertFalse('9' in model.digitCharacters)
+            assertTrue(beforeEdit == model.results.map { it.value })
+            model.lengthText = "64"
+        }
+        rule.onNodeWithTag("generate").assertTextEquals("生成")
+        rule.onNodeWithTag("results-summary").assertTextEquals("24文字")
+        rule.onNodeWithTag("copy-0").assertContentDescriptionEquals("コピー済み。もう一度コピー")
+        rule.onNodeWithTag("generate").performClick()
+        rule.waitUntil(5000) { !model.busy && model.results.firstOrNull()?.value?.length == 64 }
+        rule.runOnIdle { model.protectCapture = false }
+        rule.waitForIdle(); android.os.SystemClock.sleep(600)
+        val image = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(rule.activity.getExternalFilesDir(null), "task38-columns-open.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
+        rule.onNodeWithTag("clear-results").performClick()
+        rule.onNodeWithTag("results-pane").assertIsDisplayed()
+        rule.onNodeWithTag("generate").assertIsDisplayed().assertTextEquals("生成")
+        rule.onNodeWithTag("results-sheet").assertDoesNotExist()
+    }
+    @Test fun copiedMarksStayCorrectAcrossPrefetchedResultRows() {
+        rule.runOnIdle { model.lengthText = "64"; model.countText = "100" }
+        rule.onNodeWithTag("generate").performClick()
+        rule.waitUntil(10000) { !model.busy && model.results.size == 100 }
+        rule.onNodeWithTag("copy-0").performClick()
+        rule.onNodeWithTag("copy-0").assertContentDescriptionEquals("コピー済み。もう一度コピー")
+        rule.onNodeWithTag("result-list").performScrollToIndex(80)
+        rule.onNodeWithTag("copy-80").performClick()
+        rule.onNodeWithTag("copy-80").assertContentDescriptionEquals("コピー済み。もう一度コピー")
+        rule.runOnIdle { assertEquals(setOf(0, 80), model.copiedIndices) }
+        rule.onNodeWithTag("result-list").performScrollToIndex(0)
+        rule.onNodeWithTag("copy-0").assertContentDescriptionEquals("コピー済み。もう一度コピー")
+    }
+    @Test fun compactDisplayStaysPortraitWhenDeviceRotates() {
+        org.junit.Assume.assumeTrue(android.os.Build.HARDWARE == "ranchu" && rule.activity.resources.configuration.smallestScreenWidthDp < 600)
+        val auto = emulatorShell("settings get system accelerometer_rotation").trim().toIntOrNull()
+        val rotation = emulatorShell("settings get system user_rotation").trim().toIntOrNull()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        try {
+            automation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_90)
+            android.os.SystemClock.sleep(800); rule.waitForIdle()
+            rule.runOnIdle {
+                assertEquals(android.content.res.Configuration.ORIENTATION_PORTRAIT, rule.activity.resources.configuration.orientation)
+                assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, rule.activity.requestedOrientation)
+            }
+            rule.onNodeWithTag("generate").assertIsDisplayed()
+        } finally {
+            automation.setRotation(android.app.UiAutomation.ROTATION_UNFREEZE)
+            if (rotation != null && rotation in 0..3) emulatorShell("settings put system user_rotation $rotation")
+            if (auto != null && auto in 0..1) emulatorShell("settings put system accelerometer_rotation $auto")
+        }
+    }
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
     private val model get() = ViewModelProvider(rule.activity)[PassgenModel::class.java]
 

@@ -120,18 +120,54 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(length.isHittable)
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Interactive minimal result sheet"; image.lifetime = .keepAlways; add(image)
     }
-    @MainActor func testWideLayoutUsesCompactGenerateAndModalResults() throws {
+    @MainActor func testWideLayoutKeepsSettingsAndResultsSideBySide() throws {
         let app = launchApp()
-        guard app.windows.firstMatch.frame.width > 700 else { throw XCTSkip("Wide-layout simulator required") }
+        guard app.windows.firstMatch.frame.width >= 720 else { throw XCTSkip("Wide-layout simulator required") }
         let generate = app.buttons["generate"]
         XCTAssertTrue(generate.waitForExistence(timeout: 5))
-        XCTAssertLessThan(generate.frame.width, 150)
-        generate.tap()
-        XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+        XCTAssertLessThan(generate.frame.width, 160)
+        generate.tap()
+        let copy = app.buttons["copy-0"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["生成結果 1件"].exists)
         XCTAssertEqual(generate.label, "再生成")
-        XCTAssertFalse(app.buttons["閉じる"].exists)
-        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Modal results on wide layout"; image.lifetime = .keepAlways; add(image)
+        app.buttons["results-visibility"].tap(); copy.tap()
+        XCTAssertEqual(app.buttons["results-visibility"].value as? String, "表示中")
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
+        let length = app.textFields["length"]
+        XCTAssertLessThan(length.frame.maxX, generate.frame.minX)
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap()
+        XCTAssertEqual(generate.label, "生成")
+        XCTAssertEqual(app.staticTexts["results-summary"].label, "24文字")
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
+        generate.tap()
+        let regenerated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "64文字"), object: app.staticTexts["results-summary"])
+        XCTAssertEqual(XCTWaiter.wait(for: [regenerated], timeout: 5), .completed)
+        XCTAssertEqual(app.buttons["results-visibility"].value as? String, "表示中")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Settings and persistent results columns"; image.lifetime = .keepAlways; add(image)
+        app.buttons["clear-results"].tap()
+        XCTAssertEqual(generate.label, "生成")
+        XCTAssertFalse(app.buttons["copy-0"].exists)
+        XCTAssertTrue(length.isHittable)
+        XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+    }
+    @MainActor func testPhoneKeepsPortraitAndResultsWhenDeviceTurns() throws {
+        let app = launchApp()
+        guard app.windows.firstMatch.frame.width < 700 else { throw XCTSkip("iPhone simulator required") }
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app.buttons["generate"].tap()
+        let copy = app.buttons["copy-0"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        app.buttons["results-visibility"].tap(); copy.tap()
+        let width = app.windows.firstMatch.frame.width
+        XCUIDevice.shared.orientation = .landscapeLeft
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        XCTAssertEqual(app.windows.firstMatch.frame.width, width, accuracy: 1)
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
+        XCTAssertEqual(app.buttons["results-visibility"].value as? String, "表示中")
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
     }
     @MainActor func testHundredSixtyFourCharacterResultsKeepVisibilityOnRegeneration() {
         let app = launchApp()

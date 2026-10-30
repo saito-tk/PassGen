@@ -6,7 +6,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,87 +45,134 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable fun GeneratorScreen(model: PassgenModel, fold: FoldingFeature?, copy: (String) -> Boolean) {
-    var showPresets by remember { mutableStateOf(false) }
-    var showResults by remember { mutableStateOf(false) }
-    var showSymbols by remember { mutableStateOf(false) }
-    var showPrivacy by remember { mutableStateOf(false) }
-    var showGuide by remember { mutableStateOf(false) }
-    var showStorageLesson by remember { mutableStateOf(false) }
-    var showAuthLesson by remember { mutableStateOf(false) }
-    var examplesTopic by remember { mutableStateOf<Int?>(null) }
+    var showPresets by rememberSaveable { mutableStateOf(false) }
+    var resultsRequested by rememberSaveable { mutableStateOf(false) }
+    var previousInline by rememberSaveable { mutableStateOf(false) }
+    var showSymbols by rememberSaveable { mutableStateOf(false) }
+    var showPrivacy by rememberSaveable { mutableStateOf(false) }
+    var showGuide by rememberSaveable { mutableStateOf(false) }
+    var showStorageLesson by rememberSaveable { mutableStateOf(false) }
+    var showAuthLesson by rememberSaveable { mutableStateOf(false) }
+    var examplesTopic by rememberSaveable { mutableStateOf<Int?>(null) }
+    var characterTab by rememberSaveable { mutableStateOf(CharacterTab.UPPER) }
+    var rulesExpanded by rememberSaveable { mutableStateOf(false) }
+    val settingsScroll = rememberScrollState()
+    val resultsScroll = rememberLazyListState()
     val focus = LocalFocusManager.current
     val density = LocalDensity.current
     var origin by remember { mutableStateOf(Offset.Zero) }
+    var contentOrigin by remember { mutableStateOf(Offset.Zero) }
     val verticalFold = fold?.takeIf { it.orientation == FoldingFeature.Orientation.VERTICAL }
+    val horizontalFold = fold?.takeIf { it.orientation == FoldingFeature.Orientation.HORIZONTAL }
     fun generate() {
         focus.clearFocus()
-        if (model.work == WorkState.IDLE) showResults = true
+        if (model.work == WorkState.IDLE) resultsRequested = true
         model.generateOrStop()
     }
-    Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showPresets = true }, modifier = Modifier.semantics { testTag = "presets" }) { Text("プリセット") }
-                Text("Passgen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
+    fun clear() { if (!model.busy) { model.clear(); resultsRequested = false } }
+    BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+        .onGloballyPositioned { origin = it.positionInWindow() }) {
+        val hingeStart = verticalFold?.let { with(density) { (it.bounds.left - origin.x).toDp().value } }
+        val hingeEnd = verticalFold?.let { with(density) { (it.bounds.right - origin.x).toDp().value } }
+        val region = generatorRegion(maxWidth.value, hingeStart, hingeEnd, 344f)
+        val wholeWidth = region.length == maxWidth.value
+        val split = generatorSplit(region.length, if (wholeWidth) hingeStart else null, if (wholeWidth) hingeEnd else null)
+        val inline = split != null || horizontalFold != null
+        val showResults = resultsRequested && !inline
+        LaunchedEffect(inline) {
+            if ((inline || previousInline) && (model.results.isNotEmpty() || model.busy)) resultsRequested = true
+            previousInline = inline
+        }
+        LaunchedEffect(model.results.isEmpty()) { if (model.results.isEmpty()) resultsScroll.scrollToItem(0) }
+        Scaffold(modifier = Modifier.padding(start = region.start.dp, end = (maxWidth.value - region.start - region.length).coerceAtLeast(0f).dp),
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { showPresets = true }, modifier = Modifier.semantics { testTag = "presets" }) { Text("プリセット") }
+                    Text("Passgen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showPrivacy = true }, modifier = Modifier.semantics { testTag = "safety-settings" }) { Text("設定") }
+                }
+            }, bottomBar = {
+                if (!inline && !showResults) Surface(tonalElevation = 2.dp) {
+                    Row(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                        if (model.results.isNotEmpty()) TextButton(onClick = { resultsRequested = true }) { Text("結果 ${model.results.size}件") }
+                        Button(onClick = ::generate, enabled = model.generationActionEnabled,
+                            modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
+                            Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
             }
-        }, bottomBar = {
-            if (!showResults) Surface(tonalElevation = 2.dp) {
-                val left = if (verticalFold == null) 12.dp else with(density) { verticalFold.bounds.right.toDp() } + 12.dp
-                Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(start = left, end = 12.dp, top = 8.dp, bottom = 8.dp), horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (model.results.isNotEmpty()) TextButton(onClick = { showResults = true }) { Text("結果 ${model.results.size}件") }
-                    Button(onClick = ::generate, enabled = model.generationActionEnabled,
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "generate" }) {
-                        Text(model.generationActionTitle, style = MaterialTheme.typography.titleMedium)
+        ) { padding ->
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()
+                .onGloballyPositioned { contentOrigin = it.positionInWindow() }) {
+                val top = horizontalFold?.let { with(density) { (it.bounds.top - contentOrigin.y).toDp().value } }
+                val bottom = horizontalFold?.let { with(density) { (it.bounds.bottom - contentOrigin.y).toDp().value } }
+                val tabletop = generatorTabletop(maxHeight.value, top, bottom)
+                val verticalRegion = generatorRegion(maxHeight.value, top, bottom, 180f)
+                if (tabletop != null) {
+                    Column(Modifier.fillMaxSize()) {
+                        SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
+                            { showSymbols = true }, Modifier.fillMaxWidth().height(tabletop.settingsWidth.dp))
+                        Spacer(Modifier.height(tabletop.gap.dp))
+                        ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxWidth())
                     }
+                } else if (split != null) {
+                    Row(Modifier.fillMaxSize().padding(top = verticalRegion.start.dp,
+                        bottom = (maxHeight.value - verticalRegion.start - verticalRegion.length).coerceAtLeast(0f).dp)) {
+                        SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
+                            { showSymbols = true }, Modifier.width(split.settingsWidth.dp).fillMaxHeight())
+                        Spacer(Modifier.width(split.gap.dp))
+                        ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxHeight())
                     }
+                } else if (horizontalFold != null) {
+                    Column(Modifier.fillMaxSize().padding(top = verticalRegion.start.dp,
+                        bottom = (maxHeight.value - verticalRegion.start - verticalRegion.length).coerceAtLeast(0f).dp)) {
+                        SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
+                            { showSymbols = true }, Modifier.weight(1f).fillMaxWidth())
+                        ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxWidth())
+                    }
+                } else {
+                    SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
+                        { showSymbols = true }, Modifier.fillMaxSize())
                 }
             }
         }
-    ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding).onGloballyPositioned { origin = it.positionInWindow() }) {
-            val horizontalFold = fold?.takeIf { it.orientation == FoldingFeature.Orientation.HORIZONTAL }
-            val hingeX = with(density) { ((verticalFold?.bounds?.left ?: 0) - origin.x).toDp() }
-            val hingeY = with(density) { ((horizontalFold?.bounds?.top ?: 0) - origin.y).toDp() }
-            when {
-                verticalFold != null && hingeX > 150.dp && hingeX < maxWidth - 150.dp -> Row(Modifier.fillMaxSize()) {
-                    Column(Modifier.width(hingeX).fillMaxHeight().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CoreSettings(model); RuleCard(model)
-                    }
-                    Spacer(Modifier.width(with(density) { verticalFold.bounds.width().toDp() }.coerceAtLeast(12.dp)))
-                    Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(12.dp)) { CharacterSettings(model) { showSymbols = true } }
-                }
-                horizontalFold != null && hingeY > 100.dp && hingeY < maxHeight - 100.dp -> Column(Modifier.fillMaxSize()) {
-                    Column(Modifier.height(hingeY).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { CoreSettings(model); RuleCard(model) }
-                    Spacer(Modifier.height(with(density) { horizontalFold.bounds.height().toDp() }.coerceAtLeast(12.dp)))
-                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp)) { CharacterSettings(model) { showSymbols = true } }
-                }
-                maxWidth >= 840.dp -> Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(Modifier.weight(.9f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) { CoreSettings(model); RuleCard(model) }
-                    Column(Modifier.weight(1.2f).fillMaxHeight().verticalScroll(rememberScrollState())) { CharacterSettings(model) { showSymbols = true } }
-                }
-                else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CoreSettings(model)
-                    CharacterSettings(model) { showSymbols = true }
-                    RuleCard(model)
-                }
-            }
+        if (showPresets) PresetsSheet(model, verticalFold) { showPresets = false }
+        if (showResults) ResultSheet(model, copy, resultsScroll, { resultsRequested = false }, ::generate, ::clear)
+        if (showSymbols) SymbolSheet(model) { showSymbols = false }
+        if (showPrivacy) PrivacySheet(model, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
+        if (showGuide) SecurityGuideSheet(
+            dismiss = { showGuide = false },
+            storageLesson = { showGuide = false; showStorageLesson = true },
+            authLesson = { showGuide = false; showAuthLesson = true },
+            examplesLesson = { topic -> showGuide = false; examplesTopic = topic })
+        if (showStorageLesson) PasswordStorageLessonSheet(verticalFold) { showStorageLesson = false; showGuide = true }
+        if (showAuthLesson) AuthenticationFactorsLessonSheet(verticalFold) { showAuthLesson = false; showGuide = true }
+        examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, verticalFold) { examplesTopic = null; showGuide = true } }
+    }
+}
+
+@Composable private fun SettingsColumn(model: PassgenModel, tab: CharacterTab, selectTab: (CharacterTab) -> Unit,
+    expanded: Boolean, expand: (Boolean) -> Unit, scroll: ScrollState, symbols: () -> Unit, modifier: Modifier) {
+    Column(modifier.verticalScroll(scroll).padding(12.dp).semantics { testTag = "settings-pane" }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CoreSettings(model)
+        CharacterSettings(model, tab, selectTab, symbols)
+        RuleCard(model, expanded, expand)
+    }
+}
+
+@Composable private fun ResultsPanel(model: PassgenModel, copy: (String) -> Boolean, scroll: LazyListState,
+    generate: () -> Unit, clear: () -> Unit, modifier: Modifier) {
+    Surface(modifier.padding(start = 4.dp, end = 12.dp, top = 12.dp, bottom = 12.dp).semantics { testTag = "results-pane" },
+        shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ResultContent(model, copy, scroll, inline = true, generate = generate, clear = clear)
         }
     }
-    if (showPresets) PresetsSheet(model, verticalFold) { showPresets = false }
-    if (showResults) ResultSheet(model, copy, verticalFold, { showResults = false }, ::generate)
-    if (showSymbols) SymbolSheet(model) { showSymbols = false }
-    if (showPrivacy) PrivacySheet(model, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
-    if (showGuide) SecurityGuideSheet(
-        dismiss = { showGuide = false },
-        storageLesson = { showGuide = false; showStorageLesson = true },
-        authLesson = { showGuide = false; showAuthLesson = true },
-        examplesLesson = { topic -> showGuide = false; examplesTopic = topic })
-    if (showStorageLesson) PasswordStorageLessonSheet(verticalFold) { showStorageLesson = false; showGuide = true }
-    if (showAuthLesson) AuthenticationFactorsLessonSheet(verticalFold) { showAuthLesson = false; showGuide = true }
-    examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, verticalFold) { examplesTopic = null; showGuide = true } }
 }
 
 @Composable private fun Modifier.normalizeOnBlur(normalize: () -> Unit): Modifier {
@@ -187,9 +238,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         modifier = modifier.normalizeOnBlur(model::normalize))
 }
 
-@Composable private fun CharacterSettings(model: PassgenModel, importSymbols: () -> Unit) {
+@Composable private fun CharacterSettings(model: PassgenModel, tab: CharacterTab, selectTab: (CharacterTab) -> Unit, importSymbols: () -> Unit) {
     if (model.mode != GenerationMode.PASSWORD) return
-    var tab by remember { mutableStateOf(CharacterTab.UPPER) }
     val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
     val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
     fun update(value: String) {
@@ -208,7 +258,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 CharacterTab.entries.forEachIndexed { index, item ->
-                    SegmentedButton(selected = tab == item, onClick = { tab = item }, enabled = !model.busy,
+                    SegmentedButton(selected = tab == item, onClick = { selectTab(item) }, enabled = !model.busy,
                         shape = SegmentedButtonDefaults.itemShape(index, 4), icon = {}) { Text(item.title, fontSize = 12.sp) }
                 }
             }
@@ -283,12 +333,11 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
 }
 
-@Composable private fun RuleCard(model: PassgenModel) {
+@Composable private fun RuleCard(model: PassgenModel, expanded: Boolean, expand: (Boolean) -> Unit) {
     if (model.mode == GenerationMode.PASSPHRASE) return
-    var expanded by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { expand(!expanded) }, modifier = Modifier.fillMaxWidth()) {
                 Text("生成ルール", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
                 Text(if (expanded) "閉じる" else "設定", fontSize = 12.sp)
             }
@@ -322,72 +371,97 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
 }
 
-@Composable private fun ResultSheet(model: PassgenModel, copy: (String) -> Boolean, fold: FoldingFeature?, dismiss: () -> Unit, generate: () -> Unit) {
+@Composable private fun ResultSheet(model: PassgenModel, copy: (String) -> Boolean, scroll: LazyListState,
+    dismiss: () -> Unit, generate: () -> Unit, clear: () -> Unit) {
     val density = LocalDensity.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val rows = minOf(if (model.busy) model.goal else model.results.size, 6)
     val desiredHeight = (190 + maxOf(1, rows) * if (model.revealed) 110 else 80).dp
         .coerceAtMost(with(density) { (LocalWindowInfo.current.containerSize.height * .85f).toDp() })
-    ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState,
-        modifier = if (fold == null) Modifier else Modifier.padding(start = with(density) { fold.bounds.right.toDp() }),
-        sheetMaxWidth = if (fold == null) 640.dp else androidx.compose.ui.unit.Dp.Unspecified) {
+    ModalBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        modifier = Modifier.semantics { testTag = "results-sheet" }, sheetMaxWidth = 640.dp) {
         Column(Modifier.fillMaxWidth().height(desiredHeight).padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty(),
-                    modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (model.revealed) "表示中" else "非表示" }) { Text(if (model.revealed) "隠す" else "表示") }
-                Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = generate, enabled = model.generationActionEnabled, modifier = Modifier.semantics { testTag = "regenerate" }) {
-                    Text(model.generationActionTitle)
-                }
-            }
-            if (model.results.isNotEmpty()) {
-                val shortest = model.results.minOf { it.value.length }
-                val longest = model.results.maxOf { it.value.length }
-                val length = if (shortest == longest) "${longest}文字" else "${shortest}〜${longest}文字"
-                Text(length + if (longest > 100) " / 先頭100文字のみ表示" else "",
-                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { testTag = "results-summary" })
-            }
-            model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (model.busy) {
-                LinearProgressIndicator(progress = { model.results.size.toFloat() / model.goal }, modifier = Modifier.fillMaxWidth())
-                Text("${model.results.size} / ${model.goal}件", style = MaterialTheme.typography.labelSmall)
-            }
-            model.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (model.results.isEmpty() && !model.busy) item { Text("生成結果はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 16.dp)) }
-                items(model.results, key = { it.index }) { row ->
-                    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("${row.index + 1}", style = MaterialTheme.typography.labelSmall)
-                                Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
-                                    modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
-                            }
-                            TextButton(onClick = {
-                                if (copy(row.value)) model.copiedIndices = model.copiedIndices + row.index
-                                else model.message = "コピーできませんでした。OSが長い値を扱えない場合があります。"
-                            }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).semantics {
-                                contentDescription = if (row.index in model.copiedIndices) "コピー済み。もう一度コピー" else "コピー"
-                                testTag = "copy-${row.index}"
-                            }) {
-                                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                                    Icon(painterResource(R.drawable.ic_content_copy), null, Modifier.size(24.dp))
-                                    if (row.index in model.copiedIndices) {
-                                        Surface(Modifier.align(Alignment.TopEnd).size(14.dp), shape = androidx.compose.foundation.shape.CircleShape,
-                                            color = MaterialTheme.colorScheme.surface) {
-                                            Icon(painterResource(R.drawable.ic_check_circle), null, tint = MaterialTheme.colorScheme.primary)
-                                        }
-                                    }
+            ResultContent(model, copy, scroll, inline = false, generate = generate, clear = clear)
+        }
+    }
+}
+
+@Composable private fun ResultVisibility(model: PassgenModel) {
+    val revealed = model.revealed
+    TextButton(onClick = { model.revealed = !model.revealed }, enabled = model.results.isNotEmpty(),
+        modifier = Modifier.semantics { testTag = "results-visibility"; stateDescription = if (revealed) "表示中" else "非表示" }) {
+        Text(if (revealed) "隠す" else "表示")
+    }
+}
+
+@Composable private fun ResultGenerationAction(model: PassgenModel, inline: Boolean, generate: () -> Unit) {
+    Button(onClick = generate, enabled = model.generationActionEnabled, modifier = Modifier.semantics { testTag = if (inline) "generate" else "regenerate" }) {
+        Text(model.generationActionTitle)
+    }
+}
+
+@Composable private fun ColumnScope.ResultContent(model: PassgenModel, copy: (String) -> Boolean, scroll: LazyListState,
+    inline: Boolean, generate: () -> Unit, clear: () -> Unit) {
+    if (LocalDensity.current.fontScale > 1.3f) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            ResultVisibility(model)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { ResultGenerationAction(model, inline, generate) }
+    } else {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ResultVisibility(model)
+            Text("生成結果 ${model.results.size}件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            ResultGenerationAction(model, inline, generate)
+        }
+    }
+    if (model.results.isNotEmpty()) {
+        val shortest = model.results.minOf { it.value.length }
+        val longest = model.results.maxOf { it.value.length }
+        val length = if (shortest == longest) "${longest}文字" else "${shortest}〜${longest}文字"
+        Text(length + if (longest > 100) " / 先頭100文字のみ表示" else "",
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { testTag = "results-summary" })
+    }
+    model.results.firstOrNull()?.let { Text("推定エントロピー ${it.bits.toInt()} bits · ${model.clipboardSummary}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    if (model.busy) {
+        LinearProgressIndicator(progress = { model.results.size.toFloat() / model.goal }, modifier = Modifier.fillMaxWidth())
+        Text("${model.results.size} / ${model.goal}件", style = MaterialTheme.typography.labelSmall)
+    }
+    model.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    LazyColumn(Modifier.weight(1f).semantics { testTag = "result-list" }, state = scroll, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (model.results.isEmpty() && !model.busy) item { Text("生成結果はありません。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 16.dp)) }
+        items(model.results, key = { it.index }) { row ->
+            // Observe during composition, not from callbacks on detached / prefetched lazy nodes.
+            val copied = row.index in model.copiedIndices
+            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${row.index + 1}", style = MaterialTheme.typography.labelSmall)
+                        Text(resultPreview(row.value, model.revealed), fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.clearAndSetSemantics { contentDescription = "パスワード。読み上げを保護しています"; testTag = "secret-preview-${row.index}" })
+                    }
+                    TextButton(onClick = {
+                        if (copy(row.value)) model.copiedIndices = model.copiedIndices + row.index
+                        else model.message = "コピーできませんでした。OSが長い値を扱えない場合があります。"
+                    }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).semantics {
+                                contentDescription = if (copied) "コピー済み。もう一度コピー" else "コピー"
+                        testTag = "copy-${row.index}"
+                    }) {
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.ic_content_copy), null, Modifier.size(24.dp))
+                                    if (copied) {
+                                Surface(Modifier.align(Alignment.TopEnd).size(14.dp), shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.surface) {
+                                    Icon(painterResource(R.drawable.ic_check_circle), null, tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
                     }
                 }
             }
-            TextButton(onClick = { model.clear(); dismiss() }, enabled = !model.busy && model.results.isNotEmpty(), modifier = Modifier.semantics { testTag = "clear-results" }) { Text("消去") }
         }
     }
+    TextButton(onClick = { clear() }, enabled = !model.busy && model.results.isNotEmpty(), modifier = Modifier.semantics { testTag = "clear-results" }) { Text("消去") }
 }
 
 @Composable private fun SymbolSheet(model: PassgenModel, dismiss: () -> Unit) {

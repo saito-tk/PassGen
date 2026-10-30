@@ -1,6 +1,7 @@
 package jp.passgen.app
 
 import android.os.Build
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.WindowManager
 import android.view.MotionEvent
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        updateOrientation(resources.configuration)
         enableEdgeToEdge()
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         window.decorView.filterTouchesWhenObscured = true
@@ -55,6 +57,17 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         if (!isChangingConfigurations) model.background()
         super.onStop()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateOrientation(newConfig)
+    }
+
+    private fun updateOrientation(configuration: Configuration) {
+        // Only compact displays request portrait. Large displays remain resizable, including on older Android.
+        val preference = generatorOrientation(configuration.smallestScreenWidthDp)
+        if (requestedOrientation != preference) requestedOrientation = preference
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

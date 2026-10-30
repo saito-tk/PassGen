@@ -1,6 +1,19 @@
-// Explicitly resolve the extra sources requested by the Kotlin IDE model.
-// Run with --dependency-verification strict; never bootstrap trust from this task.
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
+import org.gradle.api.artifacts.result.UnresolvedComponentResult
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.DocsType
+import org.gradle.api.attributes.Usage
+import org.gradle.jvm.JvmLibrary
+import org.gradle.language.base.artifact.SourcesArtifact
+import org.gradle.language.java.artifact.JavadocArtifact
+
+// Exercise the artifacts IDE import requests in addition to a normal build.
+// This task verifies pinned checksums; it never generates verification metadata.
 settingsEvaluated { settings ->
+    if (gradle.startParameter.dependencyVerificationMode.name() != 'STRICT') {
+        throw new GradleException('verifyIdeSources requires --dependency-verification strict')
+    }
     settings.dependencyResolutionManagement.repositories.ivy {
         name = 'Gradle source distributions'
         url = uri('https://services.gradle.org/distributions')
@@ -10,30 +23,136 @@ settingsEvaluated { settings ->
     }
 }
 
+// A missing published source/document is expected. Network and verification
+// failures must propagate, even through the lenient artifact result API.
+def isUnpublished(Throwable failure) {
+    def missing = false
+    for (def cause = failure; cause != null; cause = cause.cause) {
+        if (cause.class.simpleName == 'DependencyVerificationException') return false
+        if (cause.class.simpleName == 'ArtifactNotFoundException') missing = true
+    }
+    return missing
+}
+
 projectsEvaluated {
     def root = gradle.rootProject
-    def kotlinVersion = root.extensions.getByType(org.gradle.api.artifacts.VersionCatalogsExtension)
-        .named('libs').findVersion('kotlin').get().requiredVersion
-    def coordinates = [
-        'org.jetbrains:annotations:13.0:sources@jar',
-        "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}:sources@jar",
-        "org.jetbrains.kotlin:kotlin-test:${kotlinVersion}:sources@jar",
-        "org.jetbrains.kotlin:kotlin-test-junit:${kotlinVersion}:sources@jar",
-        'org.hamcrest:hamcrest-core:1.3:sources@jar',
-        'junit:junit:4.13.2:sources@jar',
-        "gradle:gradle:${gradle.gradleVersion}:src@zip",
-    ]
-    def sources = root.configurations.detachedConfiguration(
-        coordinates.collect { root.dependencies.create(it) } as org.gradle.api.artifacts.Dependency[]
-    )
-    sources.transitive = false
-    root.tasks.register('verifyIdeSources') {
+    def shared = root.project(':shared')
+    def moduleIds = { configuration ->
+        configuration.incoming.resolutionResult.allComponents.collect { it.id }
+            .findAll { it instanceof ModuleComponentIdentifier }
+    }
+    // Snapshot the already resolved buildscript graph during configuration.
+    // The task itself belongs to shared so its runtime resolution holds the
+    // owning project's lock (required by Gradle's parallel execution model).
+    def pluginClasspaths = root.allprojects.collect {
+        it.buildscript.configurations.getByName('classpath')
+    }
+    def pluginIds = pluginClasspaths.collectMany { moduleIds(it) }.toSet()
+    def classified = pluginClasspaths.collectMany {
+        it.resolvedConfiguration.resolvedArtifacts.findAll { it.classifier && it.extension == 'jar' }
+    }.collect { artifact ->
+        def id = artifact.moduleVersion.id
+        "${id.group}:${id.name}:${id.version}:${artifact.classifier}-sources@jar"
+    }.toSet()
+    def distribution = shared.configurations.detachedConfiguration(
+        shared.dependencies.create("gradle:gradle:${gradle.gradleVersion}:src@zip"))
+    distribution.transitive = false
+    shared.tasks.register('verifyIdeSources') {
         group = 'verification'
-        description = 'Verifies sources required by IDE import using the pinned checksums.'
+        description = 'Verifies IDE sources and Javadoc using pinned checksums.'
         doLast {
-            def files = sources.resolve()
-            if (files.size() != coordinates.size()) throw new GradleException('Missing IDE source artifact')
-            files.sort { it.name }.each { logger.lifecycle("Verified: ${it.name}") }
+            def verified = [] as Set
+            def record = { file ->
+                verified.add(file)
+                logger.lifecycle("Verified IDE artifact: ${file.name}")
+            }
+            def requireArtifacts = { collection ->
+                collection.failures.each { failure ->
+                    if (!isUnpublished(failure)) throw new GradleException('IDE artifact verification failed', failure)
+                    logger.info("No published IDE artifact: ${failure.message}")
+                }
+                collection.artifacts.each { record(it.file) }
+            }
+            def query = { components, types ->
+                def result = shared.dependencies.createArtifactResolutionQuery()
+                    .forComponents(components).withArtifacts(JvmLibrary, *types).execute()
+                def unresolved = result.components.findAll { it instanceof UnresolvedComponentResult }
+                if (!unresolved.empty) throw new GradleException('Cannot resolve IDE components', unresolved.first().failure)
+                result.resolvedComponents.each { component ->
+                    types.each { type ->
+                        component.getArtifacts(type).each { artifact ->
+                            if (artifact instanceof ResolvedArtifactResult) {
+                                record(artifact.file)
+                            } else {
+                                if (!isUnpublished(artifact.failure)) throw new GradleException(
+                                    "Cannot verify IDE artifact: ${artifact.id}", artifact.failure)
+                                logger.info("No published IDE artifact: ${artifact.id}")
+                            }
+                        }
+                    }
+                }
+            }
+            distribution.resolve().each { record(it) }
+            query(pluginIds, [SourcesArtifact])
+            // JVM test dependencies also supply Javadoc to Kotlin IDE import.
+            // Discover their versions from the graph rather than a fixed list.
+            def jvm = shared.configurations.getByName('jvmTestRuntimeClasspath')
+            query(moduleIds(jvm).toSet(), [SourcesArtifact, JavadocArtifact])
+
+            // KMP metadata publishes common sources separately from JVM sources.
+            def common = shared.configurations.getByName('commonMainResolvableDependenciesMetadata')
+            requireArtifacts(common.incoming.artifactView {
+                withVariantReselection()
+                lenient = true
+                attributes {
+                    attribute(Category.CATEGORY_ATTRIBUTE, shared.objects.named(Category, Category.DOCUMENTATION))
+                    attribute(DocsType.DOCS_TYPE_ATTRIBUTE, shared.objects.named(DocsType, DocsType.SOURCES))
+                    attribute(Usage.USAGE_ATTRIBUTE, shared.objects.named(Usage, 'kotlin-runtime'))
+                }
+            }.artifacts)
+
+            // Module-level queries omit Kotlin's selected Gradle variant sources.
+            if (!classified.empty) {
+                def variants = shared.configurations.detachedConfiguration(
+                    classified.collect { shared.dependencies.create(it) } as org.gradle.api.artifacts.Dependency[])
+                variants.transitive = false
+                requireArtifacts(variants.incoming.artifactView { lenient = true }.artifacts)
+            }
+            logger.lifecycle("Verified ${verified.size()} distinct IDE source/documentation artifacts")
+        }
+    }
+
+    // Android's IDE model additionally attaches sources/Javadoc to its libraries.
+    // Read component IDs without selecting AAR/JAR artifacts of project dependencies.
+    def android = root.project(':androidApp')
+    android.tasks.register('verifyIdeSources') {
+        group = 'verification'
+        description = 'Verifies Android library sources and Javadoc for IDE import.'
+        doLast {
+            def ids = ['debugCompileClasspath', 'debugRuntimeClasspath',
+                       'debugAndroidTestCompileClasspath', 'debugAndroidTestRuntimeClasspath',
+                       'debugUnitTestCompileClasspath', 'debugUnitTestRuntimeClasspath']
+                .collectMany { name ->
+                    android.configurations.getByName(name).incoming.resolutionResult.allComponents
+                        .collect { it.id }.findAll { it instanceof ModuleComponentIdentifier }
+                }.toSet()
+            def result = android.dependencies.createArtifactResolutionQuery()
+                .forComponents(ids).withArtifacts(JvmLibrary, SourcesArtifact, JavadocArtifact).execute()
+            def unresolved = result.components.findAll { it instanceof UnresolvedComponentResult }
+            if (!unresolved.empty) throw new GradleException('Cannot resolve Android Javadoc components', unresolved.first().failure)
+            def count = 0
+            result.resolvedComponents.each { component ->
+                [SourcesArtifact, JavadocArtifact].collectMany { component.getArtifacts(it) }.each { artifact ->
+                    if (artifact instanceof ResolvedArtifactResult) {
+                        count++
+                        logger.lifecycle("Verified Android IDE artifact: ${artifact.file.name}")
+                    } else {
+                        if (!isUnpublished(artifact.failure)) throw new GradleException('Cannot verify Android Javadoc', artifact.failure)
+                        logger.info("No published Android Javadoc: ${artifact.id}")
+                    }
+                }
+            }
+            logger.lifecycle("Verified ${count} Android source/documentation artifacts")
         }
     }
 }

@@ -1,4 +1,5 @@
 import XCTest
+import PassgenCore
 import UIKit
 import SwiftUI
 import FoundationModels
@@ -7143,6 +7144,20 @@ final class SecretPreviewLayoutTests: XCTestCase {
 }
 
 @MainActor final class GenerationPresetTests: XCTestCase {
+    func testCameraQRFilteringUsesValidatedAppFormat() throws {
+        let vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
+        let foreign = ["https://example.com/", "WIFI:S:example;;", "PG1:broken", "PG99:future"]
+        XCTAssertNil(PresetQrCodec.shared.selectCandidate(texts: foreign))
+        XCTAssertEqual(PresetQrCodec.shared.selectCandidate(texts: foreign + [vector, vector]), vector)
+        let model = GeneratorModel(preferences: defaults())
+        try model.savePreset(name: "別の設定")
+        let second = try model.presetQR(XCTUnwrap(model.presets.first))
+        XCTAssertNil(PresetQrCodec.shared.selectCandidate(texts: [vector, second]))
+        XCTAssertNil(PresetQrCodec.shared.selectCandidate(texts: [vector + "A"]))
+        // Image input uses the same gate and may also ignore foreign QR codes.
+        let unrelated = try PresetQRImage.encode("https://example.com/")
+        XCTAssertThrowsError(try PresetQRImage.decode(data: XCTUnwrap(unrelated.pngData())))
+    }
     func testQRImageRoundTripAndImportRetainsExistingState() async throws {
         let store = defaults(); let model = GeneratorModel(preferences: store)
         model.recipe.lengthText = "64"; model.recipe.countText = "3"

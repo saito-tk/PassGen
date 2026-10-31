@@ -652,6 +652,8 @@ struct PresetsView: View {
     @State private var showImport = false
     @State private var qrSelection: PhotosPickerItem?
     @State private var readingQR = false
+    @State private var showCamera = false
+    @State private var showQRPhotos = false
     @State private var qrError: String?
     @FocusState private var nameFocused: Bool
     @FocusState private var renameFocused: Bool
@@ -668,10 +670,21 @@ struct PresetsView: View {
             .navigationTitle("プリセット").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    PhotosPicker(selection: $qrSelection, matching: .images, preferredItemEncoding: .current) {
-                        Label("QRを読み込む", systemImage: "qrcode.viewfinder")
-                    }.disabled(readingQR || model.busy || model.presetStorageIssue != nil)
+                    Menu {
+                        Button("カメラで読み取る", systemImage: "camera.viewfinder") { nameFocused = false; incoming = nil; qrError = nil; showCamera = true }
+                            .accessibilityIdentifier("preset-qr-camera-read")
+                        Button("画像から読み取る", systemImage: "photo") { showQRPhotos = true }
+                            .accessibilityIdentifier("preset-qr-image-read")
+                    } label: { Label("QRを読み込む", systemImage: "qrcode.viewfinder") }
+                        .disabled(readingQR || model.busy || model.presetStorageIssue != nil)
                         .accessibilityIdentifier("preset-qr-read")
+                }
+            }
+            .photosPicker(isPresented: $showQRPhotos, selection: $qrSelection, matching: .images, preferredItemEncoding: .current)
+            .sheet(isPresented: $showCamera, onDismiss: { if incoming != nil { showImport = true } }) {
+                PresetCameraView { text in
+                    guard let preset = try? model.decodedPresetQR(text) else { return }
+                    incoming = preset; showCamera = false
                 }
             }
             .navigationDestination(isPresented: $showQR) {
@@ -801,12 +814,10 @@ enum PresetQRImage {
               ] as CFDictionary) else { throw PresetQRImageError.invalid }
         guard let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(),
             options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]) else { throw PresetQRImageError.invalid }
-        let codes = Set(detector.features(in: CIImage(cgImage: image)).compactMap {
+        let codes = detector.features(in: CIImage(cgImage: image)).compactMap {
             ($0 as? CIQRCodeFeature)?.messageString
-        }.filter { $0.hasPrefix("PG") })
-        guard codes.count == 1, let text = codes.first else { throw PresetQRImageError.invalid }
-        // The parser validates the version, size, integrity and every parameter before any registration.
-        _ = try PresetQrCodec.shared.decode(text: text)
+        }
+        guard let text = PresetQrCodec.shared.selectCandidate(texts: codes) else { throw PresetQRImageError.invalid }
         return text
     }
 }

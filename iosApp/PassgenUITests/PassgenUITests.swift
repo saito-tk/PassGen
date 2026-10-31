@@ -62,6 +62,20 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(app.buttons["generate"].waitForExistence(timeout: 5))
     }
     // Before running, seed Photos with the Android-generated PG1 Example fixture (see docs/design/preset-qr.md).
+    @MainActor func testPresetCameraCanCloseAndPreservesSettings() {
+        let app = launchApp(); app.buttons["presets"].tap()
+        XCTAssertTrue(app.textFields["preset-name"].waitForExistence(timeout: 5))
+        app.buttons["preset-qr-read"].tap()
+        XCTAssertTrue(app.buttons["preset-qr-image-read"].waitForExistence(timeout: 3))
+        app.buttons["preset-qr-camera-read"].tap()
+        XCTAssertTrue(app.navigationBars["カメラで読み取る"].waitForExistence(timeout: 5))
+        // Simulator has no capture camera; no production frame injection or permission bypass.
+        let camera = XCTAttachment(screenshot: app.screenshot()); camera.name = "Preset QR camera"; camera.lifetime = .keepAlways; add(camera)
+        let close = app.buttons["カメラを閉じる"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5)); close.tap()
+        XCTAssertTrue(app.textFields["preset-name"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["preset-qr-name"].exists)
+    }
     @MainActor func testPresetQrShareAndImageImport() {
         let app = launchApp()
         let length = app.textFields["length"]
@@ -78,6 +92,7 @@ final class PassgenUITests: XCTestCase {
         let qr = XCTAttachment(screenshot: app.screenshot()); qr.name = "Preset QR sharing"; qr.lifetime = .keepAlways; add(qr)
         app.navigationBars["QRコードで共有"].buttons.firstMatch.tap()
         app.buttons["preset-qr-read"].tap()
+        app.buttons["preset-qr-image-read"].tap()
         let photo = app.images.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
             "PXGGridLayout-Info", "写真,", "Photo,")).firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 8))

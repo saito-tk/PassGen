@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A41000000000000000000001 /* PresetCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41000000000000000000002 /* PresetCameraView.swift */; };
 		0B7AEB522C6893EAC171635B /* GeneratorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F984678CA14E6B62036F066C /* GeneratorModel.swift */; };
 		0BA8C358408509381F00271A /* SymbolEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6E2194D8A3195152210BBC /* SymbolEditor.swift */; };
 		1D9EBF8D76530D61D6FD724E /* PassgenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204AF1544A4D5BFC70590548 /* PassgenApp.swift */; };
@@ -41,6 +42,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A41000000000000000000002 /* PresetCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetCameraView.swift; sourceTree = "<group>"; };
 		0B693F205EA1A603CB7F6306 /* PassgenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PassgenTests.swift; sourceTree = "<group>"; };
 		11400A49F76201B389813A18 /* PassgenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PassgenTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		168B552568EFEB2DC78AB177 /* GeneratorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneratorView.swift; sourceTree = "<group>"; };
@@ -147,6 +149,7 @@
 			children = (
 				F984678CA14E6B62036F066C /* GeneratorModel.swift */,
 				168B552568EFEB2DC78AB177 /* GeneratorView.swift */,
+				A41000000000000000000002 /* PresetCameraView.swift */,
 				85661075D6335CCB0DAAC239 /* GlassStyle.swift */,
 				204AF1544A4D5BFC70590548 /* PassgenApp.swift */,
 				DB22C537ECC222557915F069 /* ScreenshotImporter.swift */,
@@ -310,6 +313,7 @@
 			files = (
 				0B7AEB522C6893EAC171635B /* GeneratorModel.swift in Sources */,
 				B713B1B39B79A818FF3505D5 /* GeneratorView.swift in Sources */,
+				A41000000000000000000001 /* PresetCameraView.swift in Sources */,
 				C3D8482B904238E5B38AECF4 /* GlassStyle.swift in Sources */,
 				1D9EBF8D76530D61D6FD724E /* PassgenApp.swift in Sources */,
 				41BA249853D82E5DC0659C28 /* ScreenshotImporter.swift in Sources */,

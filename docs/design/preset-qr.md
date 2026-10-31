@@ -48,7 +48,11 @@ V1の文字列は最大235文字、実装上の受け入れ上限は256文字。
 - アプリ画面を撮影せず、QRだけの白背景画像を共有する。Mレベルの誤り訂正と四辺の余白を確保する。Androidのキャッシュは専用1ファイルに限定し、非公開FileProviderからそのディレクトリだけを読み取り共有する。生成結果や他のキャッシュを公開しない。
 - 入力画像は16MiBまで、解析する画像は長辺2,048pxまで。複数の異なるPassgen QRがあれば選ばず拒否する。URLや外部アプリを自動で開かない。画像・内容をログ出力しない。
 - 読み取り後は名前・文字選択・生成ルールを確認する。名前の重複は別名を求め、明示的な登録後に新しいIDで保存する。保存50件・不正な保存データ・処理中などの制約を維持し、現在の設定や結果には適用しない。
-- カメラ権限・写真全体の閲覧権限・ネットワーク権限を追加しない。カメラでの直接スキャンや、OSカメラからアプリを開くURL schemeは今回の対象外。受け取ったQR画像を選ぶ方式。
+- 読取メニューで「カメラで読み取る」「画像から読み取る」を選ぶ。画像は従来どおりOSのPhoto Pickerを使い、写真全体の閲覧権限を要求しない。カメラ権限は利用時だけ要求し、拒否した場合も画像を使える。OSカメラからアプリを開くURL schemeは登録しない。
+- カメラはiOSのAVFoundation / AndroidのCameraX 1.6.2（Compose viewfinder・Preview・ImageAnalysis）で端末内処理。録画・写真撮影・映像の保存/送信・マイクの取得は行わない。AndroidにはINTERNET権限を加えない。CameraXの録画/録音用モジュールは取り込まない。
+- 画像とカメラは共通のselectCandidateを通す。32候補/256文字を上限に形式・CRC・全設定を検証し、URL・Wi-Fi・破損・未知形式は無視。同じコードの重複はまとめ、異なる有効コードが複数ある場合は選ばない。撮影範囲へ1つずつ映すよう案内する。
+- Androidは最新フレームだけを解析し、Y平面のcrop/row stride/pixel stride/buffer位置を考慮する。使用後は必ずImageProxyをcloseし、一時輝度バッファを消去する。iOSはQR metadataだけを取得する。画面終了・背景移行でカメラを停止し、古い検出結果・重複通知を確認画面へ渡さない。
+- 読取後も既存の確認画面を使い、自動登録・自動適用・既存項目の上書きは行わない。カメラ未搭載・拒否・起動失敗では閉じる/設定/再試行を案内する。
 
 ## 固定fixtureと検証
 
@@ -73,3 +77,20 @@ xcrun simctl addmedia <Simulator UUID> test-fixtures/presets/android-pg1.png
 フォーマット更新時もfixtureを置き換えず、新しい形式のfixtureを追加する。
 
 参考: [Apple Core Image](https://developer.apple.com/documentation/coreimage)、[Android Photo Picker](https://developer.android.com/training/data-storage/shared/photo-picker)、[ZXing公式リリース](https://github.com/zxing/zxing/releases)、[Base32 RFC 4648](https://www.rfc-editor.org/rfc/rfc4648)。
+
+カメラの実装根拠: [CameraX安定版](https://developer.android.com/jetpack/androidx/releases/camera)、[ImageAnalysisとバックプレッシャー](https://developer.android.com/media/camera/camerax/analyze)、[CameraXViewfinder](https://developer.android.com/reference/kotlin/androidx/camera/compose/CameraXViewfinder.composable)、[Apple AVCaptureMetadataOutput](https://developer.apple.com/documentation/avfoundation/avcapturemetadataoutput)。
+
+### 仮想カメラの再現
+
+`camera-pg1.png` は公開のAndroid製Example QRに余白を付けたAPI 36 Fold emulator用の撮像fixture。imagefileカメラの固定画角と90度の回転でQRが切れない位置へ配置している。元のAndroid/iOS相互運用fixtureは変更しない。実機・Macのwebcamには適用しない。
+
+```sh
+# 専用AVDを起動する際の追加引数。imagefileはホスト上の絶対パス。
+-camera-back imagefile:$PWD/test-fixtures/presets/camera-pg1.png
+# 検証用パッケージだけで実行する。カメラ使用を許可し、確認画面への遷移と自動適用しないことを照合。
+adb -s <emulator> shell am instrument -w -e class jp.passgen.app.GeneratorUiTest#emulatorCameraReadsValidPresetIntoReviewOnly -e qrCameraFixture true <test-package>/androidx.test.runner.AndroidJUnitRunner
+```
+
+通常のテスト実行ではカメラfixture専用テストをskipする。画像の余白は読み取り機能の補正ではなく、仮想カメラの固定撮像範囲へQR全体を収めるためのテスト入力。実機の光学性能・AF・暗所・端末固有のカメラ挙動は別途検証が必要。
+
+カメラ・背面カメラ・AFはいずれも必須featureにせず、前面カメラだけの端末やカメラなし端末も画像読取を利用できるようにする。[Androidの暗黙のfeature要件](https://developer.android.com/guide/topics/manifest/uses-feature-element)を参照。

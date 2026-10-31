@@ -5,6 +5,17 @@ import kotlin.test.*
 class PresetQrCodecTest {
     private val vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
 
+    @Test fun cameraCandidatesIgnoreForeignBrokenAndFutureCodes() {
+        assertNull(PresetQrCodec.selectCandidate(emptyList()))
+        val ignored = listOf("https://example.com/", "WIFI:T:WPA;S:demo;P:example;;", "PG99:UNKNOWN", "PG1:BROKEN", vector.dropLast(1) + "B", "PG1:" + "A".repeat(10000))
+        assertNull(PresetQrCodec.selectCandidate(ignored))
+        assertEquals(vector, PresetQrCodec.selectCandidate(ignored + vector + vector))
+        val other = PresetQrCodec.encode(SharedPreset("Other", PresetQrCodec.decode(vector).request, 1))
+        assertNull(PresetQrCodec.selectCandidate(listOf(vector, other)))
+        assertEquals(other, PresetQrCodec.selectCandidate(listOf(other, other)))
+        assertNull(PresetQrCodec.selectCandidate(List(33) { vector }))
+    }
+
     @Test fun independentKnownVectorAndCompactSize() {
         // Independently encoded using Python base64.b32encode / zlib.crc32, not this implementation.
         val p = SharedPreset("Example", GenerationRequest(symbols = SymbolPolicy.recognized(GenerationRequest().symbols)), 1)

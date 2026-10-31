@@ -887,6 +887,81 @@ class GeneratorUiTest {
         rule.runOnIdle { assertEquals("", model.editorSession.symbolText.value) }
     }
 
+    @Test fun cameraFramesDecodeOnlyAppQrWithCropStrideAndRotation() {
+        val vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
+        fun decode(bitmap: Bitmap, inverted: Boolean = false): String? {
+            val w = bitmap.width + 16; val h = bitmap.height + 12; val stride = w * 2 + 16
+            val bytes = ByteArray(7 + stride * h) { (if (inverted) 0 else 255).toByte() }
+            repeat(bitmap.height) { y -> repeat(bitmap.width) { x ->
+                val light = android.graphics.Color.red(bitmap.getPixel(x, y))
+                bytes[7 + (y + 6) * stride + (x + 8) * 2] = (if (inverted) 255 - light else light).toByte()
+            } }
+            val buffer = java.nio.ByteBuffer.wrap(bytes).apply { position(7) }
+            return PresetQrFrames.decode(buffer, stride, 2, w, h, android.graphics.Rect(8, 6, 8 + bitmap.width, 6 + bitmap.height))
+        }
+        val original = PresetQrImage.encode(vector)
+        try {
+            for (angle in listOf(0f, 90f, 180f, 270f)) {
+                val rotated = Bitmap.createBitmap(original, 0, 0, original.width, original.height,
+                    android.graphics.Matrix().apply { postRotate(angle) }, false)
+                assertEquals(vector, decode(rotated)); if (rotated !== original) rotated.recycle()
+            }
+            assertEquals(vector, decode(original, inverted = true))
+            val foreign = PresetQrImage.encode("https://example.com/")
+            try {
+                assertNull(decode(foreign))
+                val mixed = Bitmap.createBitmap(1584, 800, Bitmap.Config.ARGB_8888)
+                try {
+                    android.graphics.Canvas(mixed).apply {
+                        drawColor(android.graphics.Color.WHITE); drawBitmap(original, 8f, 16f, null); drawBitmap(foreign, 808f, 16f, null)
+                    }
+                    assertEquals(vector, decode(mixed))
+                } finally { mixed.recycle() }
+            } finally { foreign.recycle() }
+            assertNull(PresetQrFrames.decode(java.nio.ByteBuffer.allocate(8), 32, 1, 32, 32, android.graphics.Rect(0, 0, 32, 32)))
+            assertNull(PresetQrFrames.decode(java.nio.ByteBuffer.allocate(8), 1, 1, 32, 32, android.graphics.Rect(-1, 0, 1, 1)))
+        } finally { original.recycle() }
+    }
+
+    @Test fun cameraMenuPermissionDenialAndCloseKeepExistingSettings() {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val granted = rule.activity.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        org.junit.Assume.assumeFalse("Run before granting the camera permission", granted)
+        val before = rule.runOnIdle { PresetRecipe.capture(model) to model.presets }
+        rule.onNodeWithTag("presets").performClick(); rule.onNodeWithTag("preset-qr-read").performClick()
+        rule.onNodeWithTag("preset-qr-image-read").assertIsDisplayed()
+        rule.onNodeWithTag("preset-qr-camera-read").performClick()
+        rule.waitUntil(5000) {
+            val root = automation.rootInActiveWindow
+            root?.findAccessibilityNodeInfosByViewId("com.android.permissioncontroller:id/permission_deny_button")?.firstOrNull()
+                ?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true
+        }
+        rule.onNodeWithText("設定を開く").assertIsDisplayed()
+        rule.onNodeWithContentDescription("カメラを閉じる").performClick()
+        rule.onNodeWithTag("preset-name").assertIsDisplayed()
+        rule.runOnIdle { assertEquals(before.first, PresetRecipe.capture(model)); assertEquals(before.second, model.presets) }
+    }
+
+    @Test fun emulatorCameraReadsValidPresetIntoReviewOnly() {
+        org.junit.Assume.assumeTrue("Dedicated emulator with a QR image camera only", android.os.Build.HARDWARE == "ranchu" &&
+            InstrumentationRegistry.getArguments().getString("qrCameraFixture") == "true")
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.grantRuntimePermission(rule.activity.packageName, android.Manifest.permission.CAMERA)
+        val before = rule.runOnIdle { model.protectCapture = false; PresetRecipe.capture(model) to model.presets }
+        rule.onNodeWithTag("presets").performClick(); rule.onNodeWithTag("preset-qr-read").performClick()
+        rule.onNodeWithTag("preset-qr-camera-read").performClick()
+        try { rule.waitUntil(20000) { rule.onAllNodesWithTag("preset-qr-name").fetchSemanticsNodes().isNotEmpty() } }
+        catch (error: Throwable) {
+            val image = automation.takeScreenshot()
+            File(rule.activity.getExternalFilesDir(null), "task41-camera-failure.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            image.recycle(); throw error
+        }
+        rule.onNodeWithTag("preset-qr-name").assertTextContains("Example")
+        rule.onNodeWithTag("preset-qr-register").assertExists()
+        rule.onNodeWithTag("preset-qr-camera").assertDoesNotExist()
+        rule.runOnIdle { assertEquals(before.first, PresetRecipe.capture(model)); assertEquals(before.second, model.presets) }
+    }
+
     @Test fun bottomSheetsRemainStableAfterUpwardOverscroll() {
         org.junit.Assume.assumeTrue(rule.activity.resources.configuration.screenWidthDp < 600)
         fun exercise(label: String, tag: String, scrollTag: String = tag) {

@@ -31,10 +31,8 @@ internal object PresetQrImage {
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         val source = BinaryBitmap(HybridBinarizer(RGBLuminanceSource(bitmap.width, bitmap.height, pixels)))
-        val codes = QRCodeMultiReader().decodeMultiple(source, mapOf(DecodeHintType.TRY_HARDER to true))
-            .map { it.text }.filter { it.startsWith("PG") }.distinct()
-        require(codes.size == 1)
-        return codes.single().also { PresetQrCodec.decode(it) }
+        val codes = QRCodeMultiReader().decodeMultiple(source, mapOf(DecodeHintType.TRY_HARDER to true)).map { it.text }
+        return requireNotNull(PresetQrCodec.selectCandidate(codes))
     }
     fun read(context: Context, uri: Uri): String {
         val bytes = context.contentResolver.openInputStream(uri)?.use { input ->

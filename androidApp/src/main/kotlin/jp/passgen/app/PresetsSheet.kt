@@ -33,6 +33,8 @@ import jp.passgen.core.GenerationMode
     var sharing by model.editorSession.sharing
     var incoming by model.editorSession.incoming
     var reading by remember { mutableStateOf(false) }
+    var scanCamera by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var readMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -56,7 +58,13 @@ import jp.passgen.core.GenerationMode
         Column(Modifier.fillMaxWidth().fillMaxHeight(.9f).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val exported = sharing
             val imported = incoming
-            if (exported != null) {
+            if (scanCamera) {
+                androidx.activity.compose.BackHandler { scanCamera = false }
+                PresetQrCamera(back = { scanCamera = false }) { text ->
+                    try { incoming = model.decodedPresetQR(text); scanCamera = false }
+                    catch (_: Exception) { /* Ignore codes the app cannot import. */ }
+                }
+            } else if (exported != null) {
                 PresetQrShare(exported, model, back = { sharing = null })
             } else if (imported != null) {
                 PresetQrReview(imported, model, back = { incoming = null }, saved = { incoming = null; status = "プリセットを登録しました。" })
@@ -65,9 +73,19 @@ import jp.passgen.core.GenerationMode
                     AppIcon(R.drawable.ic_bookmark)
                     Spacer(Modifier.width(12.dp))
                     Text("プリセット", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    IconAction(R.drawable.ic_qr_code_scanner, "QRを読み込む", action = { focus.clearFocus(); keyboard?.hide(); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        enabled = !reading && !model.busy && model.presetStorageIssue == null,
-                        modifier = Modifier.semantics { testTag = "preset-qr-read" })
+                    Box {
+                        IconAction(R.drawable.ic_qr_code_scanner, "QRを読み込む", action = { focus.clearFocus(); keyboard?.hide(); readMenu = true },
+                            enabled = !reading && !model.busy && model.presetStorageIssue == null,
+                            modifier = Modifier.semantics { testTag = "preset-qr-read" })
+                        DropdownMenu(readMenu, { readMenu = false }) {
+                            DropdownMenuItem(text = { Text("カメラで読み取る") }, leadingIcon = { AppIcon(R.drawable.ic_qr_code_scanner) },
+                                modifier = Modifier.semantics { testTag = "preset-qr-camera-read" },
+                                onClick = { readMenu = false; status = null; scanCamera = true })
+                            DropdownMenuItem(text = { Text("画像から読み取る") }, leadingIcon = { AppIcon(R.drawable.ic_qr_code_2) },
+                                modifier = Modifier.semantics { testTag = "preset-qr-image-read" },
+                                onClick = { readMenu = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+                        }
+                    }
                 }
                 if (reading) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(Modifier.size(20.dp)); Text("端末内で読み取り中…", style = MaterialTheme.typography.bodySmall)

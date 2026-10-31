@@ -12,6 +12,16 @@ object PresetQrCodec {
     @Throws(PresetTransferException::class)
     fun encode(preset: SharedPreset): String = PresetQrV1.encode(preset)
 
+    /** Ignore unrelated/invalid QR codes; never choose arbitrarily between different valid presets. */
+    fun selectCandidate(texts: List<String>): String? {
+        if (texts.size > 32) return null
+        val valid = texts.asSequence().filter { it.length <= MAX_TEXT_LENGTH && it.startsWith("PG") }
+            .distinct().filter { text ->
+                try { decode(text); true } catch (_: PresetTransferException) { false }
+            }.take(2).toList()
+        return valid.singleOrNull()
+    }
+
     @Throws(PresetTransferException::class)
     fun decode(text: String): SharedPreset {
         if (text.length > MAX_TEXT_LENGTH) throw PresetTransferException()

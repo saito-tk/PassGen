@@ -184,6 +184,9 @@
          <artifact name="animation-1.12.1-sources.jar">
             <sha256 value="2f8c8640db9ae67e2858963910d525f033a33923650170bc7606256d31ab100d" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="animation-1.12.1-samples-sources.jar">
+            <sha256 value="f8f99f503f7a662a22078a2eda1e7ed2eceacfcd1191bf22f06ee445da284e9c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.animation" name="animation-android" version="1.12.1">
          <artifact name="animation-android-1.12.1.module">
@@ -198,6 +201,9 @@
          <artifact name="animation-android-1.12.1-sources.jar">
             <sha256 value="4304de567bb8fedb46b266ee3d3b4abfaddf6b7cbb7e6857475ec7b436e47435" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="animation-android-1.12.1-samples-sources.jar">
+            <sha256 value="f8f99f503f7a662a22078a2eda1e7ed2eceacfcd1191bf22f06ee445da284e9c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.animation" name="animation-core" version="1.12.1">
          <artifact name="animation-core-1.12.1.module">
@@ -205,6 +211,9 @@
          </artifact>
          <artifact name="animation-core-1.12.1-sources.jar">
             <sha256 value="47e2108fdc373ca00958f605a94c83886eaa855f47ec7dc3d67af89a7194c73c" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="animation-core-1.12.1-samples-sources.jar">
+            <sha256 value="27b91e37886a30691ab276a1a864dd13b1b570f318caa6a41bba2bba8e6217fe" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.animation" name="animation-core-android" version="1.12.1">
@@ -220,6 +229,9 @@
          <artifact name="animation-core-android-1.12.1-sources.jar">
             <sha256 value="abe91405f6a604c16f50e66677b584faf2018cc64d236ad23ac0f1c154a89301" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="animation-core-android-1.12.1-samples-sources.jar">
+            <sha256 value="27b91e37886a30691ab276a1a864dd13b1b570f318caa6a41bba2bba8e6217fe" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.foundation" name="foundation" version="1.12.1">
          <artifact name="foundation-1.12.1.module">
@@ -227,6 +239,9 @@
          </artifact>
          <artifact name="foundation-1.12.1-sources.jar">
             <sha256 value="52a6d0cc33f64d1c839f75836e6c20cd8193ab39b6a9ee761a7caaf7da93016a" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="foundation-1.12.1-samples-sources.jar">
+            <sha256 value="96ff8cb9129ff31a70a0ec19fd5a418576e24b8fa612f072e4207c6ef2f628f6" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.foundation" name="foundation-android" version="1.12.1">
@@ -242,6 +257,9 @@
          <artifact name="foundation-android-1.12.1-sources.jar">
             <sha256 value="5b58cea5db2583142e4b4b39dce10cbd75722bd06ab35161f06f987be90a53f1" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="foundation-android-1.12.1-samples-sources.jar">
+            <sha256 value="96ff8cb9129ff31a70a0ec19fd5a418576e24b8fa612f072e4207c6ef2f628f6" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.foundation" name="foundation-layout" version="1.12.1">
          <artifact name="foundation-layout-1.12.1.module">
@@ -249,6 +267,9 @@
          </artifact>
          <artifact name="foundation-layout-1.12.1-sources.jar">
             <sha256 value="6f523929bcff3cc5f12a761c3706daef05bb0740892b242a8e53b787180e20d8" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="foundation-layout-1.12.1-samples-sources.jar">
+            <sha256 value="0cc82c01f01b38f3528a6568c8071d67c50a6215e333eabbbd535d9b386f7381" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.foundation" name="foundation-layout-android" version="1.12.1">
@@ -263,6 +284,9 @@
          </artifact>
          <artifact name="foundation-layout-android-1.12.1-sources.jar">
             <sha256 value="479c11250bf673510788d95e40b971134cdba19599f9d5775d8f14780cfe1b44" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="foundation-layout-android-1.12.1-samples-sources.jar">
+            <sha256 value="0cc82c01f01b38f3528a6568c8071d67c50a6215e333eabbbd535d9b386f7381" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.material" name="material-ripple" version="1.12.1">
@@ -291,6 +315,9 @@
          <artifact name="material3-1.4.0-sources.jar">
             <sha256 value="08a23a069407ba2a59685f88d676fd38ede207301a0805ee904ed63735f5d0b5" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="material3-1.4.0-samples-sources.jar">
+            <sha256 value="699d0ca959a2705434836bfac343d20cdb2973e9dc23656fa9c0993a8b54909b" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.material3" name="material3-android" version="1.4.0">
          <artifact name="material3-android-1.4.0.module">
@@ -304,6 +331,9 @@
          </artifact>
          <artifact name="material3-android-1.4.0-sources.jar">
             <sha256 value="3e3209422a382566a780e2c1410edd866e4474498098fdbcf942c690ade1ddaa" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="material3-android-1.4.0-samples-sources.jar">
+            <sha256 value="699d0ca959a2705434836bfac343d20cdb2973e9dc23656fa9c0993a8b54909b" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.material3.adaptive" name="adaptive" version="1.3.0">
@@ -326,6 +356,9 @@
          <artifact name="runtime-1.12.1-sources.jar">
             <sha256 value="0ba59f493f3d13e4078bdd9ed80c6567f85346fe6a3ea2481548b68fc6200661" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="runtime-1.12.1-samples-sources.jar">
+            <sha256 value="e18ea05c4bebbdca433f3578e9e88501222a110883cbc5d5cbb5c7b0e084d7c7" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-android" version="1.12.1">
          <artifact name="runtime-android-1.12.1.module">
@@ -340,6 +373,9 @@
          <artifact name="runtime-android-1.12.1-sources.jar">
             <sha256 value="645edc8a6d5054f3de00cb097d3fc1f6d0d8e5a75a0f21cec04cbeb77c57d989" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="runtime-android-1.12.1-samples-sources.jar">
+            <sha256 value="e18ea05c4bebbdca433f3578e9e88501222a110883cbc5d5cbb5c7b0e084d7c7" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-annotation" version="1.12.1">
          <artifact name="runtime-annotation-1.12.1.module">
@@ -347,6 +383,9 @@
          </artifact>
          <artifact name="runtime-annotation-1.12.1-sources.jar">
             <sha256 value="272b2b47cf1d938a66fa4c92e73ab8820c91f9c0d07208050aa5986988bc73b9" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="runtime-annotation-1.12.1-samples-sources.jar">
+            <sha256 value="728e5ed27524324dc79b771f67891f711058041ef3d6b805edbe0e4c0fea3fd4" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-annotation-android" version="1.12.1">
@@ -362,6 +401,9 @@
          <artifact name="runtime-annotation-android-1.12.1-sources.jar">
             <sha256 value="faddbe6240e43542fcccfb4106f15b36494facbd81dc18e58124c1327dfe4fb1" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="runtime-annotation-android-1.12.1-samples-sources.jar">
+            <sha256 value="728e5ed27524324dc79b771f67891f711058041ef3d6b805edbe0e4c0fea3fd4" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-retain" version="1.12.1">
          <artifact name="runtime-retain-1.12.1.module">
@@ -369,6 +411,9 @@
          </artifact>
          <artifact name="runtime-retain-1.12.1-sources.jar">
             <sha256 value="4d3024ab6fb90d74e0a189c397c7badfd9d7688fdc48fe2a16b5a646d688c8e1" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="runtime-retain-1.12.1-samples-sources.jar">
+            <sha256 value="1b76c3cdfc41207bc6f36c7b1a5f60e6917b09fc3bf5f68a090ae878cf2370b7" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-retain-android" version="1.12.1">
@@ -384,6 +429,9 @@
          <artifact name="runtime-retain-android-1.12.1-sources.jar">
             <sha256 value="6dab377d2582f7a2b7fcea90dda660ef49f6560081b899bb81e0b597cfa01dfc" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="runtime-retain-android-1.12.1-samples-sources.jar">
+            <sha256 value="1b76c3cdfc41207bc6f36c7b1a5f60e6917b09fc3bf5f68a090ae878cf2370b7" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-saveable" version="1.12.1">
          <artifact name="runtime-saveable-1.12.1.module">
@@ -391,6 +439,9 @@
          </artifact>
          <artifact name="runtime-saveable-1.12.1-sources.jar">
             <sha256 value="2efde23b7ed4dd4927cdb8bea40d288f3df888b81e5c3f66a1387d61cbaba06c" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="runtime-saveable-1.12.1-samples-sources.jar">
+            <sha256 value="d0bd72443e52be73b831a94052e2a1fa733d6dfbbfa9ff57c67075b75c02de0d" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.runtime" name="runtime-saveable-android" version="1.12.1">
@@ -406,6 +457,9 @@
          <artifact name="runtime-saveable-android-1.12.1-sources.jar">
             <sha256 value="305dfb9a5cdad3c53ba6297db6f96ca9c0d9f1856f83874ee12cc7fb7d028699" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="runtime-saveable-android-1.12.1-samples-sources.jar">
+            <sha256 value="d0bd72443e52be73b831a94052e2a1fa733d6dfbbfa9ff57c67075b75c02de0d" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui" version="1.12.1">
          <artifact name="ui-1.12.1.module">
@@ -413,6 +467,9 @@
          </artifact>
          <artifact name="ui-1.12.1-sources.jar">
             <sha256 value="236f078d38a1fadf7a30da896b43460593706c85cf3a9001469e194647f38948" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="ui-1.12.1-samples-sources.jar">
+            <sha256 value="02f60dc62877f0c9fc2ec016dc50f76643477495d9537620ebc4298f977c2f61" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-android" version="1.12.1">
@@ -427,6 +484,9 @@
          </artifact>
          <artifact name="ui-android-1.12.1-sources.jar">
             <sha256 value="8ddde80690da97cd840c6f8f59c608701f9e42c245f12f0eabc1434db57e0273" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="ui-android-1.12.1-samples-sources.jar">
+            <sha256 value="02f60dc62877f0c9fc2ec016dc50f76643477495d9537620ebc4298f977c2f61" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-geometry" version="1.12.1">
@@ -455,6 +515,9 @@
          <artifact name="ui-graphics-1.12.1-sources.jar">
             <sha256 value="1e083b8909d1cfaa604ede481f92e86a0ee9202e69c1f896fe56c8d664893b0b" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="ui-graphics-1.12.1-samples-sources.jar">
+            <sha256 value="b3340db60b9ef81fc81200ff1d26a8bd662ff5375c9b7ee67e3e5bc9629ca8da" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-graphics-android" version="1.12.1">
          <artifact name="ui-graphics-android-1.12.1.module">
@@ -469,6 +532,9 @@
          <artifact name="ui-graphics-android-1.12.1-sources.jar">
             <sha256 value="f488fa1e995113d6acf9011f66d347f8f0fb12db303460adab72f923de747591" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="ui-graphics-android-1.12.1-samples-sources.jar">
+            <sha256 value="b3340db60b9ef81fc81200ff1d26a8bd662ff5375c9b7ee67e3e5bc9629ca8da" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-test" version="1.12.1">
          <artifact name="ui-test-1.12.1.module">
@@ -476,6 +542,9 @@
          </artifact>
          <artifact name="ui-test-1.12.1-sources.jar">
             <sha256 value="5c876cb7f53391d6b026874193f16701bdf204a7a611b7cdc8c787206399feaa" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="ui-test-1.12.1-samples-sources.jar">
+            <sha256 value="dd53df2356a0c98fcf1796c602f6220eef60e3932a0e76b5fcddafef7630deb9" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-test-android" version="1.12.1">
@@ -490,6 +559,9 @@
          </artifact>
          <artifact name="ui-test-android-1.12.1-sources.jar">
             <sha256 value="4d717fe2140cc95878df19d830c297ff65e3a1c6128be52873f66062d7c70636" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="ui-test-android-1.12.1-samples-sources.jar">
+            <sha256 value="dd53df2356a0c98fcf1796c602f6220eef60e3932a0e76b5fcddafef7630deb9" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-test-junit4" version="1.12.1">
@@ -529,6 +601,9 @@
          <artifact name="ui-text-1.12.1-sources.jar">
             <sha256 value="e3c65881878013a782275881d27e604bd066ae03972a43e7e742fb02045668c7" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="ui-text-1.12.1-samples-sources.jar">
+            <sha256 value="2540d3b6b926b0dc2047e93c62b30b954ab865d3f58870463925141323b3c85b" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-text-android" version="1.12.1">
          <artifact name="ui-text-android-1.12.1.module">
@@ -543,6 +618,9 @@
          <artifact name="ui-text-android-1.12.1-sources.jar">
             <sha256 value="f40f267cc1bbf7315e37916d6baf818dd7791b42db6dc238303a8b48471aa292" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="ui-text-android-1.12.1-samples-sources.jar">
+            <sha256 value="2540d3b6b926b0dc2047e93c62b30b954ab865d3f58870463925141323b3c85b" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-tooling" version="1.12.1">
          <artifact name="ui-tooling-1.12.1.module">
@@ -550,6 +628,9 @@
          </artifact>
          <artifact name="ui-tooling-1.12.1-sources.jar">
             <sha256 value="c3a807eb0f92d453fb2822f0e98b80b95166b7bb9c750fa381e1d4dcf0534928" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="ui-tooling-1.12.1-samples-sources.jar">
+            <sha256 value="f8f99f503f7a662a22078a2eda1e7ed2eceacfcd1191bf22f06ee445da284e9c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-tooling-android" version="1.12.1">
@@ -564,6 +645,9 @@
          </artifact>
          <artifact name="ui-tooling-android-1.12.1-sources.jar">
             <sha256 value="e5c109e5620c129fd1451c7aa93dfe51b5aa958bb9a15160222583bd02bbacc7" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="ui-tooling-android-1.12.1-samples-sources.jar">
+            <sha256 value="f8f99f503f7a662a22078a2eda1e7ed2eceacfcd1191bf22f06ee445da284e9c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-tooling-data" version="1.12.1">
@@ -592,6 +676,9 @@
          <artifact name="ui-tooling-preview-1.12.1-sources.jar">
             <sha256 value="24aa2f4a275b3ddef43a52ec3ca2a8a3220d57dad1ddcccc5c1dfea5f0975cf0" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="ui-tooling-preview-1.12.1-samples-sources.jar">
+            <sha256 value="fab70bf50da5a9ed84717ae7d6ee496a44f9ff4deba3624ca840ab390da4ffc6" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-tooling-preview-android" version="1.12.1">
          <artifact name="ui-tooling-preview-android-1.12.1.module">
@@ -606,6 +693,9 @@
          <artifact name="ui-tooling-preview-android-1.12.1-sources.jar">
             <sha256 value="6ed282c27ce7e8032e7ffb4dc4f58cac729dc1ad297a0564e9d1a2a73f30f2dd" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="ui-tooling-preview-android-1.12.1-samples-sources.jar">
+            <sha256 value="fab70bf50da5a9ed84717ae7d6ee496a44f9ff4deba3624ca840ab390da4ffc6" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-unit" version="1.12.1">
          <artifact name="ui-unit-1.12.1.module">
@@ -613,6 +703,9 @@
          </artifact>
          <artifact name="ui-unit-1.12.1-sources.jar">
             <sha256 value="8d18db3f607b4fef8ad4d0f28cfa92ea5c769198a86dce6ed04b540c6e0f7222" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="ui-unit-1.12.1-samples-sources.jar">
+            <sha256 value="fdcf3d785b1f0fad25368f9152c1c1e03c02071ee3e9155f998752f1abfa2300" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-unit-android" version="1.12.1">
@@ -627,6 +720,9 @@
          </artifact>
          <artifact name="ui-unit-android-1.12.1-sources.jar">
             <sha256 value="c6e2ea6314bfc45e27c5f28fda333afe2ed76748a004eec95f86cbdab099a6ff" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="ui-unit-android-1.12.1-samples-sources.jar">
+            <sha256 value="fdcf3d785b1f0fad25368f9152c1c1e03c02071ee3e9155f998752f1abfa2300" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.compose.ui" name="ui-util" version="1.12.1">
@@ -906,6 +1002,9 @@
          <artifact name="lifecycle-runtime-compose-2.11.0-sources.jar">
             <sha256 value="9e8e899d788422b2fd8b0d54120900474a7d3e61cfd6b65fb557858c330e5af2" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="lifecycle-runtime-compose-2.11.0-samples-sources.jar">
+            <sha256 value="a704d9a7753899d7fa191e6403cc2bd99e45312a6222794382cddaae81730471" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-runtime-compose-android" version="2.11.0">
          <artifact name="lifecycle-runtime-compose-android-2.11.0.module">
@@ -919,6 +1018,9 @@
          </artifact>
          <artifact name="lifecycle-runtime-compose-android-2.11.0-sources.jar">
             <sha256 value="cf5f16f185038e6a7b6df511d383713658a6faa2548ca9fded349506cefc0fb9" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="lifecycle-runtime-compose-android-2.11.0-samples-sources.jar">
+            <sha256 value="a704d9a7753899d7fa191e6403cc2bd99e45312a6222794382cddaae81730471" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-runtime-ktx" version="2.11.0">
@@ -976,6 +1078,9 @@
          <artifact name="lifecycle-viewmodel-compose-2.11.0-sources.jar">
             <sha256 value="51f81f7f43f18caac610105972ea21b42448181b148b708304ec4ed8e300897b" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="lifecycle-viewmodel-compose-2.11.0-samples-sources.jar">
+            <sha256 value="4adb019421f16b3889b668acebca94ab37136cc8fe2d3af9c5a994309b279aa4" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-viewmodel-compose-android" version="2.11.0">
          <artifact name="lifecycle-viewmodel-compose-android-2.11.0.module">
@@ -989,6 +1094,9 @@
          </artifact>
          <artifact name="lifecycle-viewmodel-compose-android-2.11.0-sources.jar">
             <sha256 value="1197bae93e66a8c55ab6ff29a2c5a6b30a8d64ad563de874c28a2c0054630dce" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="lifecycle-viewmodel-compose-android-2.11.0-samples-sources.jar">
+            <sha256 value="4adb019421f16b3889b668acebca94ab37136cc8fe2d3af9c5a994309b279aa4" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-viewmodel-ktx" version="2.11.0">
@@ -1009,6 +1117,9 @@
          <artifact name="lifecycle-viewmodel-savedstate-2.11.0-sources.jar">
             <sha256 value="a26c9358b79501c3d9fb2c0e1aeca78e3da0f93c5d0014e17c6e3432e14970c7" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="lifecycle-viewmodel-savedstate-2.11.0-samples-sources.jar">
+            <sha256 value="db875f4851cbc4a6c89085aa0acc8b9517c9df7ad2c987da1c9111c2121247bb" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-viewmodel-savedstate" version="2.6.1">
          <artifact name="lifecycle-viewmodel-savedstate-2.6.1.module">
@@ -1028,6 +1139,9 @@
          <artifact name="lifecycle-viewmodel-savedstate-android-2.11.0-sources.jar">
             <sha256 value="9382c25fea183f742ce34ebce119436e36eb911d60c3a999409831a2941f7b14" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="lifecycle-viewmodel-savedstate-android-2.11.0-samples-sources.jar">
+            <sha256 value="db875f4851cbc4a6c89085aa0acc8b9517c9df7ad2c987da1c9111c2121247bb" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.navigationevent" name="navigationevent" version="1.0.0">
          <artifact name="navigationevent-1.0.0.module">
@@ -1035,6 +1149,9 @@
          </artifact>
          <artifact name="navigationevent-1.0.0-sources.jar">
             <sha256 value="1f6049776a270ed61c2556d3f88a83e7f54200b708a3dc03622bbe52b63e4c55" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="navigationevent-1.0.0-samples-sources.jar">
+            <sha256 value="df63ae9684f469f4538795438481b802b394d365566b5af25487e0eef2f4ac6f" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.navigationevent" name="navigationevent-android" version="1.0.0">
@@ -1050,6 +1167,9 @@
          <artifact name="navigationevent-android-1.0.0-sources.jar">
             <sha256 value="1771b427dc8974d4dc07975ddb52b611cd0d5bd8115de6e49a6fa8762e0f13a1" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
          </artifact>
+         <artifact name="navigationevent-android-1.0.0-samples-sources.jar">
+            <sha256 value="df63ae9684f469f4538795438481b802b394d365566b5af25487e0eef2f4ac6f" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.navigationevent" name="navigationevent-compose" version="1.0.0">
          <artifact name="navigationevent-compose-1.0.0.module">
@@ -1057,6 +1177,9 @@
          </artifact>
          <artifact name="navigationevent-compose-1.0.0-sources.jar">
             <sha256 value="365be6d205821beae96ee885ea08e80e60d66df93d25cff7d4c6fb4704912585" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
+         </artifact>
+         <artifact name="navigationevent-compose-1.0.0-samples-sources.jar">
+            <sha256 value="df63ae9684f469f4538795438481b802b394d365566b5af25487e0eef2f4ac6f" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.navigationevent" name="navigationevent-compose-android" version="1.0.0">
@@ -1071,6 +1194,9 @@
          </artifact>
          <artifact name="navigationevent-compose-android-1.0.0-sources.jar">
             <sha256 value="0781754e368262504f08e63eabcf580e58cb73f6126c9484f64da6a1e0d1cfcf" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="navigationevent-compose-android-1.0.0-samples-sources.jar">
+            <sha256 value="df63ae9684f469f4538795438481b802b394d365566b5af25487e0eef2f4ac6f" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.profileinstaller" name="profileinstaller" version="1.4.0">
@@ -1101,6 +1227,9 @@
          <artifact name="savedstate-1.4.0-sources.jar">
             <sha256 value="02cdc0f1b8f1313ba1e22193910618edc6f7877e542d2d83cbba5d2d68d16dd5" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="savedstate-1.4.0-samples-sources.jar">
+            <sha256 value="55d183dec7a7b59cfc754f1fde95262298a33ae1abc9a2554d7640ee1360ee1e" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.savedstate" name="savedstate-android" version="1.4.0">
          <artifact name="savedstate-android-1.4.0.module">
@@ -1114,6 +1243,9 @@
          </artifact>
          <artifact name="savedstate-android-1.4.0-sources.jar">
             <sha256 value="ab5ddfcea3cf8507428183cac36144629aa9a5cd8631afdfbb762e844c8785d9" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="savedstate-android-1.4.0-samples-sources.jar">
+            <sha256 value="55d183dec7a7b59cfc754f1fde95262298a33ae1abc9a2554d7640ee1360ee1e" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.savedstate" name="savedstate-compose" version="1.3.0">
@@ -1133,6 +1265,9 @@
          <artifact name="savedstate-compose-1.4.0-sources.jar">
             <sha256 value="da5a94aca4784cdc938b8d00bcd4d2dede2ddb9e9042b1e319f3fc11a59877eb" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="savedstate-compose-1.4.0-samples-sources.jar">
+            <sha256 value="5b5a5b73a418badb5b2e6a24284c4c3e00e216b1cb5b9ef7cbf5f147b0f54d21" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.savedstate" name="savedstate-compose-android" version="1.3.2">
          <artifact name="savedstate-compose-android-1.3.2.module">
@@ -1151,6 +1286,9 @@
          </artifact>
          <artifact name="savedstate-compose-android-1.4.0-sources.jar">
             <sha256 value="02ad6a9ac91857a3bbf67399f03b9e27d91b73152e4f24d02933525f3ae4e4dc" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="savedstate-compose-android-1.4.0-samples-sources.jar">
+            <sha256 value="5b5a5b73a418badb5b2e6a24284c4c3e00e216b1cb5b9ef7cbf5f147b0f54d21" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.savedstate" name="savedstate-ktx" version="1.3.1">
@@ -1338,6 +1476,9 @@
          <artifact name="window-core-1.5.1-sources.jar">
             <sha256 value="84310e2892f4a174f74607eacbb7342b8bff23197495db4557938aa553aa510e" origin="Google Maven HTTPS; published SHA-256 and CLI cache matched"/>
          </artifact>
+         <artifact name="window-core-1.5.1-samples-sources.jar">
+            <sha256 value="9d380bee44d8ab4077a9e94d116d01cea672c18a68ec9b0b20df618f8bf192f3" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.window" name="window-core-android" version="1.5.1">
          <artifact name="window-core-android-1.5.1.module">
@@ -1351,6 +1492,9 @@
          </artifact>
          <artifact name="window-core-1.5.1-samples-sources.jar">
             <sha256 value="9d380bee44d8ab4077a9e94d116d01cea672c18a68ec9b0b20df618f8bf192f3" origin="Google Maven HTTPS; published SHA-256 and IDE cache matched"/>
+         </artifact>
+         <artifact name="window-core-android-1.5.1-samples-sources.jar">
+            <sha256 value="9d380bee44d8ab4077a9e94d116d01cea672c18a68ec9b0b20df618f8bf192f3" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="com.android" name="signflinger" version="9.3.1">
@@ -4428,6 +4572,9 @@
          <artifact name="camera-camera2-1.6.2.module">
             <sha256 value="4694b995fbb4934e5e1e3cedabef426e799a510cfc179b659c4e9632f6b2fe75" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="camera-camera2-1.6.2-sources.jar">
+            <sha256 value="9a43968bb27ff7a6960932b5dffc190930567d8bb52fff59541d372f7331b803" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.camera" name="camera-camera2-pipe" version="1.6.2">
          <artifact name="camera-camera2-pipe-1.6.2.aar">
@@ -4435,6 +4582,9 @@
          </artifact>
          <artifact name="camera-camera2-pipe-1.6.2.module">
             <sha256 value="5470741b0a6fe88e560e7d929097e2ec60e7406aef09b48ab900b0befa102c0f" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="camera-camera2-pipe-1.6.2-sources.jar">
+            <sha256 value="61f3bcb5d254d069194381f502b11db7af4befc14db6d1fab36baeb745e30470" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.camera" name="camera-compose" version="1.6.2">
@@ -4444,6 +4594,12 @@
          <artifact name="camera-compose-1.6.2.module">
             <sha256 value="1883d0f5a553d55c6fffdd37c1a4eb1a73198edaf11ac347ce3f62abc217beb1" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="camera-compose-1.6.2-samples-sources.jar">
+            <sha256 value="735714a851d7b00412a01b01479a221ef1a1da04873499f69b1029ca3f7c622e" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="camera-compose-1.6.2-sources.jar">
+            <sha256 value="fdeb8997bf6b5b35c930e045adacf41bb34779499d20a2d64bb8ffb3b78fe1e5" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.camera" name="camera-core" version="1.6.2">
          <artifact name="camera-core-1.6.2.aar">
@@ -4451,6 +4607,12 @@
          </artifact>
          <artifact name="camera-core-1.6.2.module">
             <sha256 value="bee75b4ef561862030702a51f692057e034ae1f600f3091b2a5e5a89856ab410" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="camera-core-1.6.2-samples-sources.jar">
+            <sha256 value="d70c01d96bbe4abbb691312514f6708f9ba866f38003d698db31eda2a529a9c9" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="camera-core-1.6.2-sources.jar">
+            <sha256 value="9803a0c47248a567c99dbc1b95e07afb8ccc5a7e097ce3f76dd126be3a53ee44" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.camera" name="camera-lifecycle" version="1.6.2">
@@ -4460,6 +4622,12 @@
          <artifact name="camera-lifecycle-1.6.2.module">
             <sha256 value="bd7fd00cb9de0f2ce8c3400b52504cf7691590bb29a1550a71b58255e483ff47" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="camera-lifecycle-1.6.2-samples-sources.jar">
+            <sha256 value="9d5a66f7a9d44f86dcca624a1a7284edba6dabe1da2ab3d681797523fa35568c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="camera-lifecycle-1.6.2-sources.jar">
+            <sha256 value="573cdf43f2584f154b83788ab9683affd6124a61b78f6f7a17339c5e8d8d845c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.camera.featurecombinationquery" name="featurecombinationquery" version="1.6.2">
          <artifact name="featurecombinationquery-1.6.2.aar">
@@ -4467,6 +4635,9 @@
          </artifact>
          <artifact name="featurecombinationquery-1.6.2.module">
             <sha256 value="4f6edda1492eaa928cfe7516d8efd097ed2f59ee4cedf1bec2d3345a3d6137fd" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="featurecombinationquery-1.6.2-sources.jar">
+            <sha256 value="5aa1c82a6a691a2cb6747f81558ecd5ac580f3aba01f78ca4e01d83756e7c0fa" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.camera.viewfinder" name="viewfinder-compose" version="1.6.2">
@@ -4476,6 +4647,9 @@
          <artifact name="viewfinder-compose-1.6.2.module">
             <sha256 value="c730eb5cf60b4b0346816216edb37d798a080b3e8d74d26abc6fc3d2d924e824" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="viewfinder-compose-1.6.2-sources.jar">
+            <sha256 value="c65ac62ecb7b50a0800890e8974c4a5f8999017473f0174f09bcba0564a19026" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.camera.viewfinder" name="viewfinder-core" version="1.6.2">
          <artifact name="viewfinder-core-1.6.2.aar">
@@ -4483,6 +4657,12 @@
          </artifact>
          <artifact name="viewfinder-core-1.6.2.module">
             <sha256 value="2601f63486c98da65bf418f22822a54aa8eea821f3cd948013934392c65a7dd8" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="viewfinder-core-1.6.2-samples-sources.jar">
+            <sha256 value="d12e6ef88482c1f71cd2a845b384f53d8fea71a8a36fb181ed3c2c5bd4aa5808" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="viewfinder-core-1.6.2-sources.jar">
+            <sha256 value="d8b24eb4746962fa359523b76c39a04690483bf737394a2a00f3158142aeecd0" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.collection" name="collection-ktx" version="1.4.2">
@@ -4512,6 +4692,9 @@
          <artifact name="concurrent-futures-ktx-1.1.0.module">
             <sha256 value="69b79724566d49140846700690b8d2165231c577e93e66726a443e8f976bbe19" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="concurrent-futures-ktx-1.1.0-sources.jar">
+            <sha256 value="1490f45d9a2a3781548eca5231629f378828d685b3b035fb07e29a287e930165" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.core" name="core" version="1.1.0">
          <artifact name="core-1.1.0.pom">
@@ -4530,6 +4713,12 @@
          <artifact name="core-backported-fixes-1.0.0.module">
             <sha256 value="05aef3e2e15168190894999d4b14907c84d066837964ec900f7a2f0e4d9354ac" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="core-backported-fixes-1.0.0-sources.jar">
+            <sha256 value="86413b8ce0f8e81674bdfcfb2f3fefaeed7f9e6b92448d5b2b360376123051ba" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="core-backported-fixes-1.0.0-samples-sources.jar">
+            <sha256 value="bc5c51417fda0be67e8255d719147ac98fb82327bd0192c70a69ed03797d6df3" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.core" name="core-ktx" version="1.12.0">
          <artifact name="core-ktx-1.12.0.module">
@@ -4542,6 +4731,9 @@
          </artifact>
          <artifact name="exifinterface-1.4.2.module">
             <sha256 value="6365165eb5aacc700a34b1650a2910ea01ebd819821b89af7689fa41274fb00b" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="exifinterface-1.4.2-sources.jar">
+            <sha256 value="dc69c04f03e72ad38ed43774554e6612dd9ffe7299eacaab62a38df8ac2c7767" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-common" version="2.1.0">
@@ -4561,6 +4753,9 @@
          <artifact name="lifecycle-livedata-2.11.0.module">
             <sha256 value="d990bc920ae43729d702d80077328e8a59781ea5a35b24c02bc47d326ae73d7d" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="lifecycle-livedata-2.11.0-sources.jar">
+            <sha256 value="17b5c634db9da69c4d0d50d4d23ec83961a119aa5eb8ae7fce2d75ca9bbd2e89" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.lifecycle" name="lifecycle-livedata-core" version="2.1.0">
          <artifact name="lifecycle-livedata-core-2.1.0.pom">
@@ -4579,10 +4774,16 @@
          <artifact name="lifecycle-livedata-core-ktx-2.11.0.module">
             <sha256 value="b66cb413ac9cde811c9b96e4d2b3d4ff2ef403236187b3db33fe4f1da8e95fcd" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="lifecycle-livedata-core-ktx-2.11.0-sources.jar">
+            <sha256 value="20e0447343b348bc66275a8601ee4fc95bd83624620155e6ac7b2f80fe0aeafd" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="androidx.tracing" name="tracing" version="1.3.0">
          <artifact name="tracing-1.3.0.module">
             <sha256 value="c71f72783bef73e04af227e760e7fe4ded5a0f753297315450aa1acf97cca725" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="tracing-1.3.0-sources.jar">
+            <sha256 value="c2a31e6c9b84b121ac339e19108e4dfbc3f90adbe41ea451f6f961cc4a667288" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.tracing" name="tracing-android" version="1.3.0">
@@ -4591,6 +4792,9 @@
          </artifact>
          <artifact name="tracing.aar">
             <sha256 value="f59782bbe3470a6b0c531cef262dd1fc9d9a0233490bb5e6d553e1fe6a1816b2" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="tracing-android-1.3.0-sources.jar">
+            <sha256 value="a3a9c1b46707208a024ab3939fc93dd56978f5c0e5928ec808e21df9e139cc5d" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="androidx.tracing" name="tracing-ktx" version="1.2.0">
@@ -4605,6 +4809,9 @@
          <artifact name="tracing-ktx-1.3.0.module">
             <sha256 value="1b1764d7d684a5743fd34c1a68714185439ea95f9d417bd6c5ea5fc9f8af2147" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="tracing-ktx-1.3.0-sources.jar">
+            <sha256 value="082d88d1d827c10f686647ac536fc250d8b19250a881f9054cb5dc0dd2759a17" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="com.google.auto" name="auto-parent" version="7">
          <artifact name="auto-parent-7.pom">
@@ -4617,6 +4824,12 @@
          </artifact>
          <artifact name="auto-value-annotations-1.6.3.pom">
             <sha256 value="e1fc780f7ee025e662b3da72723dbe2ac8dac0a2f8920f265315c4e1be3d765c" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="auto-value-annotations-1.6.3-javadoc.jar">
+            <sha256 value="b4ac9ec0b90eaec5834c37d42dca17e7013c3ae9f49b604ba808e04311f96baa" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="auto-value-annotations-1.6.3-sources.jar">
+            <sha256 value="254d55ea959608a833fa07056710488c1f4978875f86f6a106b8d937b29b1170" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="com.google.auto.value" name="auto-value-parent" version="1.6.3">
@@ -4631,6 +4844,12 @@
          <artifact name="dagger-2.59.pom">
             <sha256 value="0e47846618c7a1b7a8124fd20623a667643d73cbe0a561bb87056151aa967538" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="dagger-2.59-javadoc.jar">
+            <sha256 value="38b8b343dbf86fdf2538c2c36999612f585517d4ed26a86534f975e139435260" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="dagger-2.59-sources.jar">
+            <sha256 value="0766cf4aecd3ffe62b21f47e86d634daa74aff5ca05adea8dcaa20b0e63df521" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="jakarta.inject" name="jakarta.inject-api" version="2.0.1">
          <artifact name="jakarta.inject-api-2.0.1.jar">
@@ -4638,6 +4857,12 @@
          </artifact>
          <artifact name="jakarta.inject-api-2.0.1.pom">
             <sha256 value="e7fd7232e96307a575b2494c9367d68cf43ec98244aace3ccc23e1773ffa6fda" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="jakarta.inject-api-2.0.1-javadoc.jar">
+            <sha256 value="846348f27e60e4aa1d12b200a3b07d7a026ae1048933e48c0db142f32bcf4be8" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="jakarta.inject-api-2.0.1-sources.jar">
+            <sha256 value="44f4c73fda69f8b7d87136f0f789f042f54e8ff506d40aa126199baf3752d1c9" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
       <component group="org.eclipse.ee4j" name="project" version="1.0.6">
@@ -4649,6 +4874,9 @@
          <artifact name="atomicfu-0.28.0.module">
             <sha256 value="535568c9291a3da7705c4b40535eacedf86b248df570ac52669c907d4bb8558b" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
          </artifact>
+         <artifact name="atomicfu-0.28.0-sources.jar">
+            <sha256 value="e2f58527f0fc8a61db8678b8c93d49929cd62adff7b95dc3d63c0663818b6272" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
       </component>
       <component group="org.jetbrains.kotlinx" name="atomicfu-jvm" version="0.28.0">
          <artifact name="atomicfu-jvm-0.28.0.jar">
@@ -4656,6 +4884,12 @@
          </artifact>
          <artifact name="atomicfu-jvm-0.28.0.module">
             <sha256 value="34b623af9c25ca7f2e52406f10495c46e6f410835d7a058c60ba36923d689635" origin="Publisher HTTPS SHA-256 or publisher artifact re-download matched (task41)"/>
+         </artifact>
+         <artifact name="atomicfu-jvm-0.28.0-javadoc.jar">
+            <sha256 value="0eebf56a8175f0ce86bb5dc53ebf3d4cba515734272d92b21944add36301615d" origin="Publisher HTTPS artifact and IDE cache matched; task42"/>
+         </artifact>
+         <artifact name="atomicfu-jvm-0.28.0-sources.jar">
+            <sha256 value="750bd5f9686abceca5ee6cdcab53d7abc20a2c1bebe462a23dba9932eeb9744c" origin="Publisher module SHA-256, HTTPS artifact and IDE cache matched; task42"/>
          </artifact>
       </component>
    </components>

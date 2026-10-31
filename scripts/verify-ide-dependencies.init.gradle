@@ -152,6 +152,23 @@ projectsEvaluated {
                     }
                 }
             }
+            // Studio also attaches the samples-sources classifier published alongside sources
+            // (for example in CameraX sourcesElements). A JvmLibrary query only requests the
+            // primary source artifact. Probe every resolved module, not a fixed version list;
+            // skip only unpublished artifacts, never verification or transport failures.
+            def samples = android.configurations.detachedConfiguration(ids.collect { id ->
+                android.dependencies.create("${id.group}:${id.module}:${id.version}:samples-sources@jar")
+            } as org.gradle.api.artifacts.Dependency[])
+            samples.transitive = false
+            def sampleArtifacts = samples.incoming.artifactView { lenient = true }.artifacts
+            sampleArtifacts.failures.each { failure ->
+                if (!isUnpublished(failure)) throw new GradleException('Cannot verify Android IDE samples', failure)
+                logger.info("No published Android samples: ${failure.message}")
+            }
+            sampleArtifacts.artifacts.each { artifact ->
+                count++
+                logger.lifecycle("Verified Android IDE sample artifact: ${artifact.file.name}")
+            }
             logger.lifecycle("Verified ${count} Android source/documentation artifacts")
         }
     }

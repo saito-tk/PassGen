@@ -134,7 +134,7 @@ xcodebuild -project iosApp/Passgen.xcodeproj -scheme Passgen \
 依存物のSHA-256は `gradle/verification-metadata.xml`、Gradle配布物はwrapper設定で検証します。
 依存更新時は取得元と差分をレビューし、検証メタデータを更新してください。初回取得の独立した監査・署名検証を代替するものではありません。
 
-Android Studioの同期では、通常のビルドで取得しないKotlin・JUnit・Gradleのソースに加え、プラグインと推移的依存のソース、KMP共通ソース、Androidライブラリのソース・サンプル、JVM依存のJavadocも検証します。これらを含む固定チェックサムを登録しています。
+Android Studioの同期では、通常のビルドで取得しないKotlin・JUnit・Gradleのソースに加え、プラグインと推移的依存のソース、KMP共通ソース、Androidライブラリのソース・サンプル、JVM依存のJavadocも検証します。これらを含む固定チェックサムを登録しています。依存の追加・更新時は、通常のビルドだけでなく下記のIDE用検証も実行してください。サンプルは解決済みの依存グラフからバージョンを取得して確認します。
 `Dependency verification failed` が出たら、HTMLレポートで未登録か不一致かを確認してください。検証の無効化やソース全体の検証除外では対処しません（[Gradle公式資料](https://docs.gradle.org/current/userguide/dependency_verification.html#sec:troubleshooting-verification)）。
 次のコマンドはGradle配布ソース、プラグインのソース（Gradle向けバリアントを含む）、KMP共通ソース、共有JVM・Android依存のソース・Javadocを取得・検証します。依存のバージョンは解決済みグラフから取得します。対象物が未公開の場合だけスキップし、チェックサム不足・不一致や通信エラーでは失敗します。サンプル等を含むIDE同期全体の代替ではないため、Studio上の同期も確認してください。
 

@@ -887,6 +887,70 @@ class GeneratorUiTest {
         rule.runOnIdle { assertEquals("", model.editorSession.symbolText.value) }
     }
 
+    @Test fun bottomSheetsRemainStableAfterUpwardOverscroll() {
+        org.junit.Assume.assumeTrue(rule.activity.resources.configuration.screenWidthDp < 600)
+        fun exercise(label: String, tag: String, scrollTag: String = tag) {
+            repeat(10) {
+                rule.onNodeWithTag(scrollTag).performTouchInput {
+                    swipe(start = androidx.compose.ui.geometry.Offset(width * .4f, height * .8f),
+                        end = androidx.compose.ui.geometry.Offset(width * .4f, height * .25f), durationMillis = 100)
+                }
+            }
+            repeat(3) {
+                rule.onNodeWithTag("sheet-handle", useUnmergedTree = true).performTouchInput { swipeUp(durationMillis = 100) }
+            }
+            rule.waitForIdle()
+            val sheet = rule.onNodeWithTag(tag).fetchSemanticsNode()
+            // Observe a descendant of Material's anchor modifier: the outer sheet tag itself
+            // can stay in place while the rendered Surface is translated inside it.
+            val handle = rule.onNodeWithTag("sheet-handle", useUnmergedTree = true).fetchSemanticsNode()
+            val tops = mutableListOf<Float>()
+            val heights = mutableListOf<Float>()
+            repeat(90) {
+                rule.mainClock.advanceTimeByFrame()
+                rule.runOnUiThread {
+                    if (it >= 30) { tops += handle.boundsInRoot.top; heights += sheet.boundsInRoot.height }
+                }
+                android.os.SystemClock.sleep(16) // Include native RenderThread / Android edge effects.
+            }
+            assertTrue("$label keeps moving: top span ${tops.max() - tops.min()}, height span ${heights.max() - heights.min()}",
+                tops.max() - tops.min() <= 1f && heights.max() - heights.min() <= 1f)
+        }
+        fun dismissByDragging(tag: String) {
+            val distance = rule.activity.resources.displayMetrics.density * 250f
+            rule.onNodeWithTag("sheet-handle", useUnmergedTree = true).performTouchInput {
+                swipe(center, center + androidx.compose.ui.geometry.Offset(0f, distance), durationMillis = 200)
+            }
+            rule.waitUntil(5000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty() }
+        }
+        val owned = mutableListOf<String>()
+        try {
+            rule.runOnIdle { model.countText = "100"; model.lengthText = "64" }
+            rule.onNodeWithTag("generate").performClick()
+            rule.waitUntil(10000) { !model.busy && model.results.size == 100 }
+            exercise("long results", "results-sheet", "result-list")
+            rule.onNodeWithTag("copy-99").assertIsDisplayed()
+            dismissByDragging("results-sheet")
+            rule.runOnIdle { model.countText = "1"; model.lengthText = "128"; model.revealed = true }
+            rule.onNodeWithTag("generate").performClick()
+            rule.waitUntil(5000) { !model.busy && model.results.size == 1 }
+            exercise("short revealed results", "results-sheet", "result-list")
+            dismissByDragging("results-sheet")
+            rule.runOnIdle {
+                repeat(20) {
+                    val name = "overscroll-${System.nanoTime()}-$it"
+                    model.savePreset(name); owned += model.presets.single { it.name == name }.id
+                }
+            }
+            rule.onNodeWithTag("presets").performClick()
+            exercise("presets", "modal-sheet")
+            dismissByDragging("modal-sheet")
+            rule.onNodeWithTag("safety-settings").performClick()
+            exercise("settings", "modal-sheet")
+            dismissByDragging("modal-sheet")
+        } finally { rule.runOnIdle { owned.forEach { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
+    }
+
     @Test fun materialControlsHaveAccessibleNamesAndTouchTargets() {
         rule.onNodeWithTag("presets").assertContentDescriptionEquals("プリセット").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
         rule.onNodeWithTag("safety-settings").assertContentDescriptionEquals("設定と安全性").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)

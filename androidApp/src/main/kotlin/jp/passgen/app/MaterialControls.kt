@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 
 /** Exact Google Material Symbols; local vectors keep icons available offline. */
@@ -56,8 +58,15 @@ import androidx.compose.ui.unit.dp
     val horizontal = fold?.orientation == androidx.window.layout.FoldingFeature.Orientation.HORIZONTAL
     val x = if (vertical) generatorRegion(width, with(density) { fold!!.bounds.left.toDp().value }, with(density) { fold!!.bounds.right.toDp().value }, Float.POSITIVE_INFINITY) else GeneratorRegion(0f, width)
     val y = if (horizontal) generatorRegion(height, with(density) { fold!!.bounds.top.toDp().value }, with(density) { fold!!.bounds.bottom.toDp().value }, Float.POSITIVE_INFINITY) else GeneratorRegion(0f, height)
+    // Reserve the top safe area outside the moving Surface. Material's offset-dependent top
+    // consumption must not resize our fractional-height content and move its own anchor again.
+    val safeTop = with(density) { WindowInsets.safeDrawing.getTop(density).toDp() }
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         sheetMaxWidth = if (x.length < width) androidx.compose.ui.unit.Dp.Unspecified else maxWidth,
-        modifier = modifier.padding(start = x.start.dp, end = (width - x.start - x.length).coerceAtLeast(0f).dp,
-            top = y.start.dp, bottom = (height - y.start - y.length).coerceAtLeast(0f).dp), content = content)
+        dragHandle = { BottomSheetDefaults.DragHandle(Modifier.semantics { testTag = "sheet-handle" }) },
+        contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal) },
+        modifier = modifier.then(Modifier.semantics { testTag = "modal-sheet" }).padding(start = x.start.dp, end = (width - x.start - x.length).coerceAtLeast(0f).dp,
+            top = maxOf(y.start.dp, safeTop), bottom = (height - y.start - y.length).coerceAtLeast(0f).dp)) {
+        content()
+    }
 }

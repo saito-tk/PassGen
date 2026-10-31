@@ -165,7 +165,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 
 @Composable private fun ResultsPanel(model: PassgenModel, copy: (String) -> Boolean, scroll: LazyListState,
     generate: () -> Unit, clear: () -> Unit, modifier: Modifier) {
-    Surface(modifier.padding(start = 4.dp, end = 12.dp, top = 12.dp, bottom = 12.dp).semantics { testTag = "results-pane" },
+    Surface(modifier.padding(12.dp).semantics { testTag = "results-pane" },
         shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -180,7 +180,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable private fun CoreSettings(model: PassgenModel) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+    Surface(modifier = Modifier.fillMaxWidth().semantics { testTag = "generation-settings" },
+        shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("生成形式", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))

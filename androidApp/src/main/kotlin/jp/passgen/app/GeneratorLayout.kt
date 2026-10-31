@@ -27,5 +27,7 @@ internal fun generatorSplit(width: Float, hingeStart: Float? = null, hingeEnd: F
     // Never put a column across a separating hinge that cannot fit both panes.
     if (hingeStart != null && hingeEnd != null && hingeStart in 0f..width && hingeEnd in hingeStart..width) return null
     if (width < 720) return null
-    return GeneratorSplit((width * .46f).coerceIn(344f, 464f), 0f)
+    // Both panes get the same usable width; an arbitrary ratio/cap made the
+    // unfolded editor narrower than the cover display and wasted space on results.
+    return GeneratorSplit(width / 2f, 0f)
 }

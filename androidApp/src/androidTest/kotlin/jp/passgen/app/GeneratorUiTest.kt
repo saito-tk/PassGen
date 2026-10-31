@@ -48,10 +48,12 @@ class GeneratorUiTest {
         assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, generatorOrientation(600))
         assertNull(generatorSplit(719f)); assertNull(generatorSplit(Float.NaN))
         val smallest = generatorSplit(720f)!!
-        assertTrue(smallest.settingsWidth >= 344); assertTrue(720 - smallest.settingsWidth - smallest.gap >= 344)
-        assertEquals(464f, generatorSplit(1800f)!!.settingsWidth)
+        assertEquals(GeneratorSplit(360f, 0f), smallest)
+        assertEquals(900f, generatorSplit(1800f)!!.settingsWidth)
+        assertEquals(GeneratorSplit(402f, 0f), generatorSplit(804f))
         assertEquals(GeneratorSplit(390f, 20f), generatorSplit(800f, 390f, 410f))
         assertEquals(GeneratorSplit(350f, 0f), generatorSplit(700f, 350f, 350f))
+        assertEquals(GeneratorSplit(400f, 24f), generatorSplit(900f, 400f, 424f))
         assertNull(generatorSplit(800f, 180f, 220f))
         assertEquals(GeneratorRegion(220f, 580f), generatorRegion(800f, 180f, 220f, 344f))
         assertEquals(GeneratorRegion(0f, 580f), generatorRegion(800f, 580f, 620f, 344f))
@@ -70,6 +72,9 @@ class GeneratorUiTest {
                 rule.onAllNodesWithTag("results-pane").fetchSemanticsNodes().isEmpty() &&
                 rule.onAllNodesWithTag("generate").fetchSemanticsNodes().isNotEmpty() }
             rule.waitForIdle(); android.os.SystemClock.sleep(600)
+            // Compare usable settings content, not the screen or outer padding.
+            val coverSettingsWidthDp = rule.onNodeWithTag("generation-settings").fetchSemanticsNode().boundsInRoot.width /
+                rule.activity.resources.displayMetrics.density
             rule.onNodeWithText("記号").performClick()
             rule.onNodeWithText("生成ルール").performScrollTo().performClick()
             rule.runOnIdle {
@@ -102,6 +107,16 @@ class GeneratorUiTest {
                 val left = rule.onNodeWithTag("settings-pane").fetchSemanticsNode().boundsInRoot
                 val right = rule.onNodeWithTag("results-pane").fetchSemanticsNode().boundsInRoot
                 assertTrue(left.right <= right.left)
+                val density = rule.activity.resources.displayMetrics.density
+                // Scroll semantics cover the whole viewport, including padding.
+                // Compare the settings card with the results Surface instead.
+                val settingsCardWidth = rule.onNodeWithTag("generation-settings").fetchSemanticsNode().size.width.toFloat()
+                val openSettingsWidthDp = settingsCardWidth / density
+                println("Fold editor widths (dp): cover=$coverSettingsWidthDp, open=$openSettingsWidthDp, results=${right.width / density}")
+                assertTrue("Unfolded settings $openSettingsWidthDp dp must fit the cover editor $coverSettingsWidthDp dp",
+                    openSettingsWidthDp + 1f >= coverSettingsWidthDp)
+                assertTrue("Fold panes should have equal content widths: settings=$settingsCardWidth, results=${right.width}",
+                    kotlin.math.abs(settingsCardWidth - right.width) <= 1f)
                 changeFold(0)
                 rule.waitUntil(15000) { keepFoldDisplayAwake(); rule.activity.resources.configuration.screenWidthDp < 600 && rule.activity.lifecycle.currentState == Lifecycle.State.RESUMED &&
                     rule.onAllNodesWithTag("results-sheet").fetchSemanticsNodes().isNotEmpty() }

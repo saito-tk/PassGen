@@ -148,7 +148,7 @@ struct SymbolEditor: View {
             .accessibilityIdentifier("symbol-editor-scroll")
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("使える記号").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了", systemImage: "checkmark") { dismiss() } } }
             .disabled(model.busy)
         }
         .onAppear {

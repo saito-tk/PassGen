@@ -6,8 +6,14 @@ final class PassgenUITests: XCTestCase {
     }
     @MainActor private func dismissPresets(_ app: XCUIApplication) {
         let bar = app.navigationBars["プリセット"]
-        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).press(forDuration: 0.1,
-            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        let grabber = app.buttons["Sheet Grabber"]
+        let handle = grabber.exists ? grabber : bar
+        // App-level coordinates/screenshot can refer to Duo's inactive outer display.
+        // Keep the drag vertically aligned with the grabber in the sheet's actual window.
+        let window = app.windows.firstMatch
+        let x = (handle.frame.midX - window.frame.minX) / window.frame.width
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: grabber.exists ? 0.5 : 0)).press(forDuration: 0.1,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.98)))
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: bar)
         XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
     }
@@ -167,6 +173,48 @@ final class PassgenUITests: XCTestCase {
         XCTAssertFalse(app.buttons["copy-0"].exists)
         XCTAssertTrue(length.isHittable)
         XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+    }
+    /// Run only with TEST_RUNNER_PASSGEN_DUO_POSES=1 and change poses in Device Hub
+    /// at each DUO_STAGE marker. This exercises real display handover, not a fake app size.
+    @MainActor func testDuoDisplayHandoverPreservesResultsAndPresetDraft() throws {
+        guard ProcessInfo.processInfo.environment["PASSGEN_DUO_POSES"] == "1" else {
+            throw XCTSkip("Dedicated Duo Simulator pose run required")
+        }
+        let app = launchApp()
+        XCTAssertLessThan(app.windows.firstMatch.frame.width, 700)
+        let settings = app.descendants(matching: .any).matching(identifier: "settings-pane").firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        let length = app.textFields["length"], count = app.textFields["count"]
+        // The scroll container's accessibility frame includes the vertical toolbar
+        // safe area on Duo. Compare the actual editor controls in both displays.
+        let coverWidth = count.frame.maxX - length.frame.minX
+        length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
+        app.buttons["完了"].tap()
+        count.tap(); count.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "20")
+        app.buttons["完了"].tap(); app.buttons["generate"].tap()
+        let copy = app.buttons["copy-0"], visibility = app.buttons["results-visibility"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 10))
+        visibility.tap(); copy.tap()
+        print("DUO_STAGE: OPEN_WITH_RESULTS")
+        let results = app.descendants(matching: .any).matching(identifier: "results-pane").firstMatch
+        XCTAssertTrue(results.waitForExistence(timeout: 90))
+        XCTAssertEqual(length.value as? String, "64"); XCTAssertEqual(count.value as? String, "20")
+        XCTAssertEqual(app.staticTexts["results-title"].label, "生成結果 20件")
+        XCTAssertEqual(copy.label, "コピー済み。もう一度コピー")
+        XCTAssertEqual(visibility.value as? String, "表示中")
+        XCTAssertEqual(app.buttons.matching(identifier: "generate").count, 1)
+        let openWidth = count.frame.maxX - length.frame.minX
+        print("DUO_EDITOR_WIDTHS: cover=\(coverWidth), open=\(openWidth)")
+        XCTAssertGreaterThanOrEqual(openWidth + 1, coverWidth)
+        XCTAssertLessThan(count.frame.maxX, results.frame.minX)
+        app.buttons["presets"].tap()
+        let name = app.textFields["preset-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Fold draft\n")
+        print("DUO_STAGE: CLOSE_WITH_PRESET")
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in app.windows.firstMatch.frame.width < 700 }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 90), .completed)
+        XCTAssertEqual(name.value as? String, "Fold draft")
+        print("DUO_STAGE: FINISHED")
     }
     @MainActor func testPhoneKeepsPortraitAndResultsWhenDeviceTurns() throws {
         let app = launchApp()

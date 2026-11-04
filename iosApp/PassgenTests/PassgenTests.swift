@@ -7109,15 +7109,40 @@ private actor ImportAnalysisGate {
 }
 
 final class SecretPreviewLayoutTests: XCTestCase {
-    func testPaneThresholdAndSettingsMaximumLeaveReadableResults() {
+    func testPaneThresholdAndEqualWidthsLeaveReadableSettingsAndResults() {
         XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: 719))
         XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: .nan))
         XCTAssertNil(GeneratorPaneLayout.settingsWidth(in: .infinity))
         for width: CGFloat in [720, 744, 803, 1024, 1366, 1800] {
             let left = GeneratorPaneLayout.settingsWidth(in: width)!
-            XCTAssertGreaterThanOrEqual(left, 344); XCTAssertLessThanOrEqual(left, 464)
-            XCTAssertGreaterThanOrEqual(width - left, 344)
+            XCTAssertGreaterThanOrEqual(left, 344)
+            XCTAssertEqual(left, width - left)
         }
+    }
+    func testActiveFoldKeepsControlsOutsideReservedMargins() {
+        let vertical = CGRect(x: 425, y: -100, width: 24, height: 900)
+        let book = GeneratorPaneLayout.resolve(in: CGSize(width: 880, height: 600), divisions: [vertical])
+        XCTAssertEqual(book.settings, CGRect(x: 0, y: 0, width: 425, height: 600))
+        XCTAssertEqual(book.results, CGRect(x: 449, y: 0, width: 431, height: 600))
+        let horizontal = CGRect(x: -100, y: 290, width: 1000, height: 20)
+        let laptop = GeneratorPaneLayout.resolve(in: CGSize(width: 660, height: 640), divisions: [horizontal])
+        XCTAssertEqual(laptop.settings, CGRect(x: 0, y: 0, width: 660, height: 290))
+        XCTAssertEqual(laptop.results, CGRect(x: 0, y: 310, width: 660, height: 330))
+        XCTAssertFalse(book.supportsResultPeek); XCTAssertFalse(laptop.supportsResultPeek)
+    }
+    func testNarrowFoldUsesOneSideAndKeyboardRetainsCompactDock() {
+        let fold = CGRect(x: 250, y: -10, width: 20, height: 900)
+        let layout = GeneratorPaneLayout.resolve(in: CGSize(width: 660, height: 600), divisions: [fold])
+        XCTAssertEqual(layout.settings, CGRect(x: 270, y: 0, width: 390, height: 600))
+        XCTAssertNil(layout.results)
+        XCTAssertTrue(layout.supportsResultPeek)
+        XCTAssertTrue(GeneratorPaneLayout.resolve(in: CGSize(width: 375, height: 240)).supportsResultPeek)
+        XCTAssertEqual(GeneratorPaneLayout.resolve(in: .zero).settings, .zero)
+        let irrelevant = GeneratorPaneLayout.resolve(in: CGSize(width: 800, height: 600),
+            divisions: [CGRect(x: 390, y: 100, width: 20, height: 50), .null, .infinite,
+                CGRect(x: CGFloat.nan, y: 0, width: 20, height: 600)])
+        XCTAssertEqual(irrelevant.settings.width, 400)
+        XCTAssertEqual(irrelevant.results?.width, 400)
     }
     @MainActor func testSixtyFourCharactersWrapAtCharactersWithoutThreeLineTruncation() {
         let value = String(repeating: "abcd/", count: 12) + "wxyz"

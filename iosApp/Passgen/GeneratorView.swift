@@ -68,10 +68,67 @@ private enum CharacterGroup: String, CaseIterable, Identifiable {
 
 private enum GeneratorSheet: Identifiable { case results, symbols, privacy, presets; var id: Self { self } }
 
-enum GeneratorPaneLayout {
+struct GeneratorPaneLayout: Equatable {
+    var settings: CGRect
+    var results: CGRect?
+    var usesInlineResults: Bool { results != nil }
+
     static func settingsWidth(in width: CGFloat) -> CGFloat? {
         guard width.isFinite, width >= 720 else { return nil }
-        return min(464, max(344, width * 0.46))
+        return width / 2
+    }
+
+    /// Container-local coordinates, after the system's asymmetric bar/camera safe areas.
+    /// A division is a real fold with margins; it must never be donated to either pane.
+    static func resolve(in size: CGSize, divisions: [CGRect] = []) -> Self {
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else {
+            return Self(settings: .zero)
+        }
+        let bounds = CGRect(origin: .zero, size: size)
+        var region = bounds
+        for fold in divisions where !fold.isNull && !fold.isInfinite && fold.width >= 0 && fold.height >= 0 &&
+            [fold.minX, fold.minY, fold.maxX, fold.maxY].allSatisfy(\.isFinite) {
+            let cut = fold.intersection(region)
+            guard !cut.isNull else { continue }
+            let vertical = fold.height > fold.width
+            let spansRegion = vertical ? fold.minY <= region.minY && fold.maxY >= region.maxY :
+                fold.minX <= region.minX && fold.maxX >= region.maxX
+            guard spansRegion else { continue }
+            let first = CGRect(x: region.minX, y: region.minY,
+                width: vertical ? cut.minX - region.minX : region.width,
+                height: vertical ? region.height : cut.minY - region.minY)
+            let second = CGRect(x: vertical ? cut.maxX : region.minX, y: vertical ? region.minY : cut.maxY,
+                width: vertical ? region.maxX - cut.maxX : region.width,
+                height: vertical ? region.height : region.maxY - cut.maxY)
+            if vertical ? min(first.width, second.width) >= 344 :
+                region.width >= 344 && min(first.height, second.height) >= 180 {
+                return Self(settings: first, results: second)
+            }
+            // A narrow or keyboard-reduced region keeps all controls on one usable side.
+            region = first.width * first.height >= second.width * second.height ? first : second
+        }
+        if let width = settingsWidth(in: region.width) {
+            return Self(settings: CGRect(x: region.minX, y: region.minY, width: width, height: region.height),
+                results: CGRect(x: region.minX + width, y: region.minY, width: region.width - width, height: region.height))
+        }
+        return Self(settings: region)
+    }
+
+    static func resolve(in geometry: GeometryProxy) -> Self {
+        var divisions: [CGRect] = []
+        if #available(iOS 27.1, *) {
+            divisions = geometry.reservedRegions(kind: .division, layoutDirectionBehavior: .fixed).map { region in
+                let frame = region.frame, margins = region.margins
+                return CGRect(x: frame.minX - margins.leading, y: frame.minY - margins.top,
+                    width: frame.width + margins.leading + margins.trailing,
+                    height: frame.height + margins.top + margins.bottom)
+            }
+        }
+        return resolve(in: geometry.size, divisions: divisions)
+    }
+
+    var supportsResultPeek: Bool {
+        !usesInlineResults && settings.width > 0 && settings.height >= 180
     }
 }
 
@@ -80,15 +137,14 @@ struct GeneratorView: View {
     @State private var clipboard = SecureClipboard()
     @State private var activeSheet: GeneratorSheet?
     @State private var resultDetent: PresentationDetent = .height(88)
-    @State private var availableWidth: CGFloat = 0
+    @State private var paneLayout = GeneratorPaneLayout(settings: .zero)
     @State private var restoreExpandedResults = false
     @State private var characterGroup: CharacterGroup = .upper
     @State private var rulesExpanded = false
     @State private var settingsPosition = ScrollPosition()
-    @Environment(\.verticalSizeClass) private var verticalSize
     private let peekHeight: CGFloat = 88
-    private var usesSideBySide: Bool { GeneratorPaneLayout.settingsWidth(in: availableWidth) != nil }
-    private var usesPersistentResults: Bool { availableWidth > 0 && !usesSideBySide && UIDevice.current.userInterfaceIdiom == .phone && verticalSize != .compact }
+    private var usesInlineResults: Bool { paneLayout.usesInlineResults }
+    private var usesPersistentResults: Bool { paneLayout.supportsResultPeek }
     private var symbolPresentation: Binding<Bool> {
         Binding(get: { activeSheet == .symbols }, set: { if $0 { activeSheet = .symbols } })
     }
@@ -99,26 +155,31 @@ struct GeneratorView: View {
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
-                HStack(alignment: .top, spacing: 0) {
+                let layout = GeneratorPaneLayout.resolve(in: geometry)
+                ZStack(alignment: .topLeading) {
                     settingsColumn
-                        .frame(width: GeneratorPaneLayout.settingsWidth(in: geometry.size.width))
-                        .frame(maxWidth: GeneratorPaneLayout.settingsWidth(in: geometry.size.width) == nil ? .infinity : nil, maxHeight: .infinity)
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            if usesPersistentResults { Color.clear.frame(height: peekHeight) }
+                            else if !usesInlineResults && activeSheet != .results { generateDock }
+                        }
+                        .frame(width: layout.settings.width, height: layout.settings.height)
+                        .offset(x: layout.settings.minX, y: layout.settings.minY)
                         .accessibilityElement(children: .contain)
-                    if GeneratorPaneLayout.settingsWidth(in: geometry.size.width) != nil {
+                        .accessibilityIdentifier("settings-pane")
+                    if let results = layout.results {
                         ResultsList(model: model, copy: copy, embedded: true, generate: generate, clear: clearResults)
                             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
                             .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color.secondary.opacity(0.18)))
-                            .padding(.leading, 4).padding(.trailing, 12).padding(.vertical, 12)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(12)
+                            .frame(width: results.width, height: results.height)
+                            .offset(x: results.minX, y: results.minY)
                             .accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("results-pane")
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(uiColor: .systemGroupedBackground))
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if usesPersistentResults { Color.clear.frame(height: peekHeight) }
-                    else if !usesSideBySide && activeSheet != .results { generateDock }
-                }
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { updateLayout(width: $0) }
+                .onChange(of: layout, initial: true) { _, value in updateLayout(value) }
             }
             .navigationTitle("Passgen").navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -127,7 +188,7 @@ struct GeneratorView: View {
                         .labelStyle(.iconOnly).accessibilityIdentifier("presets")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { activeSheet = .privacy } label: { Image(systemName: "lock.shield") }.accessibilityLabel("安全性とプライバシー")
+                    Button("安全性とプライバシー", systemImage: "lock.shield") { activeSheet = .privacy }
                 }
             }
             .sheet(item: $activeSheet, onDismiss: restoreResultDock) { sheet in
@@ -171,14 +232,14 @@ struct GeneratorView: View {
         }.scrollDismissesKeyboard(.interactively).scrollPosition($settingsPosition)
     }
 
-    private func updateLayout(width: CGFloat) {
-        let wasSideBySide = usesSideBySide
-        availableWidth = width
-        if usesSideBySide {
+    private func updateLayout(_ layout: GeneratorPaneLayout) {
+        let wasInline = usesInlineResults
+        paneLayout = layout
+        if usesInlineResults {
             restoreExpandedResults = false
             if activeSheet == .results { activeSheet = nil }
         } else {
-            if wasSideBySide && activeSheet == nil && !model.results.isEmpty { restoreExpandedResults = true }
+            if wasInline && activeSheet == nil && !model.results.isEmpty { restoreExpandedResults = true }
             restoreResultDock()
         }
     }
@@ -211,7 +272,7 @@ struct GeneratorView: View {
         }.padding(.horizontal, 16).padding(.vertical, 8).background(.bar)
     }
     private func restoreResultDock() {
-        if restoreExpandedResults, !usesSideBySide, activeSheet == nil, phase == .active {
+        if restoreExpandedResults, !usesInlineResults, activeSheet == nil, phase == .active {
             resultDetent = usesPersistentResults && model.results.count <= 3 ? .medium : .large
             activeSheet = .results; restoreExpandedResults = false
         } else if usesPersistentResults, activeSheet == nil, phase == .active {
@@ -220,7 +281,7 @@ struct GeneratorView: View {
     }
     private func generate() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        if !model.busy && !usesSideBySide {
+        if !model.busy && !usesInlineResults {
             resultDetent = usesPersistentResults && model.recipe.count <= 3 && !typeSize.isAccessibilitySize ? .medium : .large
             activeSheet = .results
         }
@@ -553,12 +614,13 @@ struct ResultsList: View {
                             .accessibilityValue(visible ? "表示中" : "非表示").accessibilityIdentifier("results-visibility")
                     }
                     ToolbarItem(placement: .bottomBar) {
-                        Button("消去", role: .destructive, action: clear).disabled(model.busy || model.results.isEmpty).accessibilityIdentifier("clear-results")
+                        Button(role: .destructive, action: clear) { Label("消去", systemImage: "trash") }
+                            .disabled(model.busy || model.results.isEmpty).accessibilityIdentifier("clear-results")
                     }
                     ToolbarItem(placement: .bottomBar) { Spacer() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(model.generationActionTitle, action: generate)
+                    Button(model.generationActionTitle, systemImage: model.busy ? "stop.fill" : "arrow.clockwise", action: generate)
                         .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
                 }
             }
@@ -885,7 +947,7 @@ private struct PresetQRReviewView: View {
             }
         }.navigationTitle("プリセットを確認").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button("登録") {
+                Button("登録", systemImage: "plus") {
                     nameFocused = false
                     do { try model.importPreset(preset, name: name); saved() } catch { self.error = error.localizedDescription }
                 }.disabled(model.busy || model.presetStorageIssue != nil || model.presetNameError(name) != nil)
@@ -940,7 +1002,7 @@ struct PrivacyView: View {
                     Link("CC BY 4.0 ライセンス", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
                 }
             }.navigationTitle("設定と安全性").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("閉じる", systemImage: "xmark") { dismiss() } } }
         }
     }
 }

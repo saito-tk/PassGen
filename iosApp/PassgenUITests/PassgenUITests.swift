@@ -118,6 +118,10 @@ final class PassgenUITests: XCTestCase {
         let app = launchApp()
         let generate = app.buttons["generate"]
         XCTAssertTrue(generate.waitForExistence(timeout: 5))
+        XCTAssertEqual(generate.label, "生成")
+        XCTAssertGreaterThan(generate.frame.width, 56, "The action must show its title beside the icon")
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "Generation action on minimal result sheet"; initial.lifetime = .keepAlways; add(initial)
         XCTAssertFalse(app.buttons["results-visibility"].exists)
         let length = app.textFields["length"]; XCTAssertTrue(length.isHittable)
         length.tap(); length.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "64")
@@ -126,6 +130,10 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["secret"].waitForExistence(timeout: 5))
         let visibility = app.buttons["results-visibility"]
         XCTAssertEqual(visibility.value as? String, "非表示")
+        XCTAssertEqual(generate.label, "再生成")
+        XCTAssertGreaterThan(generate.frame.width, 64, "Regeneration must keep its title beside the icon")
+        let masked = XCTAttachment(screenshot: app.screenshot())
+        masked.name = "Regeneration action on expanded result sheet"; masked.lifetime = .keepAlways; add(masked)
         visibility.tap(); XCTAssertEqual(visibility.value as? String, "表示中")
         let expanded = XCTAttachment(screenshot: app.screenshot()); expanded.name = "Full 64-character result"; expanded.lifetime = .keepAlways; add(expanded)
         XCTAssertEqual(generate.label, "再生成")

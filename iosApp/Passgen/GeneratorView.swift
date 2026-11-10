@@ -265,7 +265,7 @@ struct GeneratorView: View {
                     .font(.subheadline).accessibilityIdentifier("show-retained-results")
             }
             Button(action: generate) {
-                Text(model.generationActionTitle)
+                GenerationActionLabel(model: model)
                     .font(.headline)
             }.modifier(PrimaryActionStyle()).controlSize(.regular)
                 .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
@@ -602,7 +602,7 @@ struct ResultsList: View {
             }
         } else {
             NavigationStack {
-                content
+                sheetContent
             .navigationTitle("生成結果 \(model.results.count)件").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !collapsed {
@@ -620,7 +620,7 @@ struct ResultsList: View {
                     ToolbarItem(placement: .bottomBar) { Spacer() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(model.generationActionTitle, systemImage: model.busy ? "stop.fill" : "arrow.clockwise", action: generate)
+                    Button(action: generate) { GenerationActionLabel(model: model) }
                         .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
                 }
             }
@@ -631,8 +631,17 @@ struct ResultsList: View {
         Text("生成結果 \(model.results.count)件").font(.headline).frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("results-title")
     }
+    @ViewBuilder private var sheetContent: some View {
+        if #available(iOS 27.1, *) {
+            // Keep enough horizontal space for the generation action's visible title on Duo.
+            content.toolbarVerticalBehavior(.disabled)
+        } else {
+            content
+        }
+    }
     private var embeddedGenerateButton: some View {
-        Button(model.generationActionTitle, action: generate).modifier(PrimaryActionStyle()).controlSize(.regular)
+        Button(action: generate) { GenerationActionLabel(model: model) }
+            .modifier(PrimaryActionStyle()).controlSize(.regular)
             .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
     }
     private var visibilityButton: some View {
@@ -694,6 +703,23 @@ struct ResultsList: View {
                 }
             }
         }
+    }
+}
+
+private struct GenerationActionLabel: View {
+    let model: GeneratorModel
+
+    var body: some View {
+        let title = model.generationActionTitle
+        let symbol = if model.busy { "stop.fill" }
+            else if title == "再生成" { "arrow.clockwise" }
+            else { "key.horizontal" }
+        // A composite view keeps the title visible when the toolbar prefers symbols for Label.
+        HStack(spacing: 6) {
+            Image(systemName: symbol).accessibilityHidden(true)
+            Text(title)
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

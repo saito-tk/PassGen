@@ -108,7 +108,7 @@ import jp.passgen.core.GenerationMode
                                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); keyboard?.hide() }))
                             if (name.isNotEmpty()) model.presetNameError(name)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                            Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("生成条件をこの端末に保存します。生成件数は生成画面で設定します。パスワード・表示・コピー・画面保護の設定は含みません。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             status?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.semantics { testTag = "preset-status"; liveRegion = LiveRegionMode.Polite }) }
                             model.presetStorageIssue?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                             Text("保存済み · ${model.presets.size}件", style = MaterialTheme.typography.titleSmall)

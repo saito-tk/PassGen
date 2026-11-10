@@ -7191,10 +7191,11 @@ final class SecretPreviewLayoutTests: XCTestCase {
         model.recipe.uppercase = false; model.recipe.symbolsEnabled = false
         model.recipe.excludeSimilar = false; model.recipe.requireEach = false
         model.recipe.noAdjacent = true; model.recipe.similarExclusions = "0"
-        let expected = model.recipe.sanitized()
+        let expected = model.recipe.forPreset()
         try model.savePreset(name: "共有設定")
         let original = try XCTUnwrap(model.presets.first)
         let text = try model.presetQR(original)
+        XCTAssertEqual(try PresetQrCodec.shared.decode(text: text).count, 1)
         let png = try XCTUnwrap(PresetQRImage.encode(text).pngData())
         let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
         attachment.name = "Passgen-PG1-iOS-QR"; attachment.lifetime = .keepAlways; add(attachment)
@@ -7222,7 +7223,7 @@ final class SecretPreviewLayoutTests: XCTestCase {
         let model = GeneratorModel()
         let vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
         let decoded = try model.decodedPresetQR(vector)
-        XCTAssertEqual(decoded.name, "Example"); XCTAssertEqual(decoded.recipe, Recipe().sanitized())
+        XCTAssertEqual(decoded.name, "Example"); XCTAssertEqual(decoded.recipe, Recipe().forPreset())
         XCTAssertEqual(try model.presetQR(decoded), vector)
         XCTAssertThrowsError(try model.decodedPresetQR(vector.replacingOccurrences(of: "PG1:", with: "PG2:")))
         XCTAssertThrowsError(try PresetQRImage.decode(data: Data("not an image".utf8)))
@@ -7232,9 +7233,9 @@ final class SecretPreviewLayoutTests: XCTestCase {
         XCTAssertEqual(try PresetQRImage.decode(data: XCTUnwrap(PresetQRImage.encode(text).pngData())), text)
     }
     func testRecipeChangesRequireExplicitQRCompatibilityReview() {
-        let transferred: Set<String> = ["mode", "lengthText", "countText", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
+        let transferred: Set<String> = ["mode", "lengthText", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
             "symbols", "excludeSimilar", "requireEach", "noAdjacent", "uppercaseCharacters", "lowercaseCharacters", "digitCharacters", "similarExclusions"]
-        XCTAssertEqual(Set(Mirror(reflecting: Recipe()).children.compactMap(\.label)), transferred,
+        XCTAssertEqual(Set(Mirror(reflecting: Recipe()).children.compactMap(\.label)).subtracting(["storedCountText"]), transferred,
             "Recipe変更時はQR形式・旧版デコーダー・移行時の明示的な初期値・固定fixtureを確認する")
     }
     private func defaults() -> UserDefaults {
@@ -7249,7 +7250,7 @@ final class SecretPreviewLayoutTests: XCTestCase {
         model.recipe.lowercaseCharacters = "bm"; model.recipe.digitCharacters = "27"; model.recipe.symbols = "!@"
         model.recipe.uppercase = false; model.recipe.symbolsEnabled = false; model.recipe.noAdjacent = true
         model.recipe.requireEach = false; model.recipe.excludeSimilar = false; model.recipe.similarExclusions = "0"
-        let expected = model.recipe.sanitized()
+        let expected = model.recipe.forPreset()
         model.generateOrStop()
         for _ in 0..<200 { if !model.busy { break }; try await Task.sleep(for: .milliseconds(5)) }
         try model.savePreset(name: "  Mail  ")
@@ -7257,14 +7258,43 @@ final class SecretPreviewLayoutTests: XCTestCase {
         let text = try XCTUnwrap(String(data: bytes, encoding: .utf8))
         for item in model.results { XCTAssertFalse(text.contains(item.value)) }
         XCTAssertFalse(text.contains("revealed")); XCTAssertFalse(text.contains("security"))
+        XCTAssertFalse(text.contains("\"countText\""))
         model.recipe = Recipe(); model.revealed = true; model.security.protectCapture = false
+        model.recipe.countText = "53"
         let restored = GeneratorModel(preferences: store)
         XCTAssertEqual(restored.presets.count, 1); XCTAssertEqual(restored.presets[0].name, "Mail")
         XCTAssertEqual(restored.presets[0].recipe, expected)
         try restored.applyPreset(restored.presets[0].id)
-        XCTAssertEqual(restored.recipe, expected); XCTAssertTrue(restored.results.isEmpty)
+        XCTAssertEqual(restored.recipe.forPreset(), expected); XCTAssertTrue(restored.results.isEmpty)
+        XCTAssertEqual(restored.recipe.count, 53)
         XCTAssertTrue(restored.revealed); XCTAssertFalse(restored.security.protectCapture)
         XCTAssertEqual(restored.generationActionTitle, "生成")
+    }
+    func testApplyingPresetsClampsCurrentCountWithoutRestoringLegacyCounts() throws {
+        struct LegacyPresets: Encodable {
+            let version = 1
+            let presets: [GeneratorPreset]
+        }
+        let store = defaults()
+        var short = Recipe(); short.countText = "3"
+        var long = short; long.lengthText = "999999"
+        let shortID = UUID()
+        let longID = UUID()
+        let legacy = LegacyPresets(presets: [
+            GeneratorPreset(id: shortID, name: "Short", recipe: short),
+            GeneratorPreset(id: longID, name: "Long", recipe: long),
+        ])
+        store.set(try JSONEncoder().encode(legacy), forKey: "generation.presets.v1")
+        let model = GeneratorModel(preferences: store)
+        let oldQR = try PresetQrCodec.shared.encode(preset: SharedPreset(name: "Old QR", request: short.forPreset().request(), count: 3))
+        try model.importPreset(model.decodedPresetQR(oldQR), name: "Old QR")
+        let qrID = try XCTUnwrap(model.presets.first?.id)
+        model.recipe.countText = "53"
+        try model.applyPreset(qrID); XCTAssertEqual(model.recipe.count, 53)
+        try model.applyPreset(shortID); XCTAssertEqual(model.recipe.count, 53)
+        try model.applyPreset(longID); XCTAssertEqual(model.recipe.countText, "10")
+        try model.applyPreset(shortID); XCTAssertEqual(model.recipe.countText, "10")
+        XCTAssertEqual(GeneratorModel(preferences: store).recipe.count, 10)
     }
     func testRenameReplaceDeleteAndDuplicateProtectionPersist() throws {
         let store = defaults(); let model = GeneratorModel(preferences: store)

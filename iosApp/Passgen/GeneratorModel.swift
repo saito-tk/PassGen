@@ -12,7 +12,11 @@ enum RecipeMode: String, CaseIterable, Identifiable, Sendable, Codable {
 struct Recipe: Sendable, Codable, Equatable {
     var mode: RecipeMode = .password
     var lengthText = "24"
-    var countText = "1"
+    private var storedCountText: String? = "1"
+    var countText: String {
+        get { storedCountText ?? "1" }
+        set { storedCountText = newValue }
+    }
     var words = 7
     var separator = " "
     var uppercase = true
@@ -28,6 +32,12 @@ struct Recipe: Sendable, Codable, Equatable {
     var digitCharacters = "0123456789"
     var similarExclusions = "Oo0Il1"
 
+    private enum CodingKeys: String, CodingKey {
+        case mode, lengthText, words, separator, uppercase, lowercase, digits, symbolsEnabled, symbols
+        case excludeSimilar, requireEach, noAdjacent, uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions
+        case storedCountText = "countText"
+    }
+
     var length: Int { Int(InputPolicy.shared.normalizedInteger(text: lengthText, fallback: 24, minimum: 4, maximum: 999_999)) }
     var maximumCount: Int { mode == .passphrase ? 1000 : Int(InputPolicy.shared.maximumCount(length: Int32(length))) }
     var count: Int { Int(InputPolicy.shared.normalizedInteger(text: countText, fallback: 1, minimum: 1, maximum: Int32(maximumCount))) }
@@ -42,6 +52,11 @@ struct Recipe: Sendable, Codable, Equatable {
         value.digitCharacters = CharacterPolicy.shared.canonical(selected: digitCharacters, alphabet: CharacterPolicy.shared.DIGITS)
         value.symbols = SymbolPolicy.shared.recognized(text: symbols)
         value.similarExclusions = CharacterPolicy.shared.canonical(selected: similarExclusions, alphabet: CharacterPolicy.shared.SIMILAR)
+        return value
+    }
+    func forPreset() -> Recipe {
+        var value = sanitized()
+        value.storedCountText = nil
         return value
     }
     func request() -> GenerationRequest {
@@ -118,8 +133,8 @@ enum PresetError: LocalizedError {
 
 extension Recipe {
     var presetSummary: String {
-        mode == .password ? "パスワード · \(length)文字 · \(count)件" :
-            "パスフレーズ · \(words)単語 · \(count)件 · \(separator == " " ? "スペース区切り" : separator + "区切り")"
+        mode == .password ? "パスワード · \(length)文字" :
+            "パスフレーズ · \(words)単語 · \(separator == " " ? "スペース区切り" : separator + "区切り")"
     }
 }
 
@@ -194,7 +209,7 @@ extension Recipe {
             for var preset in stored.presets {
                 preset.name = try Self.normalizedPresetName(preset.name)
                 guard names.insert(Self.nameKey(preset.name)).inserted else { throw PresetError.unavailable }
-                preset.recipe = preset.recipe.sanitized(); restored.append(preset)
+                preset.recipe = preset.recipe.forPreset(); restored.append(preset)
             }
             presets = restored
         } catch { presetStorageIssue = PresetError.unavailable.localizedDescription }
@@ -210,36 +225,39 @@ extension Recipe {
     func savePreset(name value: String) throws {
         let name = try Self.normalizedPresetName(value)
         guard !presets.contains(where: { Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }
-        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: recipe.sanitized())] + presets)
+        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: recipe.forPreset())] + presets)
     }
     func applyPreset(_ id: UUID) throws {
         guard !busy else { throw PresetError.busy }
         guard let preset = presets.first(where: { $0.id == id }) else { throw PresetError.missing }
-        recipe = preset.recipe.sanitized()
+        var next = preset.recipe
+        next.countText = String(recipe.count)
+        recipe = next.sanitized()
     }
     func presetQR(_ preset: GeneratorPreset) throws -> String {
         let value = preset.recipe.sanitized()
-        return try PresetQrCodec.shared.encode(preset: SharedPreset(name: preset.name, request: value.request(), count: Int32(value.count)))
+        // PG1 requires a count. Presets use the minimum wire value regardless of the current batch size.
+        return try PresetQrCodec.shared.encode(preset: SharedPreset(name: preset.name, request: value.request(), count: 1))
     }
     func decodedPresetQR(_ text: String) throws -> GeneratorPreset {
         let shared = try PresetQrCodec.shared.decode(text: text)
         let r = shared.request
         var value = Recipe()
         value.mode = r.mode == .password ? .password : .passphrase
-        value.lengthText = String(r.length); value.countText = String(shared.count)
+        value.lengthText = String(r.length)
         value.words = Int(r.wordCount); value.separator = r.separator
         value.uppercase = r.uppercase; value.lowercase = r.lowercase; value.digits = r.digits
         value.symbolsEnabled = r.symbolsEnabled; value.symbols = r.symbols
         value.excludeSimilar = r.excludeSimilar; value.requireEach = r.requireEach; value.noAdjacent = r.noAdjacent
         value.uppercaseCharacters = r.uppercaseCharacters; value.lowercaseCharacters = r.lowercaseCharacters
         value.digitCharacters = r.digitCharacters; value.similarExclusions = r.similarExclusions
-        return GeneratorPreset(id: UUID(), name: shared.name, recipe: value)
+        return GeneratorPreset(id: UUID(), name: shared.name, recipe: value.forPreset())
     }
     func importPreset(_ preset: GeneratorPreset, name value: String) throws {
         let name = try Self.normalizedPresetName(value)
         guard !presets.contains(where: { Self.nameKey($0.name) == Self.nameKey(name) }) else { throw PresetError.duplicate }
         // Creates a fresh local ID. Import never applies settings or overwrites another preset.
-        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: preset.recipe)] + presets)
+        try commitPresets([GeneratorPreset(id: UUID(), name: name, recipe: preset.recipe.forPreset())] + presets)
     }
     func renamePreset(_ id: UUID, to value: String) throws {
         let name = try Self.normalizedPresetName(value)
@@ -251,7 +269,7 @@ extension Recipe {
     func replacePreset(_ id: UUID) throws {
         var next = presets
         guard let index = next.firstIndex(where: { $0.id == id }) else { throw PresetError.missing }
-        next[index].recipe = recipe.sanitized(); try commitPresets(next)
+        next[index].recipe = recipe.forPreset(); try commitPresets(next)
     }
     func deletePreset(_ id: UUID) throws {
         guard presets.contains(where: { $0.id == id }) else { throw PresetError.missing }

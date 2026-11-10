@@ -48,8 +48,9 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var protectCapture by mutableStateOf(true)
     val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
     val clipboardSummary get() = if (autoClearClipboard) "コピーの消去は${clipboardSeconds}秒後が目安" else "コピーの時間による自動消去はオフ"
-    private var generatedConfiguration by mutableStateOf<PresetRecipe?>(null)
-    private fun generationConfiguration() = PresetRecipe.capture(this)
+    private data class GenerationConfiguration(val recipe: PresetRecipe, val count: Int)
+    private var generatedConfiguration by mutableStateOf<GenerationConfiguration?>(null)
+    private fun generationConfiguration() = GenerationConfiguration(PresetRecipe.capture(this), count)
     val generationActionTitle: String get() = when (work) {
         WorkState.CANCELLING -> "停止中…"
         WorkState.RUNNING -> "停止"
@@ -70,12 +71,14 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         }
     }
     private fun preferencesJSON(): String = PresetRecipe.capture(this).json().apply {
+        put("count", count)
         put("revealed", revealed); put("autoClearClipboard", autoClearClipboard)
         put("clipboardSeconds", clipboardSeconds); put("protectCapture", protectCapture)
     }.toString()
     private fun restorePreferences(json: JSONObject) {
         if (json.optInt("version") != 1) return
         PresetRecipe.decode(json).applyTo(this)
+        countText = InputPolicy.normalizedInteger(json.opt("count")?.toString() ?: "1", 1, 1, maxCount).toString()
         fun flag(key: String, fallback: Boolean) = json.opt(key) as? Boolean ?: fallback
         revealed = flag("revealed", false); autoClearClipboard = flag("autoClearClipboard", true)
         clipboardSecondsText = json.optInt("clipboardSeconds", 30).coerceIn(5, 600).toString()
@@ -124,9 +127,12 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     fun applyPreset(id: String) {
         if (busy) throw PresetException("生成が終わってから操作してください。")
         val preset = presets.firstOrNull { it.id == id } ?: throw PresetException("プリセットが見つかりません。")
+        val currentCount = count
         preset.recipe.applyTo(this)
+        countText = currentCount.coerceAtMost(maxCount).toString()
     }
-    fun presetQR(preset: GeneratorPreset): String = PresetQrCodec.encode(SharedPreset(preset.name, preset.recipe.request(), preset.recipe.count))
+    // PG1 requires a count. Presets use the minimum wire value regardless of the current batch size.
+    fun presetQR(preset: GeneratorPreset): String = PresetQrCodec.encode(SharedPreset(preset.name, preset.recipe.request(), 1))
     fun decodedPresetQR(text: String): GeneratorPreset {
         val decoded = PresetQrCodec.decode(text)
         return GeneratorPreset(UUID.randomUUID().toString(), decoded.name, PresetRecipe.fromTransfer(decoded))

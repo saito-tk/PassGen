@@ -5,9 +5,9 @@ import org.json.JSONObject
 import java.text.Normalizer
 import java.util.Locale
 
-/** Generation parameters only. Never includes results, reveal state or security settings. */
+/** Reusable generation rules, independent of the current batch size. */
 data class PresetRecipe(
-    val mode: GenerationMode, val length: Int, val count: Int, val words: Int, val separator: String,
+    val mode: GenerationMode, val length: Int, val words: Int, val separator: String,
     val uppercase: Boolean, val lowercase: Boolean, val digits: Boolean, val symbolsEnabled: Boolean,
     val symbols: String, val excludeSimilar: Boolean, val requireEach: Boolean, val noAdjacent: Boolean,
     val uppercaseCharacters: String, val lowercaseCharacters: String, val digitCharacters: String,
@@ -16,10 +16,10 @@ data class PresetRecipe(
     fun request() = GenerationRequest(mode, length, words, uppercase, lowercase, digits, symbolsEnabled,
         symbols, excludeSimilar, requireEach, noAdjacent, separator, uppercaseCharacters,
         lowercaseCharacters, digitCharacters, similarExclusions)
-    val summary get() = if (mode == GenerationMode.PASSWORD) "パスワード · ${length}文字 · ${count}件"
-        else "パスフレーズ · ${words}単語 · ${count}件 · ${if (separator == " ") "スペース" else separator}区切り"
+    val summary get() = if (mode == GenerationMode.PASSWORD) "パスワード · ${length}文字"
+        else "パスフレーズ · ${words}単語 · ${if (separator == " ") "スペース" else separator}区切り"
     fun json() = JSONObject().apply {
-        put("version", 1); put("mode", mode.name); put("length", length); put("count", count)
+        put("version", 1); put("mode", mode.name); put("length", length)
         put("words", words); put("separator", separator)
         put("uppercase", uppercase); put("lowercase", lowercase); put("digits", digits); put("symbolsEnabled", symbolsEnabled)
         put("symbols", symbols); put("excludeSimilar", excludeSimilar); put("requireEach", requireEach); put("noAdjacent", noAdjacent)
@@ -27,7 +27,7 @@ data class PresetRecipe(
         put("digitCharacters", digitCharacters); put("similarExclusions", similarExclusions)
     }
     fun applyTo(model: PassgenModel) {
-        model.mode = mode; model.lengthText = length.toString(); model.countText = count.toString()
+        model.mode = mode; model.lengthText = length.toString()
         model.words = words; model.separator = separator
         model.uppercase = uppercase; model.lowercase = lowercase; model.digits = digits; model.symbolsEnabled = symbolsEnabled
         model.symbols = symbols; model.excludeSimilar = excludeSimilar; model.requireEach = requireEach; model.noAdjacent = noAdjacent
@@ -36,12 +36,12 @@ data class PresetRecipe(
     }
     companion object {
         fun fromTransfer(p: SharedPreset): PresetRecipe = with(p.request) {
-            PresetRecipe(mode, length, p.count, wordCount, separator, uppercase, lowercase, digits,
+            PresetRecipe(mode, length, wordCount, separator, uppercase, lowercase, digits,
                 symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent,
                 uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
         }
         fun capture(model: PassgenModel): PresetRecipe = with(model) {
-            PresetRecipe(mode, length, count, words.coerceIn(6, 12), separator.takeIf { it in listOf(" ", "-", "_", ".") } ?: " ",
+            PresetRecipe(mode, length, words.coerceIn(6, 12), separator.takeIf { it in listOf(" ", "-", "_", ".") } ?: " ",
                 uppercase, lowercase, digits, symbolsEnabled, SymbolPolicy.recognized(symbols), excludeSimilar, requireEach, noAdjacent,
                 CharacterPolicy.canonical(uppercaseCharacters, CharacterPolicy.UPPERCASE),
                 CharacterPolicy.canonical(lowercaseCharacters, CharacterPolicy.LOWERCASE),
@@ -53,9 +53,7 @@ data class PresetRecipe(
             fun flag(key: String, fallback: Boolean) = json.opt(key) as? Boolean ?: fallback
             val mode = GenerationMode.entries.firstOrNull { it.name == text("mode", "PASSWORD") } ?: GenerationMode.PASSWORD
             val length = InputPolicy.normalizedInteger(json.opt("length")?.toString() ?: "24", 24, 4, InputPolicy.MAX_LENGTH)
-            val count = InputPolicy.normalizedInteger(json.opt("count")?.toString() ?: "1", 1, 1,
-                if (mode == GenerationMode.PASSPHRASE) 1000 else InputPolicy.maximumCount(length))
-            return PresetRecipe(mode, length, count, json.optInt("words", 7).coerceIn(6, 12),
+            return PresetRecipe(mode, length, json.optInt("words", 7).coerceIn(6, 12),
                 text("separator", " ").takeIf { it in listOf(" ", "-", "_", ".") } ?: " ",
                 flag("uppercase", true), flag("lowercase", true), flag("digits", true), flag("symbolsEnabled", true),
                 SymbolPolicy.recognized(text("symbols", "!@#\u0024%&*-_+=?")), flag("excludeSimilar", true), flag("requireEach", true), flag("noAdjacent", false),

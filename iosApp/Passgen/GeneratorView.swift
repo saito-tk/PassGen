@@ -822,7 +822,7 @@ struct PresetsView: View {
                     .disabled(model.busy || model.presetNameError(name) != nil || model.presetStorageIssue != nil)
                     .accessibilityIdentifier("preset-save")
             }.textCase(nil)
-        } footer: { Text("生成条件をこの端末に保存します。パスワード・表示・コピー・画面保護の設定は含みません。") }
+        } footer: { Text("生成条件をこの端末に保存します。生成件数は生成画面で設定します。パスワード・表示・コピー・画面保護の設定は含みません。") }
     }
     private var savedSection: some View {
         Section("保存済み · \(model.presets.count)件") {

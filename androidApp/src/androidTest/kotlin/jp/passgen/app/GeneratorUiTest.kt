@@ -214,7 +214,7 @@ class GeneratorUiTest {
     @Test fun presetQrImageRestoresExactSettingsWithoutChangingCurrentState() {
         rule.runOnIdle {
             val fields = PresetRecipe::class.java.declaredFields.filterNot { it.isSynthetic || java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }.toSet()
-            assertEquals("設定変更時はQR形式・旧reader・互換値・固定fixtureを確認する", setOf("mode", "length", "count", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
+            assertEquals("設定変更時はQR形式・旧reader・互換値・固定fixtureを確認する", setOf("mode", "length", "words", "separator", "uppercase", "lowercase", "digits", "symbolsEnabled",
                 "symbols", "excludeSimilar", "requireEach", "noAdjacent", "uppercaseCharacters", "lowercaseCharacters", "digitCharacters", "similarExclusions"), fields)
             val prefs = rule.activity.getSharedPreferences("test.qr.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
             val first = PassgenModel(prefs)
@@ -227,6 +227,7 @@ class GeneratorUiTest {
                 first.requireEach = false; first.noAdjacent = true; first.similarExclusions = "0"
                 first.savePreset("共有設定"); val original = first.presets.single()
                 val text = first.presetQR(original)
+                assertEquals(1, jp.passgen.core.PresetQrCodec.decode(text).count)
                 val image = PresetQrImage.encode(text)
                 assertEquals(text, PresetQrImage.decode(image))
                 val incoming = first.decodedPresetQR(text)
@@ -237,7 +238,8 @@ class GeneratorUiTest {
                 assertThrows(PresetException::class.java) { first.importPreset(incoming, original.name) }
                 assertEquals(1, first.presets.size)
                 first.importPreset(incoming, "受け取った設定")
-                assertEquals(before, PresetRecipe.capture(first)); assertEquals(setOf(0), first.copiedIndices)
+                assertEquals(before, PresetRecipe.capture(first)); assertEquals(1000, first.count)
+                assertEquals(setOf(0), first.copiedIndices)
                 assertTrue(first.revealed); assertFalse(first.protectCapture)
                 assertEquals(original, first.presets.last()); assertNotEquals(original.id, first.presets.first().id)
                 val next = PassgenModel(prefs); restored = next
@@ -248,9 +250,11 @@ class GeneratorUiTest {
                 val fixture = InstrumentationRegistry.getInstrumentation().context.assets.open("ios-pg1.png").use {
                     android.graphics.BitmapFactory.decodeStream(it)
                 }
-                val ios = first.decodedPresetQR(PresetQrImage.decode(fixture)).recipe
-                assertEquals(PresetRecipe(jp.passgen.core.GenerationMode.PASSWORD, 64, 3, 7, " ",
-                    false, true, true, false, "!{}\\", false, false, true, "AZ", "bm", "27", "0"), ios)
+                val ios = first.decodedPresetQR(PresetQrImage.decode(fixture))
+                assertEquals(PresetRecipe(jp.passgen.core.GenerationMode.PASSWORD, 64, 7, " ",
+                    false, true, true, false, "!{}\\", false, false, true, "AZ", "bm", "27", "0"), ios.recipe)
+                first.importPreset(ios, "旧QR"); first.applyPreset(first.presets.first().id)
+                assertEquals(1000, first.count)
                 val known = PresetQrImage.encode(vector)
                 val exported = File(rule.activity.getExternalFilesDir(null), "task37-android-qr.png")
                 exported.outputStream().use { known.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -327,14 +331,31 @@ class GeneratorUiTest {
                 first.savePreset("  Mail  "); val id = first.presets.first().id
                 val raw = prefs.getString("generation.presets.v1", "")!!
                 assertFalse(raw.contains("revealed")); assertFalse(raw.contains("protectCapture")); assertFalse(raw.contains("results"))
-                first.lengthText = "24"; first.revealed = true; first.protectCapture = false; first.background()
+                val legacy = org.json.JSONObject(raw)
+                val recipe = legacy.getJSONArray("presets").getJSONObject(0).getJSONObject("recipe")
+                assertFalse(recipe.has("count"))
+                recipe.put("count", 2)
+                prefs.edit().putString("generation.presets.v1", legacy.toString()).apply()
+                first.lengthText = "24"; first.countText = "53"
+                first.revealed = true; first.protectCapture = false; first.background()
                 val loaded = PassgenModel(prefs); second = loaded
                 assertEquals(expected, loaded.presets.first().recipe); assertEquals("Mail", loaded.presets.first().name)
+                assertEquals(53, loaded.count)
                 loaded.applyPreset(id); assertEquals(expected, PresetRecipe.capture(loaded))
+                assertEquals(53, loaded.count)
                 assertTrue(loaded.revealed); assertFalse(loaded.protectCapture); assertTrue(loaded.results.isEmpty())
                 loaded.lengthText = "80"; loaded.replacePreset(id); loaded.renamePreset(id, "Work")
                 val entry = org.json.JSONObject(prefs.getString("generation.presets.v1", "")!!).getJSONArray("presets").getJSONObject(0)
                 assertEquals("Work", entry.getString("name")); assertEquals(80, entry.getJSONObject("recipe").getInt("length"))
+                assertFalse(entry.getJSONObject("recipe").has("count"))
+                loaded.chooseMode(jp.passgen.core.GenerationMode.PASSWORD)
+                loaded.replacePreset(id)
+                loaded.lengthText = "999999"; loaded.savePreset("Long")
+                val longId = loaded.presets.first().id
+                loaded.applyPreset(id); loaded.countText = "53"
+                loaded.applyPreset(longId); assertEquals("10", loaded.countText)
+                loaded.applyPreset(id); assertEquals("10", loaded.countText)
+                loaded.deletePreset(longId)
                 loaded.deletePreset(id); assertTrue(loaded.presets.isEmpty())
             } finally { first.viewModelScope.cancel(); second?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
         }
@@ -526,6 +547,7 @@ class GeneratorUiTest {
         rule.waitForIdle()
         rule.runOnIdle {
             assertEquals(before, model.results.map { it.value }); assertEquals(setOf(0), model.copiedIndices)
+            model.countText = (model.count + 1).toString(); assertEquals("生成", model.generationActionTitle)
             model.symbols = "@"; assertEquals("生成", model.generationActionTitle)
             model.generateOrStop()
         }

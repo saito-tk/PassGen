@@ -1337,7 +1337,8 @@ private struct GuideJourneyStep: View {
 
 private struct PasswordExamplesLessonView: View {
     @State private var topic: Int
-    @State private var numberIndex = 0
+    @State private var lessonLength = "4"
+    @State private var lessonCharacters = 4
     @State private var separator = " "
     @Environment(\.dynamicTypeSize) private var typeSize
     private let examples = SecurityGuideExamples.shared
@@ -1385,22 +1386,8 @@ private struct PasswordExamplesLessonView: View {
         }
     }
     private var lengthContent: some View {
-        let item = examples.numericExamples[numberIndex]
-        return Group {
-            LessonPanel(title: "同じ数字でも、長さで変わる") {
-                Picker("数字の桁数", selection: $numberIndex) {
-                    ForEach(examples.numericExamples.indices, id: \.self) { index in
-                        Text("\(examples.numericExamples[index].length)桁").tag(index)
-                    }
-                }.pickerStyle(.segmented)
-                GuideExampleValue(caption: "数字だけの形の例", value: item.value, identifier: "guide-length-value")
-                Text(item.candidateLabel).font(.title2.bold()).foregroundStyle(Color.passgenAccent)
-                    .accessibilityIdentifier("guide-length-count")
-                Text("各桁を0〜9から独立に無作為に選ぶ場合です。先頭の0も含みます。4桁から2桁増えるごとに、候補数は100倍になります。")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                Text("数字だけの短いパスワードは候補が限られます。候補数は安全性や解読時間の保証ではなく、文字種とルールでも変わります。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+        Group {
+            LengthCombinationLesson(lengthText: $lessonLength, selection: $lessonCharacters)
             LessonPanel(title: "24文字のパスワードの形") {
                 GuideExampleValue(caption: "英大文字・小文字・数字・記号の見本", value: examples.PASSWORD, identifier: "guide-password-shape")
                 Text("まず15文字以上を目安に、利用先が許す範囲で長く。このアプリの初期値は24文字です。長いだけ・複雑に見えるだけでは足りず、無作為に新しく作ることが大切です。")
@@ -1427,6 +1414,74 @@ private struct PasswordExamplesLessonView: View {
                 Link("EFF：パスフレーズの作り方（英語）", destination: URL(string: "https://ssd.eff.org/module/creating-strong-passwords")!)
                     .font(.footnote)
             }
+        }
+    }
+}
+
+private struct LengthCombinationLesson: View {
+    @Binding var lengthText: String
+    @Binding var selection: Int
+    @FocusState private var editingLength: Bool
+    @State private var showExact = false
+    private var length: Int? {
+        guard let value = Int(lengthText), (1...128).contains(value) else { return nil }
+        return value
+    }
+    var body: some View {
+        LessonPanel(title: "文字種と長さで、何通り？") {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 8) {
+                ForEach(PasswordCombinationLesson.shared.groups, id: \.mask) { group in
+                    let selected = selection & Int(group.mask) != 0
+                    Button { selection ^= Int(group.mask) } label: {
+                        HStack {
+                            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            Text("\(group.title) \(group.size)")
+                        }.font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                            .background(selected ? Color.passgenAccent.opacity(0.15) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+                    }.buttonStyle(.plain).accessibilityAddTraits(selected ? [.isSelected] : [])
+                        .accessibilityLabel("\(group.title)、\(group.size)種類")
+                        .accessibilityIdentifier("guide-alphabet-\(group.mask)")
+                }
+            }
+            HStack {
+                Text("文字数")
+                TextField("1〜128", text: $lengthText).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 100).focused($editingLength).accessibilityIdentifier("guide-length-input")
+                    .onChange(of: lengthText) { _, value in lengthText = String(value.filter { $0.isASCII && $0.isNumber }.prefix(3)) }
+                Spacer()
+                if editingLength { Button("完了") { editingLength = false } }
+            }
+            HStack(spacing: 8) {
+                ForEach([4, 8, 12, 16, 24], id: \.self) { value in
+                    Button("\(value)") { lengthText = String(value); editingLength = false }
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(length == value ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                        .accessibilityLabel("\(value)文字").accessibilityIdentifier("guide-length-preset-\(value)")
+                }
+            }
+            if let length {
+                let result = PasswordCombinationLesson.shared.calculate(length: Int32(length), selectionMask: Int32(selection))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("1文字に使える候補：\(result.alphabetSize)種類").font(.subheadline)
+                    Text(result.summary).font(.title2.bold()).foregroundStyle(Color.passgenAccent)
+                        .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("guide-length-count")
+                    if selection != 0 {
+                        Text("\(result.formula)（\(result.alphabetSize)を\(length)回掛ける）").font(.subheadline)
+                        Text("1文字増やすと \(result.alphabetSize)倍").font(.subheadline.weight(.semibold))
+                        if result.isAbbreviated {
+                            DisclosureGroup("正確な数を見る", isExpanded: $showExact) {
+                                Text(result.formattedCount + " 通り").font(.system(.caption, design: .monospaced))
+                                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("guide-length-exact")
+                            }.font(.subheadline)
+                        }
+                    } else { Text("文字種を1つ以上選んでください。").font(.subheadline) }
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                    .background(Color.passgenAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            } else { Text("文字数は1〜128で入力してください。").font(.subheadline) }
+            Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }

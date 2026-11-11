@@ -739,12 +739,37 @@ final class PassgenUITests: XCTestCase {
         XCTAssertEqual(mutation.label, "P@ssw0rd1!")
         saveGuideExampleScreenshot(app, "Predictable mutations")
         choosePasswordTopic("長さ", app: app)
-        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "1万通り")
-        app.segmentedControls.buttons["6桁"].tap()
-        XCTAssertEqual(app.staticTexts["guide-length-value"].label, "604839")
-        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "100万通り")
-        app.segmentedControls.buttons["8桁"].tap()
-        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "1億通り")
+        let count = app.staticTexts["guide-length-count"]
+        bringGuideElementIntoView(count, surface: scroll)
+        XCTAssertEqual(count.label, "10,000 通り")
+        for mask in [1, 2, 8] {
+            let option = app.buttons["guide-alphabet-\(mask)"]
+            bringGuideElementIntoView(option, surface: scroll); option.tap()
+        }
+        let twelve = app.buttons["guide-length-preset-12"]
+        bringGuideElementIntoView(twelve, surface: scroll); twelve.tap()
+        bringGuideElementIntoView(count, surface: scroll)
+        XCTAssertEqual(count.label, "約 4.759 × 10²³通り")
+        let exactToggle = app.buttons["正確な数を見る"]
+        bringGuideElementIntoView(exactToggle, surface: scroll); exactToggle.tap()
+        let exact = app.staticTexts["guide-length-exact"]
+        bringGuideElementIntoView(exact, surface: scroll)
+        XCTAssertEqual(exact.label, "475,920,314,814,253,376,475,136 通り")
+        saveGuideExampleScreenshot(app, "Mixed character combination count")
+        for mask in [1, 2, 4, 8] {
+            let option = app.buttons["guide-alphabet-\(mask)"]
+            bringGuideElementIntoView(option, surface: scroll); option.tap()
+        }
+        bringGuideElementIntoView(count, surface: scroll)
+        XCTAssertEqual(count.label, "0 通り")
+        let digits = app.buttons["guide-alphabet-4"]
+        bringGuideElementIntoView(digits, surface: scroll); digits.tap()
+        let input = app.textFields["guide-length-input"]
+        bringGuideElementIntoView(input, surface: scroll); input.tap()
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "6")
+        app.buttons["完了"].tap()
+        bringGuideElementIntoView(count, surface: scroll)
+        XCTAssertEqual(count.label, "1,000,000 通り")
         saveGuideExampleScreenshot(app, "Numeric length comparison")
         choosePasswordTopic("パスフレーズ", app: app)
         let phrase = app.staticTexts["guide-phrase-value"]
@@ -761,7 +786,7 @@ final class PassgenUITests: XCTestCase {
         XCTAssertTrue(guide.waitForExistence(timeout: 3))
         let lengthLink = app.buttons["password-length-guide"]
         bringGuideElementIntoView(lengthLink, surface: guide); lengthLink.tap()
-        XCTAssertEqual(app.staticTexts["guide-length-value"].label, "4827")
+        XCTAssertEqual(app.staticTexts["guide-length-count"].label, "10,000 通り")
     }
     @MainActor func testGuideShowsConcreteAccountAuthenticationAndLookalikeExamples() {
         let app = launchApp()

@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package jp.passgen.app
 
 import androidx.compose.foundation.layout.*
@@ -16,10 +16,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.layout.FoldingFeature
 import jp.passgen.core.SecurityGuideExamples
+import jp.passgen.core.PasswordCombinationLesson
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 
 /** Static, public examples. No generator, clipboard or user credentials are used. */
 @Composable fun PasswordExamplesLessonSheet(initialTopic: Int, fold: FoldingFeature?, back: () -> Unit) {
-    var topic by remember { mutableIntStateOf(initialTopic) }
+    var topic by rememberSaveable { mutableIntStateOf(initialTopic) }
+    var lessonLength by rememberSaveable { mutableStateOf("4") }
+    var lessonCharacters by rememberSaveable { mutableIntStateOf(4) }
     val density = LocalDensity.current
     val topics = listOf("避けたい例", "長さ", "パスフレーズ")
     PassgenSheet(back, fold, maxWidth = 720.dp) {
@@ -38,7 +48,7 @@ import jp.passgen.core.SecurityGuideExamples
             key(topic) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(SecurityGuideExamples.NOTICE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    when (topic) { 0 -> WeakPasswordExamples(); 1 -> LengthExamples(); else -> PhraseExamples() }
+                    when (topic) { 0 -> WeakPasswordExamples(); 1 -> LengthExamples(lessonLength, { lessonLength = it }, lessonCharacters, { lessonCharacters = it }); else -> PhraseExamples() }
                 }
             }
         }
@@ -61,25 +71,56 @@ import jp.passgen.core.SecurityGuideExamples
     }
 }
 
-@Composable private fun LengthExamples() {
-    var numberIndex by remember { mutableIntStateOf(0) }
-    val item = SecurityGuideExamples.numericExamples[numberIndex]
-    LessonPanel("同じ数字でも、長さで変わる") {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            SecurityGuideExamples.numericExamples.forEachIndexed { index, sample ->
-                SegmentedButton(numberIndex == index, { numberIndex = index }, shape = SegmentedButtonDefaults.itemShape(index, 3),
-                    modifier = Modifier.fillMaxHeight().semantics { testTag = "guide-length-$index" }) { Text("${sample.length}桁") }
+@Composable private fun LengthExamples(lengthText: String, changeLength: (String) -> Unit, selection: Int, changeSelection: (Int) -> Unit) {
+    val length = lengthText.toIntOrNull()?.takeIf { it in 1..PasswordCombinationLesson.MAX_LENGTH }
+    var showExact by rememberSaveable { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun finishInput() { focus.clearFocus(); keyboard?.hide() }
+    LessonPanel("文字種と長さで、何通り？") {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PasswordCombinationLesson.groups.forEach { group ->
+                val selected = selection and group.mask != 0
+                FilterChip(selected, { changeSelection(selection xor group.mask) },
+                    label = { Text("${group.title} ${group.size}") },
+                    leadingIcon = if (selected) { { AppIcon(R.drawable.ic_check, Modifier.size(18.dp)) } } else null,
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "guide-alphabet-${group.mask}" })
             }
         }
-        GuideExampleValue("数字だけの形の例", item.value, "guide-length-value")
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(14.dp)) {
-                Text("候補数", style = MaterialTheme.typography.labelMedium)
-                Text(item.candidateLabel, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { testTag = "guide-length-count" })
+        OutlinedTextField(lengthText, { changeLength(it.filter { c -> c in '0'..'9' }.take(3)) },
+            label = { Text("文字数") }, supportingText = { Text("1〜128文字") }, singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { finishInput() }),
+            modifier = Modifier.fillMaxWidth().semantics { testTag = "guide-length-input" })
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(4, 8, 12, 16, 24).forEach { value ->
+                FilterChip(length == value, { changeLength(value.toString()); finishInput() }, label = { Text("$value") },
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "guide-length-preset-$value" })
             }
         }
-        Text("各桁を0〜9から独立に無作為に選ぶ場合です。先頭の0も含みます。4桁から2桁増えるごとに、候補数は100倍になります。", style = MaterialTheme.typography.bodyMedium)
-        Text("数字だけの短いパスワードは候補が限られます。候補数は安全性や解読時間の保証ではなく、文字種とルールでも変わります。", style = MaterialTheme.typography.bodySmall)
+        if (length != null) {
+            val result = remember(length, selection) { PasswordCombinationLesson.calculate(length, selection) }
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("1文字に使える候補：${result.alphabetSize}種類", style = MaterialTheme.typography.bodyMedium)
+                    Text(result.summary, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { testTag = "guide-length-count" })
+                    if (selection != 0) {
+                        Text("${result.formula}（${result.alphabetSize}を${length}回掛ける）", style = MaterialTheme.typography.bodyMedium)
+                        Text("1文字増やすと ${result.alphabetSize}倍", style = MaterialTheme.typography.titleSmall)
+                        if (result.isAbbreviated) {
+                            TextButton(onClick = { showExact = !showExact }) {
+                                Text("正確な数を見る")
+                                AppIcon(if (showExact) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
+                            }
+                            if (showExact) Text(result.formattedCount + " 通り", fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.bodySmall, modifier = Modifier.semantics { testTag = "guide-length-exact" })
+                        }
+                    } else Text("文字種を1つ以上選んでください。", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        } else Text("文字数は1〜128で入力してください。", style = MaterialTheme.typography.bodyMedium)
+        Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。", style = MaterialTheme.typography.bodySmall)
+        Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。", style = MaterialTheme.typography.bodySmall)
     }
     LessonPanel("24文字のパスワードの形") {
         GuideExampleValue("英大文字・小文字・数字・記号の見本", SecurityGuideExamples.PASSWORD, "guide-password-shape")

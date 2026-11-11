@@ -86,7 +86,8 @@ object BruteForceLesson {
     internal fun yearUnitExplanation(seconds: Double): String? {
         val index = yearScale(seconds / SECONDS_PER_YEAR).second
         return if (index in 4 until yearUnits.size) {
-            "1${yearUnits[index]}は、1${yearUnits[index - 1]}の1万倍です。"
+            val order = yearUnits.subList(1, index + 1).joinToString(" → ")
+            "単位の順番（小さい順）\n$order\n右へ1つ進むごとに1万倍。1${yearUnits[index]}＝1万${yearUnits[index - 1]}です。"
         } else null
     }
 
@@ -115,10 +116,8 @@ object BruteForceLesson {
 
 class LessonTrialRate(val attemptsPerSecond: Long, val label: String)
 class BruteForceEstimate internal constructor(val averageSeconds: Double, val exhaustiveSeconds: Double) {
-    val yearUnitExplanation: String? get() = listOfNotNull(
-        BruteForceLesson.yearUnitExplanation(averageSeconds),
-        BruteForceLesson.yearUnitExplanation(exhaustiveSeconds),
-    ).distinct().takeIf { it.isNotEmpty() }?.joinToString("\n")
+    // Include both displayed units in a single ordered explanation.
+    val yearUnitExplanation: String? get() = BruteForceLesson.yearUnitExplanation(exhaustiveSeconds)
     val showsYearNumbers: Boolean get() = exhaustiveSeconds / BruteForceLesson.SECONDS_PER_YEAR >= 1_000_000_000_000.0
     val averageYearNumber: String get() = BruteForceLesson.plainYears(averageSeconds)
     val exhaustiveYearNumber: String get() = BruteForceLesson.plainYears(exhaustiveSeconds)

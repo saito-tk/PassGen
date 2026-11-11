@@ -67,10 +67,13 @@ class PasswordCombinationLessonTest {
         assertEquals("約 35.9溝年", twentyFour.averageLabel)
         assertEquals("約 3,590,000,000,000,000,000,000,000,000,000,000年", twentyFour.averageYearNumber)
         assertEquals("約 7,180,000,000,000,000,000,000,000,000,000,000年", twentyFour.exhaustiveYearNumber)
-        assertEquals("1溝は、1穣の1万倍です。", twentyFour.yearUnitExplanation)
+        assertEquals("単位の順番（小さい順）\n万 → 億 → 兆 → 京 → 垓 → 秭 → 穣 → 溝\n右へ1つ進むごとに1万倍。1溝＝1万穣です。", twentyFour.yearUnitExplanation)
         assertTrue(twentyFour.showsYearNumbers)
         val crossing = BruteForceEstimate(6e15 * year, 1.2e16 * year)
-        assertEquals("1京は、1兆の1万倍です。", crossing.yearUnitExplanation)
+        assertEquals("単位の順番（小さい順）\n万 → 億 → 兆 → 京\n右へ1つ進むごとに1万倍。1京＝1万兆です。", crossing.yearUnitExplanation)
+        val gai = BruteForceEstimate(6e19 * year, 1.2e20 * year)
+        assertEquals("単位の順番（小さい順）\n万 → 億 → 兆 → 京 → 垓\n右へ1つ進むごとに1万倍。1垓＝1万京です。", gai.yearUnitExplanation)
+        assertNull(BruteForceLesson.yearUnitExplanation(1e12 * year))
         assertFalse(BruteForceLesson.estimate(PasswordCombinationLesson.calculate(4, 4), 2)!!.showsYearNumbers)
     }
 

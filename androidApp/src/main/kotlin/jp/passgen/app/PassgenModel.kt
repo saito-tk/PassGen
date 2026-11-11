@@ -29,6 +29,15 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var lowercase by mutableStateOf(true)
     var digits by mutableStateOf(true)
     var symbolsEnabled by mutableStateOf(true)
+    var blockedSymbols by mutableStateOf(""); private set
+    val effectiveSymbols get() = SymbolPolicy.effective(symbols, blockedSymbols)
+    fun setSymbolAllowed(symbol: String, allowed: Boolean) {
+        if (busy) return
+        blockedSymbols = SymbolPolicy.recognized(if (allowed) blockedSymbols.filterNot { it in symbol } else blockedSymbols + symbol)
+    }
+    fun editSymbols(proposed: String) {
+        if (!busy) symbols = SymbolPolicy.editedSelection(proposed, symbols, blockedSymbols)
+    }
     var symbols by mutableStateOf("!@#\u0024%&*-_+=?")
     var excludeSimilar by mutableStateOf(true)
     var requireEach by mutableStateOf(true)
@@ -48,9 +57,9 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var protectCapture by mutableStateOf(true)
     val clipboardSeconds get() = clipboardSecondsText.toIntOrNull()?.coerceIn(5, 600) ?: 30
     val clipboardSummary get() = if (autoClearClipboard) "コピーの消去は${clipboardSeconds}秒後が目安" else "コピーの時間による自動消去はオフ"
-    private data class GenerationConfiguration(val recipe: PresetRecipe, val count: Int)
+    private data class GenerationConfiguration(val recipe: PresetRecipe, val count: Int, val blockedSymbols: String)
     private var generatedConfiguration by mutableStateOf<GenerationConfiguration?>(null)
-    private fun generationConfiguration() = GenerationConfiguration(PresetRecipe.capture(this), count)
+    private fun generationConfiguration() = GenerationConfiguration(PresetRecipe.capture(this), count, blockedSymbols)
     val generationActionTitle: String get() = when (work) {
         WorkState.CANCELLING -> "停止中…"
         WorkState.RUNNING -> "停止"
@@ -71,12 +80,14 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
         }
     }
     private fun preferencesJSON(): String = PresetRecipe.capture(this).json().apply {
+        put("blockedSymbols", blockedSymbols)
         put("count", count)
         put("revealed", revealed); put("autoClearClipboard", autoClearClipboard)
         put("clipboardSeconds", clipboardSeconds); put("protectCapture", protectCapture)
     }.toString()
     private fun restorePreferences(json: JSONObject) {
         if (json.optInt("version") != 1) return
+        blockedSymbols = SymbolPolicy.recognized(json.optString("blockedSymbols", ""))
         PresetRecipe.decode(json).applyTo(this)
         countText = InputPolicy.normalizedInteger(json.opt("count")?.toString() ?: "1", 1, 1, maxCount).toString()
         fun flag(key: String, fallback: Boolean) = json.opt(key) as? Boolean ?: fallback
@@ -168,11 +179,13 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     }
     fun request() = GenerationRequest(mode, length, words, uppercase, lowercase, digits,
         symbolsEnabled, symbols, excludeSimilar, requireEach, noAdjacent, separator,
-        uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions)
+        uppercaseCharacters, lowercaseCharacters, digitCharacters, similarExclusions, blockedSymbols)
     fun estimate(): Double? = try { PasswordEngine().estimatedEntropy(request()) } catch (_: GenerationException) { null }
     val generationActionEnabled get() = work != WorkState.CANCELLING && (busy || estimate() != null)
     val configurationIssue: String? get() = when {
         estimate() != null -> null
+        mode == GenerationMode.PASSPHRASE && separator.any { it in blockedSymbols } ->
+            "この区切り記号は設定で使用しない記号になっています。区切りを変更してください。"
         mode == GenerationMode.PASSWORD && CharacterPolicy.effectivePasswordAlphabet(request()).isEmpty() ->
             "生成に使える文字を1文字以上選択してください。"
         else -> "生成条件を満たせません。文字の選択と生成ルールを確認してください。"
@@ -186,6 +199,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
             job?.cancel()
             return
         }
+        if (estimate() == null) { message = configurationIssue; return }
         normalize()
         val request = request()
         generatedConfiguration = generationConfiguration()

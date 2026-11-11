@@ -330,8 +330,12 @@ private struct QuantityEditor: View {
             }.fixedSize(horizontal: false, vertical: true)
             if model.recipe.mode == .passphrase {
                 Picker("区切り", selection: $model.recipe.separator) {
-                    Text("スペース").tag(" "); Text("-").tag("-"); Text("_").tag("_"); Text(".").tag(".")
+                    Text("スペース").tag(" ")
+                    ForEach(["-", "_", "."], id: \.self) { separator in
+                        Text(separator).tag(separator).disabled(model.blockedSymbols.contains(separator))
+                    }
                 }.pickerStyle(.segmented)
+                if let issue = model.configurationIssue { Text(issue).font(.caption).foregroundStyle(.red) }
             }
             if model.isDigitsOnly { Text("数字だけの短いパスワードは、候補数が少なくなります。") .font(.caption).foregroundStyle(.secondary) }
         }.padding(14).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -346,6 +350,10 @@ private struct CharacterEditor: View {
     @Binding var showSymbols: Bool
     @Binding var group: CharacterGroup
     private var selected: String { group.selected(in: model.recipe) }
+    private func updateSelection(_ value: String) {
+        if group == .symbols { model.editSymbols(value) }
+        else { group.setSelected(value, in: &model.recipe) }
+    }
     private var enabled: Bool { group.enabled(in: model.recipe) }
     private var excluded: String {
         guard model.recipe.excludeSimilar, group != .symbols else { return "" }
@@ -354,7 +362,7 @@ private struct CharacterEditor: View {
     private var summary: String {
         CharacterGroup.allCases.map { item in
             let count = item.enabled(in: model.recipe) ? item.selected(in: model.recipe).filter {
-                item == .symbols || !model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0)
+                item == .symbols ? !model.blockedSymbols.contains($0) : (!model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0))
             }.count : 0
             return "\(item.title.prefix(1))\(count)"
         }.joined(separator: " / ")
@@ -371,18 +379,19 @@ private struct CharacterEditor: View {
                     Toggle("\(group.title)を含める", isOn: Binding(get: { enabled }, set: { group.setEnabled($0, in: &model.recipe) }))
                         .font(.subheadline)
                     Menu {
-                        Button("すべて選択") { group.setSelected(group.alphabet, in: &model.recipe) }
-                        Button("選択を解除") { group.setSelected("", in: &model.recipe) }
-                        Button("選択を反転") { group.setSelected(String(group.alphabet.filter { !selected.contains($0) }), in: &model.recipe) }
+                        Button("すべて選択") { updateSelection(group.alphabet) }
+                        Button("選択を解除") { updateSelection("") }
+                        Button("選択を反転") { updateSelection(String(group.alphabet.filter { !selected.contains($0) })) }
                     } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
                         .accessibilityLabel("文字の一括選択").disabled(!enabled)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 5)], spacing: 5) {
                     ForEach(Array(group.alphabet), id: \.self) { character in
-                        let isExcluded = excluded.contains(character)
+                        let isBlocked = group == .symbols && model.blockedSymbols.contains(character)
+                        let isExcluded = excluded.contains(character) || isBlocked
                         let checked = selected.contains(character) && !isExcluded
                         Button {
-                            group.setSelected(selected.contains(character) ? String(selected.filter { $0 != character }) : selected + String(character), in: &model.recipe)
+                            updateSelection(selected.contains(character) ? String(selected.filter { $0 != character }) : selected + String(character))
                         } label: {
                             Text(String(character)).font(.system(.body, design: .monospaced, weight: .medium))
                                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -391,12 +400,13 @@ private struct CharacterEditor: View {
                                 .foregroundStyle(!enabled || isExcluded ? Color.secondary.opacity(0.4) : Color.primary)
                         }.buttonStyle(.plain).disabled(!enabled || isExcluded)
                             .accessibilityLabel("\(group.title) \(String(character))")
-                            .accessibilityValue(isExcluded ? "似た文字として除外中" : checked ? "選択" : "未選択")
+                            .accessibilityValue(isBlocked ? "アプリの設定で使用しない記号" : isExcluded ? "似た文字として除外中" : checked ? "選択" : "未選択")
                             .accessibilityAddTraits(checked ? [.isSelected] : [])
                             .accessibilityIdentifier("character-\(character)")
                     }
                 }
                 if !excluded.isEmpty { Text("\(excluded) は「似た文字を除外」で除外中").font(.caption2).foregroundStyle(.secondary) }
+                if group == .symbols && !model.blockedSymbols.isEmpty { Text("薄い記号はアプリの設定で使用しない記号です。").font(.caption2).foregroundStyle(.secondary) }
                 if group == .symbols && enabled {
                     Button("記号一覧を貼り付け・画像から読み取る", systemImage: "doc.viewfinder") { showSymbols = true }
                         .font(.subheadline).frame(minHeight: 44)
@@ -420,7 +430,7 @@ private struct CharacterOverview: View {
                     ForEach(CharacterGroup.allCases) { item in
                         let effective = item.enabled(in: model.recipe) ? CharacterPolicy.shared.effective(
                             selected: item.selected(in: model.recipe), alphabet: item.alphabet,
-                            excludeSimilar: model.recipe.excludeSimilar, exclusions: model.recipe.similarExclusions) : ""
+                            excludeSimilar: model.recipe.excludeSimilar, exclusions: model.recipe.similarExclusions).filter { !model.blockedSymbols.contains($0) } : ""
                         Group {
                             if typeSize.isAccessibilitySize {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -436,7 +446,7 @@ private struct CharacterOverview: View {
                             }
                         }.accessibilityElement(children: .ignore)
                             .accessibilityLabel(item.title)
-                            .accessibilityValue("生成対象: \(effective.isEmpty ? "なし" : effective.map(String.init).joined(separator: " "))")
+                            .accessibilityValue("生成対象: \(effective.isEmpty ? "なし" : effective.map(String.init).joined(separator: " "))" + (item == .symbols && !model.blockedSymbols.isEmpty ? "。アプリの設定で使用しない記号: \(model.blockedSymbols)" : ""))
                             .accessibilityIdentifier("\(identifierPrefix)-\(item.rawValue)")
                     }
                 }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
@@ -450,6 +460,7 @@ private struct CharacterOverview: View {
             ForEach(Array(alphabet), id: \.self) { character in
                 let active = effective.contains(character)
                 Text(String(character)).font(.system(.caption, design: .monospaced, weight: active ? .semibold : .regular))
+                    .strikethrough(model.blockedSymbols.contains(character))
                     .foregroundStyle(active ? Color.primary : Color.secondary.opacity(0.35))
                     .frame(minWidth: 11)
             }
@@ -957,6 +968,7 @@ private struct PresetQRReviewView: View {
             }
             Section("生成条件") {
                 Text(preset.recipe.presetSummary)
+                if !model.blockedSymbols.isEmpty { Text("アプリの設定で使用しない記号は、読み込んだ後も生成に使いません。") .font(.caption).foregroundStyle(.secondary) }
                 if preset.recipe.mode == .password {
                     ForEach(CharacterGroup.allCases) { group in
                         VStack(alignment: .leading, spacing: 4) {
@@ -984,6 +996,39 @@ private struct PresetQRReviewView: View {
     }
 }
 
+private struct AppSymbolsSettingsView: View {
+    @Bindable var model: GeneratorModel
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("オンの記号だけを、このアプリで使用します。オフの記号は文字セットで選択できず、プリセット・QR・画像・貼り付けから読み込んでも生成には使いません。")
+                    .font(.subheadline)
+                Text("使用する記号 \(SymbolPolicy.shared.SUPPORTED.count - model.blockedSymbols.count) / 32")
+                    .font(.headline).accessibilityIdentifier("allowed-symbol-count")
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 8)], spacing: 8) {
+                    ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
+                        let allowed = !model.blockedSymbols.contains(symbol)
+                        Button { model.setSymbolAllowed(String(symbol), allowed: !allowed) } label: {
+                            VStack(spacing: 4) {
+                                Text(String(symbol)).font(.system(.title3, design: .monospaced)).strikethrough(!allowed)
+                                Image(systemName: allowed ? "checkmark.circle.fill" : "circle").font(.caption)
+                            }.frame(maxWidth: .infinity, minHeight: 60)
+                                .foregroundStyle(allowed ? Color.passgenAccent : Color.secondary)
+                                .background(allowed ? Color.passgenAccent.opacity(0.12) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                        }.buttonStyle(.plain).disabled(model.busy)
+                            .accessibilityLabel("記号 \(symbol)")
+                            .accessibilityValue(allowed ? "使用する" : "使用しない")
+                            .accessibilityAddTraits(allowed ? [.isSelected] : [])
+                            .accessibilityIdentifier("app-symbol-\(symbol)")
+                    }
+                }
+                Text("パスフレーズの区切り記号にも適用します。変更は次の生成から反映されます。プリセットに保存された選択は保持され、再びオンにすると使用できるようになります。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(16)
+        }.navigationTitle("アプリで使う記号").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 struct PrivacyView: View {
     @Bindable var model: GeneratorModel
     @Environment(\.dismiss) private var dismiss
@@ -995,6 +1040,11 @@ struct PrivacyView: View {
                         Label("パスワードとアカウントを守る", systemImage: "book.closed")
                     }.accessibilityIdentifier("security-guide")
                 } footer: { Text("長さ・使い回し・管理アプリ・2要素認証・パスキーを知る") }
+                Section("生成に使う文字") {
+                    NavigationLink { AppSymbolsSettingsView(model: model) } label: {
+                        Label("アプリで使う記号", systemImage: "slider.horizontal.3")
+                    }.accessibilityIdentifier("app-symbol-settings")
+                }
                 Section {
                     Toggle("ほかのApple端末へのコピーを許可", isOn: $model.security.allowUniversalClipboard)
                         .accessibilityIdentifier("allow-universal-clipboard")

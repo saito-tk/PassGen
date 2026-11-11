@@ -6869,7 +6869,8 @@ private actor ImportAnalysisGate {
         XCTAssertTrue(restored.revealed); XCTAssertTrue(restored.results.isEmpty)
         let data = defaults.data(forKey: "generation.preferences.v1")!
         let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        XCTAssertEqual(Set(object.keys), ["version", "recipe", "revealed", "security"])
+        XCTAssertEqual(Set(object.keys), ["version", "recipe", "revealed", "security", "blockedSymbols"])
+        XCTAssertEqual(object["blockedSymbols"] as? String, "")
         XCTAssertTrue(restored.security.allowUniversalClipboard); XCTAssertEqual(restored.security.clipboardSeconds, 90)
         XCTAssertFalse(restored.security.protectCapture)
         restored.chooseMode(.passphrase); restored.chooseMode(.password)
@@ -7328,5 +7329,61 @@ final class SecretPreviewLayoutTests: XCTestCase {
         try model.applyPreset(XCTUnwrap(model.presets.first?.id))
         XCTAssertEqual(model.results.map(\.value), previous); XCTAssertEqual(model.copiedIDs, [0])
         XCTAssertTrue(model.revealed); XCTAssertEqual(model.generationActionTitle, "生成")
+    }
+}
+
+
+@MainActor final class AppSymbolRestrictionTests: XCTestCase {
+    func testRestrictionsSurviveQRAndRestartWithoutChangingPreset() async throws {
+        let suite = "test.symbols.\(UUID().uuidString)"
+        let store = UserDefaults(suiteName: suite)!
+        defer { store.removePersistentDomain(forName: suite) }
+        let source = GeneratorModel()
+        source.recipe.uppercase = false; source.recipe.lowercase = false; source.recipe.digits = false
+        source.recipe.symbols = "!?@"; source.recipe.lengthText = "64"
+        try source.savePreset(name: "Symbols")
+        let qr = try source.presetQR(XCTUnwrap(source.presets.first))
+        let model = GeneratorModel(preferences: store)
+        model.setSymbolAllowed("!", allowed: false)
+        try model.importPreset(model.decodedPresetQR(qr), name: "Symbols")
+        try model.applyPreset(XCTUnwrap(model.presets.first?.id))
+        XCTAssertEqual(Set(model.recipe.symbols), Set("!?@"))
+        XCTAssertEqual(Set(model.effectiveSymbols), Set("?@"))
+        XCTAssertEqual(model.estimate, 64)
+        model.generateOrStop()
+        for _ in 0..<200 where model.busy { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(model.busy)
+        XCTAssertEqual(model.results.count, 1)
+        XCTAssertTrue(try XCTUnwrap(model.results.first).value.allSatisfy { "?@".contains($0) })
+        XCTAssertEqual(model.generationActionTitle, "再生成")
+        model.setSymbolAllowed("@", allowed: false)
+        XCTAssertEqual(model.generationActionTitle, "生成")
+        let restored = GeneratorModel(preferences: store)
+        XCTAssertEqual(Set(restored.blockedSymbols), Set("!@"))
+        XCTAssertEqual(restored.effectiveSymbols, "?")
+        XCTAssertEqual(Set(try restored.decodedPresetQR(restored.presetQR(XCTUnwrap(restored.presets.first))).recipe.symbols), Set("!?@"))
+        restored.editSymbols("")
+        XCTAssertEqual(Set(restored.recipe.symbols), Set("!@"))
+        XCTAssertFalse(restored.generationActionEnabled)
+        restored.setSymbolAllowed("!", allowed: true)
+        XCTAssertEqual(restored.effectiveSymbols, "!")
+        restored.recipe.mode = .passphrase; restored.recipe.separator = "-"
+        restored.setSymbolAllowed("-", allowed: false)
+        XCTAssertFalse(restored.generationActionEnabled)
+        XCTAssertTrue(restored.configurationIssue?.contains("区切り") == true)
+        restored.generateOrStop(); XCTAssertFalse(restored.busy)
+        restored.recipe.separator = " "
+        XCTAssertTrue(restored.generationActionEnabled)
+    }
+
+    func testLegacyPreferencesDefaultToAllSymbolsAllowed() throws {
+        let suite = "test.legacy-symbols.\(UUID().uuidString)"
+        let store = UserDefaults(suiteName: suite)!
+        defer { store.removePersistentDomain(forName: suite) }
+        struct Legacy: Encodable { let version = 1; let recipe = Recipe(); let revealed = false }
+        store.set(try JSONEncoder().encode(Legacy()), forKey: "generation.preferences.v1")
+        let restored = GeneratorModel(preferences: store)
+        XCTAssertEqual(restored.blockedSymbols, "")
+        XCTAssertEqual(Set(restored.effectiveSymbols), Set(restored.recipe.symbols))
     }
 }

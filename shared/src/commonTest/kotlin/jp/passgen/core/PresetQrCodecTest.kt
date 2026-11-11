@@ -5,6 +5,14 @@ import kotlin.test.*
 class PresetQrCodecTest {
     private val vector = "PG1:H4MACAP77777777777742DYAZAHUK6DBNVYGYZP3KHHRA"
 
+    @Test fun deviceRestrictionsAreNeverTransferredAndPG1IsUnchanged() {
+        val plain = SharedPreset("Example", GenerationRequest(symbols = SymbolPolicy.recognized(GenerationRequest().symbols)), 1)
+        val restricted = SharedPreset("Example", GenerationRequest(symbols = plain.request.symbols, blockedSymbols = SymbolPolicy.SUPPORTED), 1)
+        assertEquals(vector, PresetQrCodec.encode(restricted))
+        assertEquals(PresetQrCodec.encode(plain), PresetQrCodec.encode(restricted))
+        assertEquals("", PresetQrCodec.decode(vector).request.blockedSymbols)
+    }
+
     @Test fun cameraCandidatesIgnoreForeignBrokenAndFutureCodes() {
         assertNull(PresetQrCodec.selectCandidate(emptyList()))
         val ignored = listOf("https://example.com/", "WIFI:T:WPA;S:demo;P:example;;", "PG99:UNKNOWN", "PG1:BROKEN", vector.dropLast(1) + "B", "PG1:" + "A".repeat(10000))

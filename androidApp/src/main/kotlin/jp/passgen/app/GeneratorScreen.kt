@@ -214,7 +214,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             if (model.mode == GenerationMode.PASSPHRASE) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(" " to "スペース", "-" to "-", "_" to "_", "." to ".").forEach { (value, label) ->
-                        FilterChip(model.separator == value, { model.separator = value }, enabled = !model.busy, label = { Text(label) },
+                        FilterChip(model.separator == value, { model.separator = value }, enabled = !model.busy && value.none { it in model.blockedSymbols }, label = { Text(label) },
                             leadingIcon = if (model.separator == value) { { AppIcon(R.drawable.ic_check, Modifier.size(16.dp)) } } else null)
                     }
                 }
@@ -255,7 +255,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
     fun update(value: String) {
         val canonical = CharacterPolicy.canonical(value, tab.alphabet)
-        when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters = canonical; CharacterTab.LOWER -> model.lowercaseCharacters = canonical; CharacterTab.DIGITS -> model.digitCharacters = canonical; CharacterTab.SYMBOLS -> model.symbols = canonical }
+        when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters = canonical; CharacterTab.LOWER -> model.lowercaseCharacters = canonical; CharacterTab.DIGITS -> model.digitCharacters = canonical; CharacterTab.SYMBOLS -> model.editSymbols(canonical) }
     }
     fun toggleCategory(value: Boolean) {
         when (tab) { CharacterTab.UPPER -> model.uppercase = value; CharacterTab.LOWER -> model.lowercase = value; CharacterTab.DIGITS -> model.digits = value; CharacterTab.SYMBOLS -> model.symbolsEnabled = value }
@@ -265,7 +265,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("文字セット", style = MaterialTheme.typography.titleMedium)
-            Text("大${if (model.uppercase) model.uppercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 小${if (model.lowercase) model.lowercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 数${if (model.digits) model.digitCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 記${if (model.symbolsEnabled) model.symbols.length else 0}",
+            Text("大${if (model.uppercase) model.uppercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 小${if (model.lowercase) model.lowercaseCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 数${if (model.digits) model.digitCharacters.count { !model.excludeSimilar || it !in model.similarExclusions } else 0} / 記${if (model.symbolsEnabled) model.effectiveSymbols.length else 0}",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (LocalDensity.current.fontScale > 1.3f) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -292,14 +292,15 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 tab.alphabet.forEach { character ->
-                    val isExcluded = character in excluded
+                    val isBlocked = tab == CharacterTab.SYMBOLS && character in model.blockedSymbols
+                    val isExcluded = character in excluded || isBlocked
                     val checked = enabled && character in selected && !isExcluded
                     Surface(onClick = { update(if (character in selected) selected.replace(character.toString(), "") else selected + character) },
                         enabled = enabled && !model.busy && !isExcluded,
                         modifier = Modifier.size(maxOf(48f, 32f + 16f * LocalDensity.current.fontScale).dp).semantics {
                             toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off; role = Role.Checkbox
                             contentDescription = "${tab.title} $character"
-                            stateDescription = if (isExcluded) "似た文字として除外中" else if (checked) "選択" else "未選択"
+                            stateDescription = if (isBlocked) "アプリの設定で使用しない記号" else if (isExcluded) "似た文字として除外中" else if (checked) "選択" else "未選択"
                             testTag = "character-$character"
                         }, shape = RoundedCornerShape(10.dp),
                         color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
@@ -313,6 +314,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 }
             }
             if (excluded.isNotEmpty()) Text("$excluded は「似た文字を除外」で除外中", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) Text("薄い記号はアプリの設定で使用しない記号です。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { ActionLabel(R.drawable.ic_content_paste, "記号一覧を貼り付け") }
         }
     }
@@ -329,19 +331,19 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 CharacterTab.entries.forEach { tab ->
                     val enabled = when (tab) { CharacterTab.UPPER -> model.uppercase; CharacterTab.LOWER -> model.lowercase; CharacterTab.DIGITS -> model.digits; CharacterTab.SYMBOLS -> model.symbolsEnabled }
                     val selected = when (tab) { CharacterTab.UPPER -> model.uppercaseCharacters; CharacterTab.LOWER -> model.lowercaseCharacters; CharacterTab.DIGITS -> model.digitCharacters; CharacterTab.SYMBOLS -> model.symbols }
-                    val effective = if (enabled) CharacterPolicy.effective(selected, tab.alphabet, model.excludeSimilar, model.similarExclusions) else ""
-                    val description = "${tab.title}、生成対象: ${effective.toList().joinToString(" ").ifEmpty { "なし" }}"
+                    val effective = if (enabled) CharacterPolicy.effective(selected, tab.alphabet, model.excludeSimilar, model.similarExclusions).filterNot { it in model.blockedSymbols } else ""
+                    val description = "${tab.title}、生成対象: ${effective.toList().joinToString(" ").ifEmpty { "なし" }}" + if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) "。アプリの設定で使用しない記号: ${model.blockedSymbols}" else ""
                     val row = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description; testTag = "$identifierPrefix-${tab.name}" }
                     if (LocalDensity.current.fontScale >= 2f) {
                         Column(row, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(tab.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.fillMaxWidth())
+                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.fillMaxWidth(), model.blockedSymbols)
                         }
                     } else {
                         Row(row, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                             Text(tab.title, modifier = Modifier.width(labelWidth).padding(top = 2.dp), style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.weight(1f))
+                            CharacterPreviewGlyphs(tab.alphabet, effective, Modifier.weight(1f), model.blockedSymbols)
                         }
                     }
                 }
@@ -350,7 +352,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
 }
 
-@Composable private fun CharacterPreviewGlyphs(alphabet: String, effective: String, modifier: Modifier) {
+@Composable private fun CharacterPreviewGlyphs(alphabet: String, effective: String, modifier: Modifier, blocked: String) {
     val spacing = with(LocalDensity.current) { maxOf(3.dp, 3.sp.toDp()) }
     val glyphWidth = with(LocalDensity.current) { maxOf(11.dp, 11.sp.toDp()) }
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalArrangement = Arrangement.spacedBy(spacing)) {
@@ -358,6 +360,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             val active = character in effective
             Text(character.toString(), modifier = Modifier.widthIn(min = glyphWidth), fontSize = 14.sp, lineHeight = 20.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                textDecoration = if (character in blocked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
                 color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f))
         }
     }
@@ -519,8 +522,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             Button(onClick = {
                 finishInput()
                 val found = SymbolPolicy.recognized(text)
-                model.symbols = SymbolPolicy.applyPasted(text, model.symbols)
-                info = if (found.isEmpty()) "対応する記号がないため、選択は変更していません。" else "${found.length}種類を反映しました。"
+                model.editSymbols(SymbolPolicy.applyPasted(text, model.symbols))
+                info = if (found.isEmpty()) "対応する記号がないため、選択は変更していません。" else "${SymbolPolicy.effective(found, model.blockedSymbols).length}種類を反映しました。使用しない記号は除外しています。"
                 text = ""
             }, enabled = text.isNotEmpty() && !model.busy, modifier = Modifier.fillMaxWidth()) { Text("記号に反映") }
             info?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

@@ -33,7 +33,7 @@ class PasswordEngine internal constructor(private val entropy: EntropySource) {
 
     private fun validate(r: GenerationRequest) {
         if (r.mode == GenerationMode.PASSPHRASE) {
-            if (r.wordCount !in 6..12 || r.separator !in listOf(".", "_", " ", "-")) invalid()
+            if (r.wordCount !in 6..12 || r.separator !in listOf(".", "_", " ", "-") || r.separator.any { it in r.blockedSymbols }) invalid()
             return
         }
         if (r.length !in 4..InputPolicy.MAX_LENGTH) invalid()

@@ -24,6 +24,7 @@ class GenerationRequest(
     val lowercaseCharacters: String = CharacterPolicy.LOWERCASE,
     val digitCharacters: String = CharacterPolicy.DIGITS,
     val similarExclusions: String = CharacterPolicy.SIMILAR,
+    val blockedSymbols: String = "",
 )
 
 interface CancellationProbe { fun isCancelled(): Boolean }
@@ -54,6 +55,10 @@ object InputPolicy {
 object SymbolPolicy {
     const val SUPPORTED = "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><=`\\"
     fun recognized(text: String): String = SUPPORTED.filter { it in text }
+    fun effective(selected: String, blocked: String): String = recognized(selected).filterNot { it in blocked }
+    /** Editing cannot change the stored selection of globally disabled symbols. */
+    fun editedSelection(proposed: String, current: String, blocked: String): String =
+        recognized(effective(proposed, blocked) + current.filter { it in blocked })
     fun applyPasted(text: String, current: String): String = recognized(text).ifEmpty { current }
 
     /** OCR / LLM candidates can only narrow explicitly observed, supported symbols. */
@@ -75,7 +80,7 @@ object CharacterPolicy {
         if (r.uppercase) add(effective(r.uppercaseCharacters, UPPERCASE, r.excludeSimilar, r.similarExclusions))
         if (r.lowercase) add(effective(r.lowercaseCharacters, LOWERCASE, r.excludeSimilar, r.similarExclusions))
         if (r.digits) add(effective(r.digitCharacters, DIGITS, r.excludeSimilar, r.similarExclusions))
-        if (r.symbolsEnabled) add(SymbolPolicy.recognized(r.symbols))
+        if (r.symbolsEnabled) add(SymbolPolicy.effective(r.symbols, r.blockedSymbols))
     }.filter { it.isNotEmpty() }
 
     fun effectivePasswordAlphabet(request: GenerationRequest): String =

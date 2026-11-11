@@ -73,6 +73,7 @@ import kotlinx.coroutines.*
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         PresetQrDetails(preset.recipe)
         Text("共有元を確認してから登録してください。登録後、一覧から選ぶと主画面に適用できます。", style = MaterialTheme.typography.bodySmall)
+        if (model.blockedSymbols.isNotEmpty()) Text("アプリの設定で使用しない記号は、読み込んだ後も生成に使いません。", style = MaterialTheme.typography.bodySmall)
     }
 }
 

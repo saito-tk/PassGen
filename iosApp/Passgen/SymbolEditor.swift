@@ -27,29 +27,29 @@ struct SymbolEditor: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
-                            Text("\(model.recipe.symbols.count) / \(SymbolPolicy.shared.SUPPORTED.count)種類").font(.headline)
+                            Text("\(model.effectiveSymbols.count) / \(SymbolPolicy.shared.SUPPORTED.count)種類").font(.headline)
                             Spacer()
                             Menu("選択") {
-                                Button("すべて選択") { model.recipe.symbols = SymbolPolicy.shared.SUPPORTED }
-                                Button("選択を解除") { model.recipe.symbols = "" }
+                                Button("すべて選択") { model.editSymbols(SymbolPolicy.shared.SUPPORTED) }
+                                Button("選択を解除") { model.editSymbols("") }
                             }
                         }
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
-                                let selected = model.recipe.symbols.contains(symbol)
+                                let blocked = model.blockedSymbols.contains(symbol)
+                                let selected = model.effectiveSymbols.contains(symbol)
                                 Button { toggle(symbol) } label: {
                                     Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
                                         .frame(maxWidth: .infinity, minHeight: 48)
                                         .background(selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
                                         .foregroundStyle(selected ? Color.passgenOnAccent : Color.primary)
-                                }.buttonStyle(.plain).accessibilityLabel("記号 \(String(symbol))")
+                                }.buttonStyle(.plain).disabled(blocked).opacity(blocked ? 0.35 : 1)
+                                    .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "選択" : "未選択")
+                                    .accessibilityLabel("記号 \(String(symbol))")
                                     .accessibilityAddTraits(selected ? [.isSelected] : [])
                             }
                         }
-                        if model.recipe.symbols.isEmpty {
-                            Text("記号を選択するか「記号を含める」をオフにしてください。")
-                                .font(.caption).foregroundStyle(.red)
-                        }
+                        if !model.blockedSymbols.isEmpty { Text("薄い記号はアプリの設定で使用しない記号です。").font(.caption).foregroundStyle(.secondary) }
                     }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     VStack(alignment: .leading, spacing: 12) {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)
@@ -70,9 +70,9 @@ struct SymbolEditor: View {
                         Button("記号に反映") {
                             pasteFocused = false
                             let found = SymbolPolicy.shared.recognized(text: pasted)
-                            model.recipe.symbols = SymbolPolicy.shared.applyPasted(text: pasted, current: model.recipe.symbols)
+                            model.editSymbols(SymbolPolicy.shared.applyPasted(text: pasted, current: model.recipe.symbols))
                             pasted = ""
-                            feedback = found.isEmpty ? "対応する記号がないため、選択は変更していません。" : "\(found.count)種類を反映しました。"
+                            feedback = found.isEmpty ? "対応する記号がないため、選択は変更していません。" : "\(SymbolPolicy.shared.effective(selected: found, blocked: model.blockedSymbols).count)種類を反映しました。使用しない記号は除外しています。"
                         }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(pasted.isEmpty)
                             .accessibilityIdentifier("apply-pasted-symbols")
                         if let feedback { Text(feedback).font(.caption).foregroundStyle(.secondary).accessibilityAddTraits(.updatesFrequently) }
@@ -112,28 +112,32 @@ struct SymbolEditor: View {
                                     .privacySensitive()
                             }
                             if analysis.previewData != nil {
-                                Text("画像と照合 · \(session.candidate.count)種類を選択中").font(.subheadline.weight(.semibold))
+                                Text("画像と照合 · \(SymbolPolicy.shared.effective(selected: session.candidate, blocked: model.blockedSymbols).count)種類を選択中").font(.subheadline.weight(.semibold))
                                 Text("読み落とした記号は追加し、余分な記号は解除してください。").font(.caption).foregroundStyle(.secondary)
                                 LazyVGrid(columns: columns, spacing: 8) {
                                     ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
+                                        let blocked = model.blockedSymbols.contains(symbol)
+                                        let selected = session.candidate.contains(symbol) && !blocked
                                         Button {
                                             if session.candidate.contains(symbol) { session.candidate.removeAll { $0 == symbol } }
                                             else { session.candidate = SymbolPolicy.shared.recognized(text: session.candidate + String(symbol)) }
                                         } label: {
                                             Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
                                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                                .foregroundStyle(session.candidate.contains(symbol) ? Color.passgenOnAccent : Color.primary)
-                                                .background(session.candidate.contains(symbol) ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                                        }.buttonStyle(.plain).accessibilityLabel("候補 \(String(symbol))")
+                                                .foregroundStyle(selected ? Color.passgenOnAccent : Color.primary)
+                                                .background(selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                        }.buttonStyle(.plain).disabled(blocked).opacity(blocked ? 0.35 : 1)
+                                            .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "選択" : "未選択")
+                                            .accessibilityLabel("候補 \(String(symbol))")
                                             .accessibilityIdentifier("candidate-\(String(symbol))")
-                                            .accessibilityAddTraits(session.candidate.contains(symbol) ? [.isSelected] : [])
+                                            .accessibilityAddTraits(selected ? [.isSelected] : [])
                                     }
                                 }
                                 Button("確認した候補を適用") {
                                     guard !session.candidate.isEmpty else { return }
-                                    model.recipe.symbols = session.candidate
+                                    model.editSymbols(session.candidate)
                                     model.recipe.symbolsEnabled = true
-                                    feedback = "確認した\(session.candidate.count)種類の記号を適用しました。"
+                                    feedback = "確認した\(SymbolPolicy.shared.effective(selected: session.candidate, blocked: model.blockedSymbols).count)種類の記号を適用しました。"
                                     session.clear(); selection = nil
                                 }.foregroundStyle(Color.passgenOnAccent).buttonStyle(.borderedProminent).disabled(session.candidate.isEmpty)
                                     .accessibilityIdentifier("apply-image-symbols")
@@ -184,7 +188,6 @@ struct SymbolEditor: View {
     }
 
     private func toggle(_ symbol: Character) {
-        if model.recipe.symbols.contains(symbol) { model.recipe.symbols.removeAll { $0 == symbol } }
-        else { model.recipe.symbols = SymbolPolicy.shared.recognized(text: model.recipe.symbols + String(symbol)) }
+        model.editSymbols(model.recipe.symbols.contains(symbol) ? String(model.recipe.symbols.filter { $0 != symbol }) : model.recipe.symbols + String(symbol))
     }
 }

@@ -59,12 +59,12 @@ struct Recipe: Sendable, Codable, Equatable {
         value.storedCountText = nil
         return value
     }
-    func request() -> GenerationRequest {
+    func request(blockedSymbols: String = "") -> GenerationRequest {
         GenerationRequest(mode: mode.core, length: Int32(length), wordCount: Int32(words), uppercase: uppercase,
                           lowercase: lowercase, digits: digits, symbolsEnabled: symbolsEnabled, symbols: symbols,
                           excludeSimilar: excludeSimilar, requireEach: requireEach, noAdjacent: noAdjacent, separator: separator,
                           uppercaseCharacters: uppercaseCharacters, lowercaseCharacters: lowercaseCharacters,
-                          digitCharacters: digitCharacters, similarExclusions: similarExclusions)
+                          digitCharacters: digitCharacters, similarExclusions: similarExclusions, blockedSymbols: blockedSymbols)
     }
 }
 
@@ -142,6 +142,18 @@ extension Recipe {
     var recipe = Recipe() { didSet { persistPreferences() } }
     private(set) var results: [SecretItem] = []
     private var generatedRecipe: Recipe?
+    private var generatedBlockedSymbols = ""
+    private(set) var blockedSymbols = "" { didSet { persistPreferences() } }
+    var effectiveSymbols: String { SymbolPolicy.shared.effective(selected: recipe.symbols, blocked: blockedSymbols) }
+    func setSymbolAllowed(_ symbol: String, allowed: Bool) {
+        guard !busy else { return }
+        blockedSymbols = SymbolPolicy.shared.recognized(text: allowed ? blockedSymbols.filter { !symbol.contains($0) } : blockedSymbols + symbol)
+    }
+    func editSymbols(_ proposed: String) {
+        guard !busy else { return }
+        recipe.symbols = SymbolPolicy.shared.editedSelection(proposed: proposed, current: recipe.symbols, blocked: blockedSymbols)
+    }
+    func generationRequest() -> GenerationRequest { recipe.request(blockedSymbols: blockedSymbols) }
     private(set) var presets: [GeneratorPreset] = []
     private(set) var presetStorageIssue: String?
     private struct StoredPresets: Codable { let version: Int; let presets: [GeneratorPreset] }
@@ -161,12 +173,14 @@ extension Recipe {
         let recipe: Recipe
         let revealed: Bool
         var security: SecuritySettings? = nil
+        var blockedSymbols: String? = nil
     }
     init(preferences: UserDefaults? = nil) {
         self.preferences = preferences
         if let data = preferences?.data(forKey: "generation.preferences.v1"), data.count <= 16_384,
            let stored = try? JSONDecoder().decode(StoredPreferences.self, from: data), stored.version == 1 {
             recipe = stored.recipe.sanitized()
+            blockedSymbols = SymbolPolicy.shared.recognized(text: stored.blockedSymbols ?? "")
             revealed = stored.revealed
             security = stored.security?.sanitized ?? SecuritySettings()
         }
@@ -180,7 +194,7 @@ extension Recipe {
     }
     private func persistPreferences() {
         guard let preferences,
-              let data = try? JSONEncoder().encode(StoredPreferences(version: 1, recipe: recipe.sanitized(), revealed: revealed, security: security.sanitized)) else { return }
+              let data = try? JSONEncoder().encode(StoredPreferences(version: 1, recipe: recipe.sanitized(), revealed: revealed, security: security.sanitized, blockedSymbols: blockedSymbols)) else { return }
         preferences.set(data, forKey: "generation.preferences.v1")
     }
     private static func normalizedPresetName(_ value: String) throws -> String {
@@ -280,14 +294,17 @@ extension Recipe {
     var generationActionTitle: String {
         if state == .cancelling { return "停止中…" }
         if busy { return "停止" }
-        return !results.isEmpty && generatedRecipe == recipe.sanitized() ? "再生成" : "生成"
+        return !results.isEmpty && generatedRecipe == recipe.sanitized() && generatedBlockedSymbols == blockedSymbols ? "再生成" : "生成"
     }
-    var isDigitsOnly: Bool { CharacterPolicy.shared.isDigitsOnly(request: recipe.request()) }
-    var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: recipe.request()) }
+    var isDigitsOnly: Bool { CharacterPolicy.shared.isDigitsOnly(request: generationRequest()) }
+    var estimate: Double? { try? PasswordEngine().estimatedEntropy(request: generationRequest()) }
     var generationActionEnabled: Bool { state != .cancelling && (busy || estimate != nil) }
     var configurationIssue: String? {
         guard estimate == nil else { return nil }
-        if recipe.mode == .password && CharacterPolicy.shared.effectivePasswordAlphabet(request: recipe.request()).isEmpty {
+        if recipe.mode == .passphrase && recipe.separator.contains(where: { blockedSymbols.contains($0) }) {
+            return "この区切り記号は設定で使用しない記号になっています。区切りを変更してください。"
+        }
+        if recipe.mode == .password && CharacterPolicy.shared.effectivePasswordAlphabet(request: generationRequest()).isEmpty {
             return "生成に使える文字を1文字以上選択してください。"
         }
         return "生成条件を満たせません。文字の選択と生成ルールを確認してください。"
@@ -305,9 +322,12 @@ extension Recipe {
             state = .cancelling; cancellation.cancel(); task?.cancel()
             return
         }
+        guard estimate != nil else { message = configurationIssue; return }
         recipe.normalize()
         let snapshot = recipe
+        let blocked = blockedSymbols
         generatedRecipe = snapshot.sanitized()
+        generatedBlockedSymbols = blocked
         let token = GenerationCancellation()
         cancellation = token
         epoch += 1
@@ -317,7 +337,7 @@ extension Recipe {
         task = Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let engine = PasswordEngine()
-                let request = snapshot.request()
+                let request = snapshot.request(blockedSymbols: blocked)
                 for index in 0..<snapshot.count {
                     try Task.checkCancellation()
                     let generated = try engine.generate(request: request, cancellation: token)

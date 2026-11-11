@@ -197,6 +197,7 @@ class GeneratorUiTest {
     @Before fun resetTestOwnedConfiguration() {
         rule.runOnIdle {
             model.background(); model.clear(); model.autoClearClipboard = true; model.clipboardSecondsText = "30"; model.protectCapture = true; model.revealed = false; model.mode = jp.passgen.core.GenerationMode.PASSWORD
+            model.setSymbolAllowed(jp.passgen.core.SymbolPolicy.SUPPORTED, true)
             model.lengthText = "24"; model.countText = "1"; model.words = 7; model.separator = " "
             model.uppercase = true; model.lowercase = true; model.digits = true; model.symbolsEnabled = true
             model.symbols = "!@#\u0024%&*-_+=?"; model.excludeSimilar = true; model.requireEach = true; model.noAdjacent = false
@@ -409,6 +410,71 @@ class GeneratorUiTest {
         } finally { rule.runOnIdle { owned?.let { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
     }
 
+    @Test fun appSymbolRestrictionsPersistAndOverrideQR() {
+        val prefs = rule.activity.getSharedPreferences("test.symbols.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+        var first: PassgenModel? = null
+        var restored: PassgenModel? = null
+        try {
+            rule.runOnIdle {
+                val source = PassgenModel()
+                source.uppercase = false; source.lowercase = false; source.digits = false
+                source.symbols = "!?@"; source.lengthText = "64"
+                source.savePreset("Symbols")
+                val qr = source.presetQR(source.presets.single())
+                val target = PassgenModel(prefs); first = target
+                target.setSymbolAllowed("!", false)
+                target.importPreset(target.decodedPresetQR(qr), "Symbols")
+                target.applyPreset(target.presets.single().id)
+                assertEquals("!?@".toSet(), target.symbols.toSet())
+                assertEquals("?@".toSet(), target.effectiveSymbols.toSet())
+                assertEquals(64.0, target.estimate()!!, 0.0001)
+                target.generateOrStop()
+            }
+            rule.waitUntil(10_000) { first?.busy == false }
+            rule.runOnIdle {
+                val target = first!!
+                assertEquals(1, target.results.size)
+                assertTrue(target.results.single().value.all { it in "?@" })
+                assertEquals("再生成", target.generationActionTitle)
+                target.setSymbolAllowed("@", false)
+                assertEquals("生成", target.generationActionTitle)
+                target.background()
+                val next = PassgenModel(prefs); restored = next
+                assertEquals("!@".toSet(), next.blockedSymbols.toSet())
+                assertEquals("?", next.effectiveSymbols)
+                assertEquals("!?@".toSet(), next.decodedPresetQR(next.presetQR(next.presets.single())).recipe.symbols.toSet())
+                next.editSymbols("")
+                assertEquals("!@".toSet(), next.symbols.toSet())
+                assertFalse(next.generationActionEnabled)
+                next.setSymbolAllowed("!", true)
+                assertEquals("!", next.effectiveSymbols)
+                next.mode = jp.passgen.core.GenerationMode.PASSPHRASE; next.separator = "-"
+                next.setSymbolAllowed("-", false)
+                assertFalse(next.generationActionEnabled)
+                assertTrue(next.configurationIssue!!.contains("区切り"))
+                next.generateOrStop(); assertFalse(next.busy)
+                next.separator = " "; assertTrue(next.generationActionEnabled)
+            }
+        } finally {
+            rule.runOnIdle { first?.viewModelScope?.cancel(); restored?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
+        }
+    }
+
+    @Test fun appSymbolSettingsDisableCharacterAndExplainOverview() {
+        allowGuideScreenshots()
+        rule.onNodeWithTag("safety-settings").performClick()
+        rule.onNodeWithTag("app-symbol-settings").performClick()
+        rule.onNodeWithTag("app-symbol-!").performScrollTo().assertIsOn().performClick().assertIsOff()
+        saveGuideScreenshot("app-symbol-settings.png")
+        rule.onNodeWithTag("app-symbol-settings-back").performClick()
+        rule.onNodeWithContentDescription("閉じる").performClick()
+        rule.onNodeWithText("記号").performScrollTo().performClick()
+        rule.onNodeWithTag("character-!").assertIsNotEnabled().assertIsOff()
+        rule.onNodeWithTag("overview-SYMBOLS").performScrollTo().assert(hasContentDescription("アプリの設定で使用しない記号: !", substring = true))
+        saveGuideScreenshot("app-symbol-overview.png")
+        rule.runOnIdle { assertFalse(model.effectiveSymbols.contains('!')) }
+    }
+
     @Test fun onlySettingsAndRevealPreferenceSurviveNewModel() {
         rule.runOnIdle {
             val prefs = rule.activity.getSharedPreferences("test.preferences.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
@@ -437,6 +503,7 @@ class GeneratorUiTest {
             val prefs = rule.activity.getSharedPreferences("test.preferences.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
             prefs.edit().putString("generation.preferences.v1", """{"version":1,"length":48,"revealed":true,"clipboardSeconds":90,"autoClearClipboard":false,"protectCapture":false,"clearClipboardOnBackground":true}""").apply()
             val restored = PassgenModel(prefs)
+            assertEquals("", restored.blockedSymbols)
             assertEquals(48, restored.length); assertTrue(restored.revealed)
             assertEquals(90, restored.clipboardSeconds); assertFalse(restored.autoClearClipboard); assertFalse(restored.protectCapture)
             val stored = org.json.JSONObject(prefs.getString("generation.preferences.v1", null)!!)

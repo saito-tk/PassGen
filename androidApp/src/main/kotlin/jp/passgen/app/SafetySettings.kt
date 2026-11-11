@@ -3,22 +3,28 @@ package jp.passgen.app
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.semantics.*
+import jp.passgen.core.SymbolPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.testTag
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable fun PrivacySheet(model: PassgenModel, fold: androidx.window.layout.FoldingFeature?, dismiss: () -> Unit, guide: () -> Unit) {
+    var symbolsSettings by rememberSaveable { mutableStateOf(false) }
+    if (symbolsSettings) {
+        AppSymbolsSettingsSheet(model, fold) { symbolsSettings = false }
+        return
+    }
     val context = LocalContext.current
     var license by remember { mutableStateOf<String?>(null) }
     PassgenSheet(dismiss, fold) {
@@ -26,6 +32,7 @@ import androidx.compose.ui.unit.dp
             Box(Modifier.padding(horizontal = 20.dp)) { SheetHeading("設定と安全性", R.drawable.ic_verified_user) { IconAction(R.drawable.ic_close, "閉じる", action = dismiss) } }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 GuideDestination("パスワードとアカウントを守る", "長さ・使い回し・管理アプリ・認証", "security-guide", guide)
+                GuideDestination("アプリで使う記号", "すべての生成・プリセットに共通の使用設定", "app-symbol-settings") { symbolsSettings = true }
                 SettingsSectionTitle("コピー", R.drawable.ic_content_copy)
                 SettingsSwitch("時間が経ったら自動消去", model.autoClearClipboard, "clipboard-auto-clear") { model.autoClearClipboard = it }
                 if (model.autoClearClipboard) {
@@ -61,6 +68,42 @@ import androidx.compose.ui.unit.dp
     license?.let { text -> AlertDialog(onDismissRequest = { license = null }, title = { Text("Apache License 2.0") },
         text = { Text(text, modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall) },
         confirmButton = { TextButton(onClick = { license = null }) { Text("閉じる") } }) }
+}
+
+@Composable private fun AppSymbolsSettingsSheet(model: PassgenModel, fold: androidx.window.layout.FoldingFeature?, back: () -> Unit) {
+    PassgenSheet(back, fold) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)) {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconAction(R.drawable.ic_arrow_back, "設定に戻る", Modifier.semantics { testTag = "app-symbol-settings-back" }, action = back)
+                Text("アプリで使う記号", style = MaterialTheme.typography.titleLarge)
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("オンの記号だけを、このアプリで使用します。オフの記号は文字セットで選択できず、プリセット・QR・貼り付けから読み込んでも生成には使いません。", style = MaterialTheme.typography.bodyMedium)
+                Text("使用する記号 ${SymbolPolicy.SUPPORTED.length - model.blockedSymbols.length} / 32", style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.semantics { testTag = "allowed-symbol-count" })
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SymbolPolicy.SUPPORTED.forEach { symbol ->
+                        val allowed = symbol !in model.blockedSymbols
+                        Surface(onClick = { model.setSymbolAllowed(symbol.toString(), !allowed) }, enabled = !model.busy,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                            color = if (allowed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 64.dp).semantics {
+                                testTag = "app-symbol-$symbol"; contentDescription = "記号 $symbol"; role = Role.Checkbox
+                                toggleableState = if (allowed) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off
+                                stateDescription = if (allowed) "使用する" else "使用しない"
+                            }) {
+                            Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(symbol.toString(), style = MaterialTheme.typography.titleLarge, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    textDecoration = if (allowed) TextDecoration.None else TextDecoration.LineThrough)
+                                AppIcon(if (allowed) R.drawable.ic_check_circle else R.drawable.ic_remove, Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+                Text("パスフレーズの区切り記号にも適用します。変更は次の生成から反映されます。プリセットに保存された選択は保持され、再びオンにすると使用できるようになります。", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }
 
 @Composable private fun SettingsSectionTitle(title: String, icon: Int) {

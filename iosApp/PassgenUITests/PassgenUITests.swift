@@ -496,6 +496,38 @@ final class PassgenUITests: XCTestCase {
         attachment.name = "Initial layout (no generated password)"; attachment.lifetime = .keepAlways
         add(attachment)
     }
+    @MainActor func testAppSymbolSettingsDisableSelectionAndAnnotateOverview() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap()
+        let settings = app.buttons["app-symbol-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        settings.tap()
+        let symbol = app.buttons["app-symbol-!"]
+        XCTAssertTrue(symbol.waitForExistence(timeout: 3)); symbol.tap()
+        XCTAssertEqual(symbol.value as? String, "使用しない")
+        saveGuideExampleScreenshot(app, "App symbol settings")
+        app.navigationBars["アプリで使う記号"].buttons.element(boundBy: 0).tap()
+        app.buttons["閉じる"].tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        app.segmentedControls.buttons["記号"].tap()
+        XCTAssertTrue(app.segmentedControls.buttons["記号"].isSelected)
+        XCTAssertFalse(app.buttons["character-!"].isEnabled)
+        app.swipeUp()
+        let overview = app.descendants(matching: .any).matching(identifier: "overview-symbols").firstMatch
+        XCTAssertTrue((overview.value as? String)?.contains("アプリの設定で使用しない記号: !") == true)
+        saveGuideExampleScreenshot(app, "App symbol overview")
+        app.buttons["記号一覧を貼り付け・画像から読み取る"].tap()
+        let editor = app.scrollViews["symbol-editor-scroll"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 3))
+        XCTAssertFalse(editor.buttons["記号 !"].isEnabled)
+        let input = editor.textFields["symbol-paste-input"]
+        input.tap(); input.typeText("!?\n")
+        editor.buttons["apply-pasted-symbols"].tap()
+        XCTAssertFalse(editor.buttons["記号 !"].isEnabled)
+        XCTAssertTrue(editor.buttons["記号 ?"].isSelected)
+    }
+
     @MainActor func testPassphraseSettings() {
         let app = launchApp()
         app.segmentedControls.buttons["パスフレーズ"].tap()

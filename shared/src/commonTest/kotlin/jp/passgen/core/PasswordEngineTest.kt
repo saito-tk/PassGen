@@ -21,6 +21,35 @@ private class TestEntropy : EntropySource {
 class PasswordEngineTest {
     private fun engine() = PasswordEngine(TestEntropy())
 
+    @Test fun appSymbolRestrictionsApplyToGenerationAndEntropy() {
+        val request = GenerationRequest(length = 128, uppercase = false, lowercase = false,
+            digits = false, symbols = "!?@", blockedSymbols = "!", requireEach = true)
+        val generated = engine().generate(request, neverCancel)
+        assertEquals(setOf('?', '@'), generated.value.toSet())
+        assertEquals(128.0, generated.entropyBits, 0.00001)
+        assertEquals(generated.entropyBits, engine().estimatedEntropy(request), 0.00001)
+        assertEquals("@?", CharacterPolicy.effectivePasswordAlphabet(request))
+        val noSymbols = GenerationRequest(symbols = "!?", blockedSymbols = SymbolPolicy.SUPPORTED)
+        assertFalse(engine().generate(noSymbols, neverCancel).value.any { it in SymbolPolicy.SUPPORTED })
+        val empty = GenerationRequest(uppercase = false, lowercase = false, digits = false,
+            symbols = "!", blockedSymbols = "!")
+        assertFailsWith<GenerationException> { engine().generate(empty, neverCancel) }
+        assertFailsWith<GenerationException> { engine().estimatedEntropy(empty) }
+    }
+
+    @Test fun appSymbolRestrictionsAlsoCoverPhraseSeparatorsAndBulkEdits() {
+        for (separator in listOf("-", "_", ".")) {
+            val blocked = GenerationRequest(mode = GenerationMode.PASSPHRASE, separator = separator, blockedSymbols = separator)
+            assertFailsWith<GenerationException> { engine().generate(blocked, neverCancel) }
+            assertFailsWith<GenerationException> { engine().estimatedEntropy(blocked) }
+        }
+        val spaces = GenerationRequest(mode = GenerationMode.PASSPHRASE, blockedSymbols = SymbolPolicy.SUPPORTED)
+        assertEquals(7, engine().generate(spaces, neverCancel).value.split(" ").size)
+        assertEquals("!?", SymbolPolicy.editedSelection("?", "!", "!"))
+        assertEquals("?", SymbolPolicy.editedSelection("!?", "", "!"))
+        assertEquals("!", SymbolPolicy.editedSelection("", "!", "!"))
+    }
+
     @Test fun defaultContainsEveryCategoryAndExcludesSimilar() {
         val engine = engine()
         repeat(100) {

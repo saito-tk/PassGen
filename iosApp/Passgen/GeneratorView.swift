@@ -66,7 +66,7 @@ private enum CharacterGroup: String, CaseIterable, Identifiable {
     }
 }
 
-private enum GeneratorSheet: Identifiable { case results, symbols, privacy, presets; var id: Self { self } }
+private enum GeneratorSheet: Identifiable { case results, symbols, privacy, presets, similar; var id: Self { self } }
 
 struct GeneratorPaneLayout: Equatable {
     var settings: CGRect
@@ -194,6 +194,7 @@ struct GeneratorView: View {
             .sheet(item: $activeSheet, onDismiss: restoreResultDock) { sheet in
                 switch sheet {
                 case .presets: PresetsView(model: model, done: { activeSheet = nil }).sensitiveScene(enabled: model.security.protectAppSwitcher).presentationDetents([.large]).presentationDragIndicator(.visible)
+                case .similar: SimilarExclusionSheet(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .symbols: SymbolEditor(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .privacy: PrivacyView(model: model).sensitiveScene(enabled: model.security.protectAppSwitcher)
                 case .results:
@@ -227,7 +228,7 @@ struct GeneratorView: View {
                 QuantityEditor(model: model)
                 CharacterEditor(model: model, showSymbols: symbolPresentation, group: $characterGroup)
                 CharacterOverview(model: model)
-                RulesEditor(model: model, expanded: $rulesExpanded)
+                RulesEditor(model: model, expanded: $rulesExpanded, showSimilar: { activeSheet = .similar })
             }.padding(12)
         }.scrollDismissesKeyboard(.interactively).scrollPosition($settingsPosition)
     }
@@ -377,13 +378,13 @@ private struct CharacterEditor: View {
     }
     private var enabled: Bool { group.enabled(in: model.recipe) }
     private var excluded: String {
-        guard model.recipe.excludeSimilar, group != .symbols else { return "" }
+        guard model.recipe.excludeSimilar else { return "" }
         return String(group.alphabet.filter { model.recipe.similarExclusions.contains($0) })
     }
     private var summary: String {
         CharacterGroup.allCases.map { item in
             let count = item.enabled(in: model.recipe) ? item.selected(in: model.recipe).filter {
-                item == .symbols ? !model.blockedSymbols.contains($0) : (!model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0))
+                !model.blockedSymbols.contains($0) && (!model.recipe.excludeSimilar || !model.recipe.similarExclusions.contains($0))
             }.count : 0
             return "\(item.title.prefix(1))\(count)"
         }.joined(separator: " / ")
@@ -535,6 +536,7 @@ private struct RuleSwitch: View {
 private struct RulesEditor: View {
     @Bindable var model: GeneratorModel
     @Binding var expanded: Bool
+    var showSimilar: () -> Void
     var body: some View {
         if model.recipe.mode != .passphrase {
             VStack(spacing: 8) {
@@ -548,17 +550,14 @@ private struct RulesEditor: View {
                         RuleSwitch(title: "各文字種を必ず含める", value: $model.recipe.requireEach, identifier: "rule-requireEach")
                         RuleSwitch(title: "似た文字を除外", value: $model.recipe.excludeSimilar, identifier: "rule-excludeSimilar")
                         if model.recipe.excludeSimilar {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 6)], spacing: 6) {
-                                ForEach(Array("Oo0Il1"), id: \.self) { c in
-                                    let selected = model.recipe.similarExclusions.contains(c)
-                                    Button {
-                                        model.recipe.similarExclusions = selected ? String(model.recipe.similarExclusions.filter { $0 != c }) : model.recipe.similarExclusions + String(c)
-                                    } label: {
-                                        Text(String(c)).font(.system(.body, design: .monospaced)).frame(maxWidth: .infinity, minHeight: 44)
-                                            .background(selected ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-                                    }.buttonStyle(.plain).accessibilityLabel("\(String(c)) を除外").accessibilityAddTraits(selected ? [.isSelected] : [])
-                                }
-                            }
+                            Button(action: showSimilar) {
+                                HStack {
+                                    Text("除外する文字")
+                                    Spacer()
+                                    Text("\(model.recipe.similarExclusions.filter { !model.blockedSymbols.contains($0) }.count)文字").foregroundStyle(.secondary)
+                                    Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                                }.frame(minHeight: 44).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityIdentifier("similar-settings")
                         }
                         RuleSwitch(title: "同じ文字を連続させない", value: $model.recipe.noAdjacent, identifier: "rule-noAdjacent")
                     }.disabled(model.busy)
@@ -566,6 +565,79 @@ private struct RulesEditor: View {
             }.font(.subheadline).padding(12)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 .accessibilityElement(children: .contain)
+        }
+    }
+}
+
+private struct SimilarExclusionSheet: View {
+    @Bindable var model: GeneratorModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                SimilarExclusionEditor(model: model).disabled(model.busy).padding(16)
+            }.accessibilityIdentifier("similar-settings-scroll")
+                .background(Color(uiColor: .systemGroupedBackground))
+                .navigationTitle("似た文字の除外").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } } }
+        }.presentationDetents([.large]).presentationDragIndicator(.visible)
+    }
+}
+
+private struct SimilarExclusionEditor: View {
+    @Bindable var model: GeneratorModel
+    private func edit(_ characters: String, exclude: Bool) {
+        model.recipe.similarExclusions = CharacterPolicy.shared.editedSimilarExclusions(
+            current: model.recipe.similarExclusions, characters: characters, excluded: exclude, blocked: model.blockedSymbols)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("選んだ文字を生成対象から外します。見分けにくさはフォントによって異なります。")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("すべて除外") { edit(CharacterPolicy.shared.SIMILAR, exclude: true) }
+                    .accessibilityIdentifier("similar-all")
+                Spacer()
+                Button("すべて解除") { edit(CharacterPolicy.shared.SIMILAR, exclude: false) }
+                    .accessibilityIdentifier("similar-none")
+            }.frame(minHeight: 44)
+            ForEach(CharacterPolicy.shared.SIMILAR_GROUPS, id: \.self) { group in
+                let editable = group.filter { !model.blockedSymbols.contains($0) }
+                let allExcluded = !editable.isEmpty && editable.allSatisfy { model.recipe.similarExclusions.contains($0) }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(group.map(String.init).joined(separator: " / ")).font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                        Spacer()
+                        Button(allExcluded ? "除外を解除" : "まとめて除外") { edit(group, exclude: !allExcluded) }
+                            .font(.caption).frame(minHeight: 44).disabled(editable.isEmpty)
+                            .accessibilityLabel("\(group) グループを\(allExcluded ? "解除" : "除外")")
+                            .accessibilityIdentifier("similar-group-\(group)")
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 6)], spacing: 6) {
+                        ForEach(Array(group), id: \.self) { c in
+                            let blocked = model.blockedSymbols.contains(c)
+                            let selected = model.recipe.similarExclusions.contains(c)
+                            Button { edit(String(c), exclude: !selected) } label: {
+                                Text(String(c)).font(.system(.body, design: .monospaced)).strikethrough(blocked)
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                                    .background(blocked ? Color(uiColor: .systemGray5) : selected ? Color.passgenAccent.opacity(0.15) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                                    .overlay(alignment: .topTrailing) {
+                                        if selected && !blocked { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).padding(4).accessibilityHidden(true) }
+                                    }
+                                    .modifier(BlockedCharacterAppearance(blocked: blocked))
+                            }.buttonStyle(.plain).disabled(blocked)
+                                .accessibilityLabel("\(String(c)) を除外")
+                                .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "除外する" : "除外しない")
+                                .accessibilityAddTraits(selected && !blocked ? [.isSelected] : [])
+                                .accessibilityIdentifier("similar-character-\(c)")
+                        }
+                    }
+                }.padding(8).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            }
+            if !model.blockedSymbols.isEmpty {
+                Label("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。一括操作でも除外設定を保持します。", systemImage: "lock.fill")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -1161,7 +1233,7 @@ private struct GenerationRulesGuideView: View {
                 Text("使用する文字種を1文字以上ずつ含めます。このような条件がある場合にONにし、必要な文字種を文字セットでも選んでください。大文字と小文字は別の文字種として扱います。")
             }
             Section("似た文字を除外") {
-                GuideExampleValue(caption: "見間違えやすい文字の例", value: "O / 0    I / l / 1")
+                GuideExampleValue(caption: "見間違えやすい文字の例", value: "O / 0    I / l / 1 / |")
                 Text("見ながら手入力するときに役立ちます。管理アプリの自動入力やコピーで使うなら、通常はOFFで構いません。ONでは、選んだ除外文字の分だけ候補が減ります。")
             }
             Section("同じ文字を連続させない") {

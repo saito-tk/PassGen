@@ -204,7 +204,7 @@ class GeneratorUiTest {
             model.uppercaseCharacters = jp.passgen.core.CharacterPolicy.UPPERCASE
             model.lowercaseCharacters = jp.passgen.core.CharacterPolicy.LOWERCASE
             model.digitCharacters = jp.passgen.core.CharacterPolicy.DIGITS
-            model.similarExclusions = jp.passgen.core.CharacterPolicy.SIMILAR
+            model.similarExclusions = jp.passgen.core.CharacterPolicy.DEFAULT_SIMILAR
         }
     }
 
@@ -408,6 +408,68 @@ class GeneratorUiTest {
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             rule.onNodeWithTag("generate").assertIsDisplayed()
         } finally { rule.runOnIdle { owned?.let { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
+    }
+
+    @Test fun similarGroupsPersistAndKeepDeviceBlockedPreferences() {
+        val prefs = rule.activity.getSharedPreferences("test.similar.${java.util.UUID.randomUUID()}", Context.MODE_PRIVATE)
+        rule.runOnIdle {
+            val first = PassgenModel(prefs)
+            var restored: PassgenModel? = null
+            try {
+                val policy = jp.passgen.core.CharacterPolicy
+                assertEquals("Oo0Il1", first.similarExclusions)
+                first.symbols = "|;!?"; first.similarExclusions = policy.SIMILAR
+                first.setSymbolAllowed("|", false); first.savePreset("Groups"); first.background()
+                val qr = first.presetQR(first.presets.single())
+                assertTrue(qr.startsWith("PG2:"))
+                assertEquals(policy.SIMILAR, first.decodedPresetQR(qr).recipe.similarExclusions)
+                val next = PassgenModel(prefs); restored = next
+                assertEquals(policy.SIMILAR, next.similarExclusions)
+                assertEquals("!?", next.effectiveSymbols)
+                next.similarExclusions = ""
+                assertEquals(";!?".toSet(), next.effectiveSymbols.toSet())
+                next.applyPreset(next.presets.single().id)
+                assertEquals(policy.SIMILAR, next.similarExclusions)
+                assertEquals("|;!?".toSet(), next.symbols.toSet())
+                next.setSymbolAllowed("|", true)
+                assertEquals("!?", next.effectiveSymbols)
+                next.excludeSimilar = false
+                assertEquals("|;!?".toSet(), next.effectiveSymbols.toSet())
+            } finally { first.viewModelScope.cancel(); restored?.viewModelScope?.cancel(); prefs.edit().clear().apply() }
+        }
+    }
+
+    @Test fun similarGroupsAllowBulkAndIndividualSelectionWithLockedSymbols() {
+        allowGuideScreenshots()
+        rule.runOnIdle { model.excludeSimilar = true; model.similarExclusions = "Oo0Il1|"; model.setSymbolAllowed("|", false) }
+        rule.onNodeWithText("生成ルール").performScrollTo().performClick()
+        rule.onNodeWithTag("similar-character-I").assertDoesNotExist()
+        rule.onNodeWithTag("similar-settings").performScrollTo().performClick()
+        rule.onNodeWithTag("similar-sheet").assertExists()
+        rule.onNodeWithTag("similar-group-Il1|").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals("Oo0|", model.similarExclusions) }
+        rule.onNodeWithTag("similar-character-|").assertIsNotEnabled()
+        rule.onNodeWithTag("similar-character-I").performScrollTo().assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals("Oo0I|", model.similarExclusions) }
+        saveGuideScreenshot("similar-groups.png")
+        rule.activityRule.scenario.recreate()
+        rule.onNodeWithTag("similar-sheet").assertExists()
+        rule.runOnIdle { assertEquals("Oo0I|", model.similarExclusions) }
+        rule.onNodeWithTag("similar-all").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(jp.passgen.core.CharacterPolicy.SIMILAR, model.similarExclusions) }
+        rule.onNodeWithTag("similar-group-:;").performScrollTo().performClick()
+        rule.runOnIdle { assertFalse(':' in model.similarExclusions); assertFalse(';' in model.similarExclusions) }
+        saveGuideScreenshot("similar-symbol-groups.png")
+        rule.onNodeWithTag("similar-none").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals("|", model.similarExclusions); model.setSymbolAllowed("|", true) }
+        rule.onNodeWithTag("similar-character-|").performScrollTo().assertIsEnabled().performClick()
+        rule.runOnIdle { assertEquals("", model.similarExclusions) }
+        rule.onNodeWithContentDescription("閉じる").performClick()
+        rule.onNodeWithTag("similar-sheet").assertDoesNotExist()
+        rule.onNodeWithTag("similar-character-I").assertDoesNotExist()
+        saveGuideScreenshot("compact-generation-rules.png")
+        rule.onNodeWithTag("similar-settings").performScrollTo().performClick()
+        rule.onNodeWithTag("similar-character-I").performScrollTo().assertIsNotSelected()
     }
 
     @Test fun appSymbolRestrictionsPersistAndOverrideQR() {
@@ -1141,6 +1203,10 @@ class GeneratorUiTest {
             rule.onNodeWithTag("safety-settings").performClick()
             exercise("settings", "modal-sheet")
             dismissByDragging("modal-sheet")
+            rule.onNodeWithText("生成ルール").performScrollTo().performClick()
+            rule.onNodeWithTag("similar-settings").performScrollTo().performClick()
+            exercise("similar exclusions", "similar-sheet")
+            dismissByDragging("similar-sheet")
         } finally { rule.runOnIdle { owned.forEach { id -> if (model.presets.any { it.id == id }) model.deletePreset(id) } } }
     }
 

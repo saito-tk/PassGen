@@ -7,10 +7,12 @@ class PresetTransferException : Exception("INVALID_PRESET_QR")
 
 /** App releases and wire versions are independent. Keep old decoders when adding a new writer. */
 object PresetQrCodec {
-    const val CURRENT_FORMAT_VERSION = 1
+    const val CURRENT_FORMAT_VERSION = 2
     const val MAX_TEXT_LENGTH = 256
     @Throws(PresetTransferException::class)
-    fun encode(preset: SharedPreset): String = PresetQrV1.encode(preset)
+    fun encode(preset: SharedPreset): String =
+        if (preset.request.similarExclusions.all { it in "Oo0Il1" }) PresetQrV1.encode(preset)
+        else PresetQrV2.encode(preset)
 
     /** Ignore unrelated/invalid QR codes; never choose arbitrarily between different valid presets. */
     fun selectCandidate(texts: List<String>): String? {
@@ -27,19 +29,34 @@ object PresetQrCodec {
         if (text.length > MAX_TEXT_LENGTH) throw PresetTransferException()
         return when (text.substringBefore(':')) {
             "PG1" -> PresetQrV1.decode(text)
+            "PG2" -> PresetQrV2.decode(text)
             else -> throw PresetTransferException()
         }
     }
 }
 
-/** Immutable v1 vocabulary and bounds. Never substitute the current UI's alphabets/defaults. */
+/** Frozen wire vocabularies: never substitute current UI alphabets or defaults. */
 internal object PresetQrV1 {
-    private const val MAX_TEXT_LENGTH = 256
-    private const val PREFIX = "PG1:"
-    private const val BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+    private val wire = PresetQrWire("PG1:", "Oo0Il1")
+    fun encode(preset: SharedPreset) = wire.encode(preset)
+    fun decode(text: String) = wire.decode(text)
+}
+
+internal object PresetQrV2 {
+    private val wire = PresetQrWire("PG2:", "Oo0Il1|Ss5Zz2B8G6'`.,:;")
+    fun encode(preset: SharedPreset) = wire.encode(preset)
+    fun decode(text: String) = wire.decode(text)
+}
+
+private class PresetQrWire(private val prefix: String, similarAlphabet: String) {
+    private val maxTextLength = 256
+    private val base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     private val separators = listOf(" ", "-", "_", ".")
     private val alphabets = listOf("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz",
-        "0123456789", "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><=`\\", "Oo0Il1")
+        "0123456789", "-_@/*+.,!?#\u0024%&(){}[]~|:;\"'^><=`\\", similarAlphabet)
+    private val bitCount = alphabets.sumOf { it.length }
+    private val maskBytes = (bitCount + 7) / 8
+    private val reservedMask = (255 shl (bitCount % 8)) and 255
     private fun requireValid(value: Boolean) { if (!value) throw PresetTransferException() }
 
     private fun validate(p: SharedPreset) {
@@ -69,7 +86,7 @@ internal object PresetQrV1 {
             }
             integer(r.length); integer(preset.count)
             bytes += (r.wordCount - 6) or (separators.indexOf(r.separator) shl 3)
-            val masks = IntArray(13)
+            val masks = IntArray(maskBytes)
             var bit = 0
             listOf(r.uppercaseCharacters, r.lowercaseCharacters, r.digitCharacters, r.symbols, r.similarExclusions)
                 .zip(alphabets).forEach { (selected, alphabet) ->
@@ -79,23 +96,23 @@ internal object PresetQrV1 {
             bytes += preset.name.encodeToByteArray(throwOnInvalidSequence = true).map { it.toInt() and 255 }
             val checksum = crc(bytes)
             repeat(4) { bytes += (checksum ushr (it * 8)) and 255 }
-            return (PREFIX + base32(bytes)).also { requireValid(it.length <= MAX_TEXT_LENGTH) }
+            return (prefix + base32(bytes)).also { requireValid(it.length <= maxTextLength) }
         } catch (_: CharacterCodingException) { throw PresetTransferException() }
     }
 
     @Throws(PresetTransferException::class)
     fun decode(text: String): SharedPreset {
         try {
-            requireValid(text.length <= MAX_TEXT_LENGTH && text.startsWith(PREFIX))
-            val encoded = text.substring(PREFIX.length)
+            requireValid(text.length <= maxTextLength && text.startsWith(prefix))
+            val encoded = text.substring(prefix.length)
             val bytes = mutableListOf<Int>()
             var accumulator = 0; var bits = 0
             encoded.forEach {
-                val value = BASE32.indexOf(it); requireValid(value >= 0)
+                val value = base32Alphabet.indexOf(it); requireValid(value >= 0)
                 accumulator = (accumulator shl 5) or value; bits += 5
                 if (bits >= 8) { bits -= 8; bytes += (accumulator ushr bits) and 255 }
             }
-            requireValid(bytes.size >= 22 && base32(bytes) == encoded)
+            requireValid(bytes.size >= 9 + maskBytes && base32(bytes) == encoded)
             val body = bytes.dropLast(4)
             val checksum = bytes.takeLast(4).withIndex().fold(0) { n, (i, v) -> n or (v shl (i * 8)) }
             requireValid(crc(body) == checksum)
@@ -113,8 +130,8 @@ internal object PresetQrV1 {
             fun flag(index: Int) = flags and (1 shl index) != 0
             val length = integer(); val count = integer(); val phrase = next()
             requireValid(phrase and 224 == 0 && phrase and 7 <= 6)
-            val masks = List(13) { next() }
-            requireValid(masks.last() and 240 == 0)
+            val masks = List(maskBytes) { next() }
+            requireValid(masks.last() and reservedMask == 0)
             var bit = 0
             val selected = alphabets.map { alphabet -> alphabet.filter {
                 val included = masks[bit / 8] and (1 shl (bit % 8)) != 0; bit++; included
@@ -134,9 +151,9 @@ internal object PresetQrV1 {
         var accumulator = 0; var bits = 0
         bytes.forEach {
             accumulator = (accumulator shl 8) or it; bits += 8
-            while (bits >= 5) { bits -= 5; append(BASE32[(accumulator ushr bits) and 31]) }
+            while (bits >= 5) { bits -= 5; append(base32Alphabet[(accumulator ushr bits) and 31]) }
         }
-        if (bits > 0) append(BASE32[(accumulator shl (5 - bits)) and 31])
+        if (bits > 0) append(base32Alphabet[(accumulator shl (5 - bits)) and 31])
     }
 
     private fun crc(bytes: List<Int>): Int {

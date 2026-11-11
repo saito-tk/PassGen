@@ -52,6 +52,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     var showPresets by rememberSaveable { mutableStateOf(false) }
     var resultsRequested by rememberSaveable { mutableStateOf(false) }
     var previousInline by rememberSaveable { mutableStateOf(false) }
+    var showSimilar by rememberSaveable { mutableStateOf(false) }
     var showSymbols by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
@@ -117,7 +118,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 if (tabletop != null) {
                     Column(Modifier.fillMaxSize()) {
                         SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
-                            { showSymbols = true }, Modifier.fillMaxWidth().height(tabletop.settingsWidth.dp))
+                            { showSymbols = true }, { showSimilar = true }, Modifier.fillMaxWidth().height(tabletop.settingsWidth.dp))
                         Spacer(Modifier.height(tabletop.gap.dp))
                         ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxWidth())
                     }
@@ -125,7 +126,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     Row(Modifier.fillMaxSize().padding(top = verticalRegion.start.dp,
                         bottom = (maxHeight.value - verticalRegion.start - verticalRegion.length).coerceAtLeast(0f).dp)) {
                         SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
-                            { showSymbols = true }, Modifier.width(split.settingsWidth.dp).fillMaxHeight())
+                            { showSymbols = true }, { showSimilar = true }, Modifier.width(split.settingsWidth.dp).fillMaxHeight())
                         Spacer(Modifier.width(split.gap.dp))
                         ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxHeight())
                     }
@@ -133,17 +134,18 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                     Column(Modifier.fillMaxSize().padding(top = verticalRegion.start.dp,
                         bottom = (maxHeight.value - verticalRegion.start - verticalRegion.length).coerceAtLeast(0f).dp)) {
                         SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
-                            { showSymbols = true }, Modifier.weight(1f).fillMaxWidth())
+                            { showSymbols = true }, { showSimilar = true }, Modifier.weight(1f).fillMaxWidth())
                         ResultsPanel(model, copy, resultsScroll, ::generate, ::clear, Modifier.weight(1f).fillMaxWidth())
                     }
                 } else {
                     SettingsColumn(model, characterTab, { characterTab = it }, rulesExpanded, { rulesExpanded = it }, settingsScroll,
-                        { showSymbols = true }, Modifier.fillMaxSize())
+                        { showSymbols = true }, { showSimilar = true }, Modifier.fillMaxSize())
                 }
             }
         }
         if (showPresets) PresetsSheet(model, fold) { model.editorSession.clearPresets(); showPresets = false }
         if (showResults) ResultSheet(model, fold, copy, resultsScroll, { resultsRequested = false }, ::generate, ::clear)
+        if (showSimilar) SimilarExclusionSheet(model, fold) { showSimilar = false }
         if (showSymbols) SymbolSheet(model, fold) { model.editorSession.clearSymbols(); showSymbols = false }
         if (showPrivacy) PrivacySheet(model, fold, { showPrivacy = false }) { showPrivacy = false; showGuide = true }
         if (showGuide) SecurityGuideSheet(fold = fold,
@@ -160,11 +162,11 @@ enum class CharacterTab(val title: String, val alphabet: String) {
 }
 
 @Composable private fun SettingsColumn(model: PassgenModel, tab: CharacterTab, selectTab: (CharacterTab) -> Unit,
-    expanded: Boolean, expand: (Boolean) -> Unit, scroll: ScrollState, symbols: () -> Unit, modifier: Modifier) {
+    expanded: Boolean, expand: (Boolean) -> Unit, scroll: ScrollState, symbols: () -> Unit, similar: () -> Unit, modifier: Modifier) {
     Column(modifier.verticalScroll(scroll).padding(12.dp).semantics { testTag = "settings-pane" }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CoreSettings(model)
         CharacterSettings(model, tab, selectTab, symbols)
-        RuleCard(model, expanded, expand)
+        RuleCard(model, expanded, expand, similar)
     }
 }
 
@@ -261,7 +263,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     fun toggleCategory(value: Boolean) {
         when (tab) { CharacterTab.UPPER -> model.uppercase = value; CharacterTab.LOWER -> model.lowercase = value; CharacterTab.DIGITS -> model.digits = value; CharacterTab.SYMBOLS -> model.symbolsEnabled = value }
     }
-    val excluded = if (model.excludeSimilar && tab != CharacterTab.SYMBOLS) tab.alphabet.filter { it in model.similarExclusions } else ""
+    val excluded = if (model.excludeSimilar) tab.alphabet.filter { it in model.similarExclusions } else ""
     val blockedOutline = MaterialTheme.colorScheme.outline
     var selectionMenu by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
@@ -380,7 +382,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     }
 }
 
-@Composable private fun RuleCard(model: PassgenModel, expanded: Boolean, expand: (Boolean) -> Unit) {
+@Composable private fun RuleCard(model: PassgenModel, expanded: Boolean, expand: (Boolean) -> Unit, showSimilar: () -> Unit) {
     if (model.mode == GenerationMode.PASSPHRASE) return
     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -394,12 +396,11 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 if (model.mode == GenerationMode.PASSWORD) {
                     RuleToggle("各文字種を必ず含める", model.requireEach, !model.busy) { model.requireEach = it }
                     RuleToggle("似た文字を除外", model.excludeSimilar, !model.busy) { model.excludeSimilar = it }
-                    if (model.excludeSimilar) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        CharacterPolicy.SIMILAR.forEach { c ->
-                            FilterChip(c in model.similarExclusions, {
-                                model.similarExclusions = CharacterPolicy.canonical(if (c in model.similarExclusions) model.similarExclusions.replace(c.toString(), "") else model.similarExclusions + c, CharacterPolicy.SIMILAR)
-                            }, enabled = !model.busy, label = { Text("$c", fontFamily = FontFamily.Monospace) })
-                        }
+                    if (model.excludeSimilar) TextButton(onClick = showSimilar, enabled = !model.busy,
+                        modifier = Modifier.fillMaxWidth().semantics { testTag = "similar-settings" }) {
+                        Text("除外する文字", Modifier.weight(1f))
+                        Text("${model.similarExclusions.count { it !in model.blockedSymbols }}文字")
+                        AppIcon(R.drawable.ic_chevron_right, Modifier.padding(start = 8.dp))
                     }
                 }
                 RuleToggle("同じ文字を連続させない", model.noAdjacent, !model.busy) { model.noAdjacent = it }
@@ -410,6 +411,64 @@ enum class CharacterTab(val title: String, val alphabet: String) {
             }.joinToString(" · ").ifEmpty { "追加の制約なし" }, style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
         }
+    }
+}
+
+@Composable private fun SimilarExclusionSheet(model: PassgenModel, fold: FoldingFeature?, dismiss: () -> Unit) {
+    PassgenSheet(dismiss, fold, modifier = Modifier.semantics { testTag = "similar-sheet" }) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)) {
+            Box(Modifier.padding(horizontal = 20.dp)) {
+                SheetHeading("似た文字の除外", R.drawable.ic_tune) { IconAction(R.drawable.ic_close, "閉じる", action = dismiss) }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+                SimilarExclusionEditor(model)
+            }
+        }
+    }
+}
+
+@Composable private fun SimilarExclusionEditor(model: PassgenModel) {
+    fun edit(characters: String, exclude: Boolean) {
+        model.similarExclusions = CharacterPolicy.editedSimilarExclusions(model.similarExclusions, characters, exclude, model.blockedSymbols)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("選んだ文字を生成対象から外します。見分けにくさはフォントによって異なります。",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton({ edit(CharacterPolicy.SIMILAR, true) }, enabled = !model.busy, modifier = Modifier.semantics { testTag = "similar-all" }) { Text("すべて除外") }
+            TextButton({ edit(CharacterPolicy.SIMILAR, false) }, enabled = !model.busy, modifier = Modifier.semantics { testTag = "similar-none" }) { Text("すべて解除") }
+        }
+        CharacterPolicy.SIMILAR_GROUPS.forEach { group ->
+            val editable = group.filterNot { it in model.blockedSymbols }
+            val allExcluded = editable.isNotEmpty() && editable.all { it in model.similarExclusions }
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(group.toList().joinToString(" / "), Modifier.weight(1f), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelLarge)
+                        TextButton({ edit(group, !allExcluded) }, enabled = !model.busy && editable.isNotEmpty(),
+                            modifier = Modifier.semantics { testTag = "similar-group-$group"; contentDescription = "$group グループを${if (allExcluded) "解除" else "除外"}" }) {
+                            Text(if (allExcluded) "除外を解除" else "まとめて除外")
+                        }
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        group.forEach { c ->
+                            val blocked = c in model.blockedSymbols
+                            val selected = c in model.similarExclusions
+                            FilterChip(selected && !blocked, { edit(c.toString(), !selected) }, enabled = !model.busy && !blocked,
+                                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                                    testTag = "similar-character-$c"; contentDescription = "$c を除外"
+                                    stateDescription = if (blocked) "アプリの設定で使用しない記号" else if (selected) "除外する" else "除外しない"
+                                },
+                                leadingIcon = if (blocked || selected) { { AppIcon(if (blocked) R.drawable.ic_lock else R.drawable.ic_check, Modifier.size(16.dp)) } } else null,
+                                label = { Text("$c", fontFamily = FontFamily.Monospace,
+                                    textDecoration = if (blocked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null) })
+                        }
+                    }
+                }
+            }
+        }
+        if (model.blockedSymbols.isNotEmpty()) Text("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。一括操作でも除外設定を保持します。",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -199,7 +199,7 @@ enum class GuideArticle(val title: String) {
         Text("使用する文字種を1文字以上ずつ含めます。このような条件がある場合にONにし、必要な文字種を文字セットでも選んでください。大文字と小文字は別の文字種として扱います。", style = MaterialTheme.typography.bodyMedium)
     }
     GuideCard("似た文字を除外") {
-        GuideExampleValue("見間違えやすい文字の例", "O / 0    I / l / 1")
+        GuideExampleValue("見間違えやすい文字の例", "O / 0    I / l / 1 / |")
         Text("見ながら手入力するときに役立ちます。管理アプリの自動入力やコピーで使うなら、通常はOFFで構いません。ONでは、選んだ除外文字の分だけ候補が減ります。", style = MaterialTheme.typography.bodyMedium)
     }
     GuideCard("同じ文字を連続させない") {

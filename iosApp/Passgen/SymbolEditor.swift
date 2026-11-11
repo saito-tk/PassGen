@@ -37,6 +37,7 @@ struct SymbolEditor: View {
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(Array(SymbolPolicy.shared.SUPPORTED), id: \.self) { symbol in
                                 let blocked = model.blockedSymbols.contains(symbol)
+                                let excluded = model.recipe.excludeSimilar && model.recipe.similarExclusions.contains(symbol)
                                 let selected = model.effectiveSymbols.contains(symbol)
                                 Button { toggle(symbol) } label: {
                                     Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium)).strikethrough(blocked)
@@ -44,11 +45,15 @@ struct SymbolEditor: View {
                                         .background(blocked ? Color(uiColor: .systemGray5) : selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
                                         .foregroundStyle(blocked ? Color.secondary : selected ? Color.passgenOnAccent : Color.primary)
                                         .modifier(BlockedCharacterAppearance(blocked: blocked, cornerRadius: 14))
-                                }.buttonStyle(.plain).disabled(blocked)
-                                    .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "選択" : "未選択")
+                                }.buttonStyle(.plain).disabled(blocked || excluded)
+                                    .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : excluded ? "似た文字として除外中" : selected ? "選択" : "未選択")
                                     .accessibilityLabel("記号 \(String(symbol))")
                                     .accessibilityAddTraits(selected ? [.isSelected] : [])
                             }
+                        }
+                        if model.recipe.excludeSimilar {
+                            let excluded = String(SymbolPolicy.shared.SUPPORTED.filter { model.recipe.similarExclusions.contains($0) })
+                            if !excluded.isEmpty { Text("\(excluded) は「似た文字を除外」で除外中").font(.caption).foregroundStyle(.secondary) }
                         }
                         if !model.blockedSymbols.isEmpty { Label("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary) }
                     }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))

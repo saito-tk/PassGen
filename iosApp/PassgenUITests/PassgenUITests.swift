@@ -4,6 +4,61 @@ final class PassgenUITests: XCTestCase {
     @MainActor private func launchApp() -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = ["--uitest-ephemeral-settings"]; app.launch(); return app
     }
+    @MainActor func testSimilarGroupsAllowBulkAndIndividualSelection() {
+        let app = launchApp()
+        app.buttons["安全性とプライバシー"].tap()
+        XCTAssertTrue(app.buttons["アプリで使う記号"].waitForExistence(timeout: 3))
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["アプリで使う記号"].tap()
+        let pipe = app.buttons["app-symbol-|"]
+        bringGuideElementIntoView(pipe, surface: app)
+        pipe.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["閉じる"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        bringGuideElementIntoView(app.buttons["generation-rules"], surface: app)
+        app.buttons["generation-rules"].tap()
+        app.swipeUp()
+        XCTAssertFalse(app.buttons["similar-character-I"].exists)
+        let settings = app.buttons["similar-settings"]
+        settings.tap()
+        let scroll = app.scrollViews["similar-settings-scroll"]
+        XCTAssertTrue(scroll.waitForExistence(timeout: 3))
+        let group = app.buttons["similar-group-Il1|"]
+        bringGuideElementIntoView(group, surface: scroll)
+        group.tap()
+        let capitalI = app.buttons["similar-character-I"]
+        bringGuideElementIntoView(capitalI, surface: scroll)
+        XCTAssertFalse(capitalI.isSelected)
+        XCTAssertFalse(app.buttons["similar-character-|"].isEnabled)
+        capitalI.tap(); XCTAssertTrue(capitalI.isSelected)
+        saveGuideExampleScreenshot(app, "Similar letter groups")
+        let lastGroup = app.buttons["similar-group-:;"]
+        bringGuideElementIntoView(lastGroup, surface: scroll)
+        lastGroup.tap()
+        let colon = app.buttons["similar-character-:"]
+        bringGuideElementIntoView(colon, surface: scroll)
+        XCTAssertTrue(colon.isSelected)
+        colon.tap(); XCTAssertFalse(colon.isSelected)
+        saveGuideExampleScreenshot(app, "Similar symbol groups")
+        let all = app.buttons["similar-all"]
+        bringGuideElementIntoView(all, surface: scroll)
+        all.tap()
+        let none = app.buttons["similar-none"]
+        none.tap()
+        bringGuideElementIntoView(capitalI, surface: scroll)
+        XCTAssertFalse(capitalI.isSelected)
+        XCTAssertFalse(app.buttons["similar-character-|"].isEnabled)
+        app.navigationBars["似た文字の除外"].buttons["閉じる"].tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["similar-character-I"].exists)
+        saveGuideExampleScreenshot(app, "Compact generation rules")
+        settings.tap()
+        XCTAssertTrue(scroll.waitForExistence(timeout: 3))
+        bringGuideElementIntoView(capitalI, surface: scroll)
+        XCTAssertFalse(capitalI.isSelected)
+    }
+
     @MainActor private func dismissPresets(_ app: XCUIApplication) {
         let bar = app.navigationBars["プリセット"]
         let grabber = app.buttons["Sheet Grabber"]

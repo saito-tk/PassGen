@@ -7387,3 +7387,32 @@ final class SecretPreviewLayoutTests: XCTestCase {
         XCTAssertEqual(Set(restored.effectiveSymbols), Set(restored.recipe.symbols))
     }
 }
+
+@MainActor final class SimilarExclusionTests: XCTestCase {
+    func testGroupsPersistThroughPreferencesPresetsAndQRWithDeviceRestrictions() throws {
+        let suite = "test.similar.\(UUID().uuidString)"
+        let store = UserDefaults(suiteName: suite)!
+        defer { store.removePersistentDomain(forName: suite) }
+        let model = GeneratorModel(preferences: store)
+        XCTAssertEqual(model.recipe.similarExclusions, "Oo0Il1")
+        model.recipe.symbols = "|;!?"
+        model.recipe.similarExclusions = CharacterPolicy.shared.SIMILAR
+        model.setSymbolAllowed("|", allowed: false)
+        try model.savePreset(name: "Groups")
+        let qr = try model.presetQR(XCTUnwrap(model.presets.first))
+        XCTAssertTrue(qr.hasPrefix("PG2:"))
+        XCTAssertEqual(try model.decodedPresetQR(qr).recipe.similarExclusions, CharacterPolicy.shared.SIMILAR)
+        let restored = GeneratorModel(preferences: store)
+        XCTAssertEqual(restored.recipe.similarExclusions, CharacterPolicy.shared.SIMILAR)
+        XCTAssertEqual(restored.effectiveSymbols, "!?")
+        restored.recipe.similarExclusions = ""
+        XCTAssertEqual(Set(restored.effectiveSymbols), Set(";!?"))
+        try restored.applyPreset(XCTUnwrap(restored.presets.first?.id))
+        XCTAssertEqual(restored.recipe.similarExclusions, CharacterPolicy.shared.SIMILAR)
+        XCTAssertEqual(restored.recipe.symbols, SymbolPolicy.shared.recognized(text: "|;!?"))
+        restored.setSymbolAllowed("|", allowed: true)
+        XCTAssertEqual(restored.effectiveSymbols, "!?")
+        restored.recipe.excludeSimilar = false
+        XCTAssertEqual(Set(restored.effectiveSymbols), Set("|;!?"))
+    }
+}

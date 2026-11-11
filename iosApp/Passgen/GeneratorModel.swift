@@ -144,7 +144,10 @@ extension Recipe {
     private var generatedRecipe: Recipe?
     private var generatedBlockedSymbols = ""
     private(set) var blockedSymbols = "" { didSet { persistPreferences() } }
-    var effectiveSymbols: String { SymbolPolicy.shared.effective(selected: recipe.symbols, blocked: blockedSymbols) }
+    var effectiveSymbols: String {
+        CharacterPolicy.shared.effective(selected: SymbolPolicy.shared.effective(selected: recipe.symbols, blocked: blockedSymbols),
+            alphabet: SymbolPolicy.shared.SUPPORTED, excludeSimilar: recipe.excludeSimilar, exclusions: recipe.similarExclusions)
+    }
     func setSymbolAllowed(_ symbol: String, allowed: Bool) {
         guard !busy else { return }
         blockedSymbols = SymbolPolicy.shared.recognized(text: allowed ? blockedSymbols.filter { !symbol.contains($0) } : blockedSymbols + symbol)

@@ -60,7 +60,7 @@ data class PresetRecipe(
                 CharacterPolicy.canonical(text("uppercaseCharacters", CharacterPolicy.UPPERCASE), CharacterPolicy.UPPERCASE),
                 CharacterPolicy.canonical(text("lowercaseCharacters", CharacterPolicy.LOWERCASE), CharacterPolicy.LOWERCASE),
                 CharacterPolicy.canonical(text("digitCharacters", CharacterPolicy.DIGITS), CharacterPolicy.DIGITS),
-                CharacterPolicy.canonical(text("similarExclusions", CharacterPolicy.SIMILAR), CharacterPolicy.SIMILAR))
+                CharacterPolicy.canonical(text("similarExclusions", CharacterPolicy.DEFAULT_SIMILAR), CharacterPolicy.SIMILAR))
         }
     }
 }

@@ -30,7 +30,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var digits by mutableStateOf(true)
     var symbolsEnabled by mutableStateOf(true)
     var blockedSymbols by mutableStateOf(""); private set
-    val effectiveSymbols get() = SymbolPolicy.effective(symbols, blockedSymbols)
+    val effectiveSymbols get() = CharacterPolicy.effective(SymbolPolicy.effective(symbols, blockedSymbols), SymbolPolicy.SUPPORTED, excludeSimilar, similarExclusions)
     fun setSymbolAllowed(symbol: String, allowed: Boolean) {
         if (busy) return
         blockedSymbols = SymbolPolicy.recognized(if (allowed) blockedSymbols.filterNot { it in symbol } else blockedSymbols + symbol)
@@ -45,7 +45,7 @@ class PassgenModel(private val preferences: SharedPreferences? = null) : ViewMod
     var uppercaseCharacters by mutableStateOf(CharacterPolicy.UPPERCASE)
     var lowercaseCharacters by mutableStateOf(CharacterPolicy.LOWERCASE)
     var digitCharacters by mutableStateOf(CharacterPolicy.DIGITS)
-    var similarExclusions by mutableStateOf(CharacterPolicy.SIMILAR)
+    var similarExclusions by mutableStateOf(CharacterPolicy.DEFAULT_SIMILAR)
     var work by mutableStateOf(WorkState.IDLE); private set
     var results by mutableStateOf<List<SecretRow>>(emptyList()); private set
     var goal by mutableIntStateOf(1); private set

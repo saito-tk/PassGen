@@ -23,7 +23,7 @@ class GenerationRequest(
     val uppercaseCharacters: String = CharacterPolicy.UPPERCASE,
     val lowercaseCharacters: String = CharacterPolicy.LOWERCASE,
     val digitCharacters: String = CharacterPolicy.DIGITS,
-    val similarExclusions: String = CharacterPolicy.SIMILAR,
+    val similarExclusions: String = CharacterPolicy.DEFAULT_SIMILAR,
     val blockedSymbols: String = "",
 )
 
@@ -70,7 +70,15 @@ object CharacterPolicy {
     const val UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     const val LOWERCASE = "abcdefghijklmnopqrstuvwxyz"
     const val DIGITS = "0123456789"
-    const val SIMILAR = "Oo0Il1"
+    const val DEFAULT_SIMILAR = "Oo0Il1"
+    const val SIMILAR = "Oo0Il1|Ss5Zz2B8G6'`.,:;"
+    val SIMILAR_GROUPS = listOf("Oo0", "Il1|", "Ss5", "Zz2", "B8", "G6", "'`", ".,", ":;")
+
+    /** Bulk edits preserve the stored preference of device-blocked symbols. */
+    fun editedSimilarExclusions(current: String, characters: String, excluded: Boolean, blocked: String): String {
+        val editable = characters.filter { it in SIMILAR && it !in blocked }
+        return canonical(if (excluded) current + editable else current.filterNot { it in editable }, SIMILAR)
+    }
     fun canonical(selected: String, alphabet: String): String = alphabet.filter { it in selected }
     fun effective(selected: String, alphabet: String, excludeSimilar: Boolean, exclusions: String): String =
         canonical(selected, alphabet).filterNot { excludeSimilar && it in exclusions }
@@ -80,7 +88,7 @@ object CharacterPolicy {
         if (r.uppercase) add(effective(r.uppercaseCharacters, UPPERCASE, r.excludeSimilar, r.similarExclusions))
         if (r.lowercase) add(effective(r.lowercaseCharacters, LOWERCASE, r.excludeSimilar, r.similarExclusions))
         if (r.digits) add(effective(r.digitCharacters, DIGITS, r.excludeSimilar, r.similarExclusions))
-        if (r.symbolsEnabled) add(SymbolPolicy.effective(r.symbols, r.blockedSymbols))
+        if (r.symbolsEnabled) add(effective(SymbolPolicy.effective(r.symbols, r.blockedSymbols), SymbolPolicy.SUPPORTED, r.excludeSimilar, r.similarExclusions))
     }.filter { it.isNotEmpty() }
 
     fun effectivePasswordAlphabet(request: GenerationRequest): String =

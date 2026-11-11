@@ -1,7 +1,5 @@
 package jp.passgen.core
 
-import kotlin.math.pow
-
 /** Teaching calculator, independent of generator preferences and device symbol restrictions. */
 object PasswordCombinationLesson {
     const val MAX_LENGTH = 128
@@ -47,6 +45,8 @@ object BruteForceLesson {
         LessonTrialRate(1, "1回/秒"), LessonTrialRate(1_000, "1,000回/秒"),
         LessonTrialRate(1_000_000, "100万回/秒"), LessonTrialRate(1_000_000_000, "10億回/秒"),
     )
+    const val DISPLAY_YEAR_LIMIT = 1_000_000_000_000.0
+    const val DISPLAY_LIMIT_NOTE = "1兆年以上は、細かい年数を省いた表示です。計算上の時間であり、安全を保証するものではありません。"
     const val SECONDS_PER_YEAR = 31_557_600.0 // 365.25 days; a display conversion, not a prediction.
 
     fun estimate(combinations: PasswordCombinationCount, rateIndex: Int): BruteForceEstimate? {
@@ -69,17 +69,19 @@ object BruteForceLesson {
             seconds < SECONDS_PER_YEAR -> seconds / 86400 to "日"
             else -> seconds / SECONDS_PER_YEAR to "年"
         }
-        if (value < 10_000) return "約 ${oneDecimal(value)}$unit"
-        var exponent = kotlin.math.floor(kotlin.math.log10(value)).toInt()
-        var mantissa = value / 10.0.pow(exponent)
-        if (kotlin.math.round(mantissa * 10) >= 100) { exponent++; mantissa = 1.0 }
-        val power = exponent.toString().map { "⁰¹²³⁴⁵⁶⁷⁸⁹"[it - '0'] }.joinToString("")
-        return "約 ${oneDecimal(mantissa)} × 10$power$unit"
+        if (unit != "年" || value < 10_000) return "約 ${oneDecimal(value)}$unit"
+        if (value >= DISPLAY_YEAR_LIMIT) return "1兆年以上"
+        val scale = if (value >= 100_000_000) 100_000_000.0 else 10_000.0
+        val yearUnit = if (value >= 100_000_000) "億年" else "万年"
+        // Keep rounding below the next named unit, especially the explicit display cap.
+        val scaled = (value / scale).coerceAtMost(9999.9)
+        return "約 ${oneDecimal(scaled)}$yearUnit"
     }
 
     private fun oneDecimal(value: Double): String {
         val tenths = kotlin.math.round(value * 10).toLong()
-        return if (tenths % 10L == 0L) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
+        val whole = (tenths / 10).toString().reversed().chunked(3).joinToString(",").reversed()
+        return if (tenths % 10L == 0L) whole else "$whole.${tenths % 10}"
     }
 }
 

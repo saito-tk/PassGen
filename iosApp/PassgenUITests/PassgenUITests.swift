@@ -783,6 +783,20 @@ final class PassgenUITests: XCTestCase {
         bringGuideElementIntoView(exact, surface: scroll)
         XCTAssertEqual(exact.label, "475,920,314,814,253,376,475,136 通り")
         saveGuideExampleScreenshot(app, "Mixed character combination count")
+        bringGuideElementIntoView(average, surface: scroll)
+        XCTAssertEqual(average.label, "約 75.4億年")
+        XCTAssertEqual(exhaustive.label, "約 150.8億年")
+        saveGuideExampleScreenshot(app, "Years without exponents")
+        let twentyFour = app.buttons["guide-length-preset-24"]
+        bringGuideElementIntoView(twentyFour, surface: scroll); twentyFour.tap()
+        bringGuideElementIntoView(average, surface: scroll)
+        XCTAssertEqual(average.label, "1兆年以上")
+        saveGuideExampleScreenshot(app, "Time display cap")
+        for _ in 0..<6 {
+            if app.buttons["guide-alphabet-1"].exists { break }
+            scroll.swipeDown()
+        }
+
         for mask in [1, 2, 4, 8] {
             let option = app.buttons["guide-alphabet-\(mask)"]
             bringGuideElementIntoView(option, surface: scroll); option.tap()
@@ -792,12 +806,11 @@ final class PassgenUITests: XCTestCase {
         XCTAssertFalse(average.exists)
         let digits = app.buttons["guide-alphabet-4"]
         bringGuideElementIntoView(digits, surface: scroll); digits.tap()
-        let input = app.textFields["guide-length-input"]
-        bringGuideElementIntoView(input, surface: scroll); input.tap()
-        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "6")
-        app.buttons["完了"].tap()
+        XCTAssertFalse(app.textFields["guide-length-input"].exists)
+        let eight = app.buttons["guide-length-preset-8"]
+        bringGuideElementIntoView(eight, surface: scroll); eight.tap()
         bringGuideElementIntoView(count, surface: scroll)
-        XCTAssertEqual(count.label, "1,000,000 通り")
+        XCTAssertEqual(count.label, "100,000,000 通り")
         saveGuideExampleScreenshot(app, "Numeric length comparison")
         choosePasswordTopic("パスフレーズ", app: app)
         let phrase = app.staticTexts["guide-phrase-value"]

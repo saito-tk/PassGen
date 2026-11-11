@@ -32,8 +32,24 @@ class PasswordCombinationLessonTest {
         assertFailsWith<IllegalArgumentException> { BruteForceLesson.estimate(count, 4) }
         val huge = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(128, 15), 0)!!
         assertTrue(huge.averageSeconds.isFinite())
-        assertEquals("約 5.8 × 10²⁴⁴年", huge.averageLabel)
-        assertEquals("約 1.2 × 10²⁴⁵年", huge.exhaustiveLabel)
+        assertEquals("1兆年以上", huge.averageLabel)
+        assertEquals("1兆年以上", huge.exhaustiveLabel)
+    }
+
+    @Test fun longDurationsUseJapaneseUnitsAndAnExplicitDisplayCap() {
+        val year = BruteForceLesson.SECONDS_PER_YEAR
+        val cases = listOf(9_999.0 to "約 9,999年", 10_000.0 to "約 1万年",
+            25_000.0 to "約 2.5万年", 99_999_999.0 to "約 9,999.9万年",
+            100_000_000.0 to "約 1億年", 350_000_000.0 to "約 3.5億年",
+            999_999_999_999.0 to "約 9,999.9億年", 1_000_000_000_000.0 to "1兆年以上",
+            1e100 to "1兆年以上")
+        cases.forEach { (years, label) -> assertEquals(label, BruteForceLesson.duration(years * year)) }
+        for (length in listOf(4, 8, 12, 16, 24)) for (mask in 1..15) for (rate in 0..3) {
+            val result = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(length, mask), rate)!!
+            for (label in listOf(result.averageLabel, result.exhaustiveLabel)) {
+                assertFalse(label.contains("×")); assertFalse(label.contains("E")); assertFalse(label.contains("Infinity"))
+            }
+        }
     }
 
     @Test fun durationUnitsCoverSmallAndLargeTimesWithoutZeroOrInfinity() {

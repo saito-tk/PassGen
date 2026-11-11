@@ -1337,7 +1337,7 @@ private struct GuideJourneyStep: View {
 
 private struct PasswordExamplesLessonView: View {
     @State private var topic: Int
-    @State private var lessonLength = "4"
+    @State private var lessonLength = 4
     @State private var lessonCharacters = 4
     @State private var lessonRate = 2
     @State private var separator = " "
@@ -1388,7 +1388,7 @@ private struct PasswordExamplesLessonView: View {
     }
     private var lengthContent: some View {
         Group {
-            LengthCombinationLesson(lengthText: $lessonLength, selection: $lessonCharacters, rateIndex: $lessonRate)
+            LengthCombinationLesson(length: $lessonLength, selection: $lessonCharacters, rateIndex: $lessonRate)
             LessonPanel(title: "24文字のパスワードの形") {
                 GuideExampleValue(caption: "英大文字・小文字・数字・記号の見本", value: examples.PASSWORD, identifier: "guide-password-shape")
                 Text("まず15文字以上を目安に、利用先が許す範囲で長く。このアプリの初期値は24文字です。長いだけ・複雑に見えるだけでは足りず、無作為に新しく作ることが大切です。")
@@ -1420,15 +1420,10 @@ private struct PasswordExamplesLessonView: View {
 }
 
 private struct LengthCombinationLesson: View {
-    @Binding var lengthText: String
+    @Binding var length: Int
     @Binding var selection: Int
     @Binding var rateIndex: Int
-    @FocusState private var editingLength: Bool
     @State private var showExact = false
-    private var length: Int? {
-        guard let value = Int(lengthText), (1...128).contains(value) else { return nil }
-        return value
-    }
     var body: some View {
         LessonPanel(title: "文字種と長さで、何通り？") {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 8) {
@@ -1445,23 +1440,16 @@ private struct LengthCombinationLesson: View {
                         .accessibilityIdentifier("guide-alphabet-\(group.mask)")
                 }
             }
-            HStack {
-                Text("文字数")
-                TextField("1〜128", text: $lengthText).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 100).focused($editingLength).accessibilityIdentifier("guide-length-input")
-                    .onChange(of: lengthText) { _, value in lengthText = String(value.filter { $0.isASCII && $0.isNumber }.prefix(3)) }
-                Spacer()
-                if editingLength { Button("完了") { editingLength = false } }
-            }
+            Text("文字数").font(.subheadline)
             HStack(spacing: 8) {
                 ForEach([4, 8, 12, 16, 24], id: \.self) { value in
-                    Button("\(value)") { lengthText = String(value); editingLength = false }
+                    Button("\(value)") { length = value }
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(length == value ? Color.passgenAccent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                         .accessibilityLabel("\(value)文字").accessibilityIdentifier("guide-length-preset-\(value)")
                 }
             }
-            if let length {
+            Group {
                 let result = PasswordCombinationLesson.shared.calculate(length: Int32(length), selectionMask: Int32(selection))
                 VStack(alignment: .leading, spacing: 8) {
                     Text("1文字に使える候補：\(result.alphabetSize)種類").font(.subheadline)
@@ -1482,7 +1470,7 @@ private struct LengthCombinationLesson: View {
                 if selection != 0 {
                     BruteForceTimeLesson(combinations: result, rateIndex: $rateIndex)
                 }
-            } else { Text("文字数は1〜128で入力してください。").font(.subheadline) }
+            }
             Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。")
                 .font(.caption).foregroundStyle(.secondary)
             Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。")
@@ -1516,11 +1504,21 @@ private struct BruteForceTimeLesson: View {
             }
             Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。")
                 .font(.caption).foregroundStyle(.secondary)
+            Text(BruteForceLesson.shared.DISPLAY_LIMIT_NOTE).font(.caption).foregroundStyle(.secondary)
             DisclosureGroup("実際の速さは何で変わる？") {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ログイン画面に試す場合：回数制限や待ち時間の影響を受けます。")
                     Text("漏えいしたハッシュに試す場合：サイトへのログインを介さず試せるため、その回数制限は効きません。ハッシュ方式・計算コストの設定・攻撃側の機材で速さが変わります。")
                     Text("ここで選ぶ速度は説明用の仮定で、特定のサービスや機材の測定値ではありません。辞書攻撃・使い回し・フィッシングなどは、この試算の対象外です。")
+                    Text("10億回/秒は普通？").fontWeight(.semibold)
+                    Text("SHA-256などの高速なハッシュでは、対応する機材で毎秒数十億回の計算も可能です。一方、Argon2idなどは1回の照合に時間やメモリを使う設計です。10億回/秒は、どのパソコン・サービスにも当てはまる速度ではありません。")
+                    Text("スーパーコンピュータなら？").fontWeight(.semibold)
+                    Text("大量の計算機で分担できる場合もありますが、保存方式やメモリ量で速さは変わります。公表される計算性能は別の計算を測った値なので、そのままパスワードの試行回数には換算できません。")
+                    Text("量子コンピュータなら？").fontWeight(.semibold)
+                    Text("グローバー法という探索方法で、必要な手順を理論上減らせます。ただし、1手順の時間や必要な装置が通常の計算とは違います。この画面の「毎秒何回」の計算で量子コンピュータの所要時間は表せません。")
+                    Link("Spring Security：計算速度と保存方式（英語）", destination: URL(string: "https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html")!)
+                    Link("TOP500：計算性能の測り方（英語）", destination: URL(string: "https://www.top500.org/project/linpack/")!)
+                    Link("NIST：量子探索の限界（英語）", destination: URL(string: "https://csrc.nist.gov/Projects/Post-Quantum-Cryptography/faqs")!)
                     Link("NIST：パスワードの保護（英語）", destination: URL(string: "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")!)
                     Link("OWASP：パスワードの保存（英語）", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")!)
                 }.font(.caption).foregroundStyle(.secondary)

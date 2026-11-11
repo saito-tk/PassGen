@@ -20,17 +20,11 @@ import jp.passgen.core.PasswordCombinationLesson
 import jp.passgen.core.PasswordCombinationCount
 import jp.passgen.core.BruteForceLesson
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 
 /** Static, public examples. No generator, clipboard or user credentials are used. */
 @Composable fun PasswordExamplesLessonSheet(initialTopic: Int, fold: FoldingFeature?, back: () -> Unit) {
     var topic by rememberSaveable { mutableIntStateOf(initialTopic) }
-    var lessonLength by rememberSaveable { mutableStateOf("4") }
+    var lessonLength by rememberSaveable { mutableIntStateOf(4) }
     var lessonCharacters by rememberSaveable { mutableIntStateOf(4) }
     var lessonRate by rememberSaveable { mutableIntStateOf(2) }
     val density = LocalDensity.current
@@ -74,12 +68,8 @@ import androidx.compose.ui.text.input.KeyboardType
     }
 }
 
-@Composable private fun LengthExamples(lengthText: String, changeLength: (String) -> Unit, selection: Int, changeSelection: (Int) -> Unit, rateIndex: Int, changeRate: (Int) -> Unit) {
-    val length = lengthText.toIntOrNull()?.takeIf { it in 1..PasswordCombinationLesson.MAX_LENGTH }
+@Composable private fun LengthExamples(length: Int, changeLength: (Int) -> Unit, selection: Int, changeSelection: (Int) -> Unit, rateIndex: Int, changeRate: (Int) -> Unit) {
     var showExact by rememberSaveable { mutableStateOf(false) }
-    val focus = LocalFocusManager.current
-    val keyboard = LocalSoftwareKeyboardController.current
-    fun finishInput() { focus.clearFocus(); keyboard?.hide() }
     LessonPanel("文字種と長さで、何通り？") {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PasswordCombinationLesson.groups.forEach { group ->
@@ -90,18 +80,14 @@ import androidx.compose.ui.text.input.KeyboardType
                     modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "guide-alphabet-${group.mask}" })
             }
         }
-        OutlinedTextField(lengthText, { changeLength(it.filter { c -> c in '0'..'9' }.take(3)) },
-            label = { Text("文字数") }, supportingText = { Text("1〜128文字") }, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { finishInput() }),
-            modifier = Modifier.fillMaxWidth().semantics { testTag = "guide-length-input" })
+        Text("文字数", style = MaterialTheme.typography.labelLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(4, 8, 12, 16, 24).forEach { value ->
-                FilterChip(length == value, { changeLength(value.toString()); finishInput() }, label = { Text("$value") },
+                FilterChip(length == value, { changeLength(value) }, label = { Text("${value}文字") },
                     modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "guide-length-preset-$value" })
             }
         }
-        if (length != null) {
+        run {
             val result = remember(length, selection) { PasswordCombinationLesson.calculate(length, selection) }
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -122,7 +108,7 @@ import androidx.compose.ui.text.input.KeyboardType
                 }
             }
             if (selection != 0) BruteForceTimeLesson(result, rateIndex, changeRate)
-        } else Text("文字数は1〜128で入力してください。", style = MaterialTheme.typography.bodyMedium)
+        }
         Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。", style = MaterialTheme.typography.bodySmall)
         Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。", style = MaterialTheme.typography.bodySmall)
     }
@@ -156,6 +142,7 @@ import androidx.compose.ui.text.input.KeyboardType
         }
     }
     Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。", style = MaterialTheme.typography.bodySmall)
+    Text(BruteForceLesson.DISPLAY_LIMIT_NOTE, style = MaterialTheme.typography.bodySmall)
     TextButton(onClick = { details = !details }) {
         Text("実際の速さは何で変わる？")
         AppIcon(if (details) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
@@ -164,6 +151,15 @@ import androidx.compose.ui.text.input.KeyboardType
         Text("ログイン画面に試す場合：回数制限や待ち時間の影響を受けます。", style = MaterialTheme.typography.bodySmall)
         Text("漏えいしたハッシュに試す場合：サイトへのログインを介さず試せるため、その回数制限は効きません。ハッシュ方式・計算コストの設定・攻撃側の機材で速さが変わります。", style = MaterialTheme.typography.bodySmall)
         Text("ここで選ぶ速度は説明用の仮定で、特定のサービスや機材の測定値ではありません。辞書攻撃・使い回し・フィッシングなどは、この試算の対象外です。", style = MaterialTheme.typography.bodySmall)
+        Text("10億回/秒は普通？", style = MaterialTheme.typography.titleSmall)
+        Text("SHA-256などの高速なハッシュでは、対応する機材で毎秒数十億回の計算も可能です。一方、Argon2idなどは1回の照合に時間やメモリを使う設計です。10億回/秒は、どのパソコン・サービスにも当てはまる速度ではありません。", style = MaterialTheme.typography.bodySmall)
+        Text("スーパーコンピュータなら？", style = MaterialTheme.typography.titleSmall)
+        Text("大量の計算機で分担できる場合もありますが、保存方式やメモリ量で速さは変わります。公表される計算性能は別の計算を測った値なので、そのままパスワードの試行回数には換算できません。", style = MaterialTheme.typography.bodySmall)
+        Text("量子コンピュータなら？", style = MaterialTheme.typography.titleSmall)
+        Text("グローバー法という探索方法で、必要な手順を理論上減らせます。ただし、1手順の時間や必要な装置が通常の計算とは違います。この画面の「毎秒何回」の計算で量子コンピュータの所要時間は表せません。", style = MaterialTheme.typography.bodySmall)
+        GuideLink("Spring Security：計算速度と保存方式（英語）", "https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html")
+        GuideLink("TOP500：計算性能の測り方（英語）", "https://www.top500.org/project/linpack/")
+        GuideLink("NIST：量子探索の限界（英語）", "https://csrc.nist.gov/Projects/Post-Quantum-Cryptography/faqs")
         GuideLink("NIST：パスワードの保護（英語）", "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")
         GuideLink("OWASP：パスワードの保存（英語）", "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")
     }

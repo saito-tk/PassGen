@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
                 Text("オフにすると結果やアプリ切替時のプレビューが撮影・共有される可能性があります。生成結果は背景へ移ってもメモリ内に保持し、消去・再生成・アプリの終了で破棄します。", style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider()
                 SettingsSectionTitle("データの扱い", R.drawable.ic_tune)
-                Text("パスワードとパスフレーズは、この端末内で生成します。生成にインターネット接続やアカウント登録は必要ありません。", style = MaterialTheme.typography.bodyMedium)
+                Text("パスワードとパスフレーズは、この端末内で生成します。このアプリが生成した値を外部のサーバーへ送信することはありません。生成にインターネット接続やアカウント登録は必要ありません。", style = MaterialTheme.typography.bodyMedium)
                 Text("この端末に保存するのは、文字数・使う文字・名前付きプリセット・表示や保護などの設定です。生成したパスワードやパスフレーズを、履歴として保存することはありません。", style = MaterialTheme.typography.bodyMedium)
                 Text("✓はその生成一覧で一度コピーした印で、クリップボードに残っていることは示しません。", style = MaterialTheme.typography.bodySmall)
                 Text("OSの暗号学的乱数を使用します。推定エントロピーは生成候補数の目安です。侵害されたOSやコピー先アプリへの保護、メモリの完全消去は保証できません。", style = MaterialTheme.typography.bodySmall)

@@ -328,7 +328,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                 }
             }
             if (excluded.isNotEmpty()) Text("$excluded は「似た文字を除外」で除外中", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) Text("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) Text("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { ActionLabel(R.drawable.ic_content_paste, "記号一覧を貼り付け") }
         }
     }

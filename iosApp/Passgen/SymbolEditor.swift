@@ -50,7 +50,7 @@ struct SymbolEditor: View {
                                     .accessibilityAddTraits(selected ? [.isSelected] : [])
                             }
                         }
-                        if !model.blockedSymbols.isEmpty { Label("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary) }
+                        if !model.blockedSymbols.isEmpty { Label("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary) }
                     }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     VStack(alignment: .leading, spacing: 12) {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)

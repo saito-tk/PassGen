@@ -429,7 +429,7 @@ private struct CharacterEditor: View {
                     }
                 }
                 if !excluded.isEmpty { Text("\(excluded) は「似た文字を除外」で除外中").font(.caption2).foregroundStyle(.secondary) }
-                if group == .symbols && !model.blockedSymbols.isEmpty { Label("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", systemImage: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
+                if group == .symbols && !model.blockedSymbols.isEmpty { Label("ロック付きの記号は、「アプリで使う記号」で使用不可に設定されています。", systemImage: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
                 if group == .symbols && enabled {
                     Button("記号一覧を貼り付け・画像から読み取る", systemImage: "doc.viewfinder") { showSymbols = true }
                         .font(.subheadline).frame(minHeight: 44)

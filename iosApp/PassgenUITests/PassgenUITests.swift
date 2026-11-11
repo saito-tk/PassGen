@@ -631,8 +631,10 @@ final class PassgenUITests: XCTestCase {
 
     @MainActor func testStorageLessonExplainsGuessingAndShowsReuseConsequences() {
         let app = launchApp()
-        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
-        app.buttons["password-storage-guide"].tap()
+        openSecurityGuide(app)
+        let guide = app.descendants(matching: .any).matching(identifier: "security-guide-list").firstMatch
+        let storageLink = app.buttons["password-storage-guide"]
+        bringGuideElementIntoView(storageLink, surface: guide); storageLink.tap()
         XCTAssertTrue(app.navigationBars["保存方法と使い回し"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["平文（ひらぶん）"].exists)
         XCTAssertTrue(app.staticTexts["ハッシュ化"].exists)
@@ -656,6 +658,14 @@ final class PassgenUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(hash.frame.minX, surface.frame.minX)
         XCTAssertLessThanOrEqual(hash.frame.maxX, surface.frame.maxX)
         let fullHash = XCTAttachment(screenshot: app.screenshot()); fullHash.name = "Full database hash example"; fullHash.lifetime = .keepAlways; add(fullHash)
+        let encryption = app.staticTexts["暗号化：元に戻せる（可逆性）"]
+        for _ in 0..<8 { if encryption.isHittable { break }; surface.swipeUp() }
+        XCTAssertTrue(encryption.isHittable)
+        let comparison = XCTAttachment(screenshot: app.screenshot()); comparison.name = "Reversible encryption"; comparison.lifetime = .keepAlways; add(comparison)
+        let irreversible = app.staticTexts["hash-not-encryption"]
+        for _ in 0..<8 { if irreversible.isHittable { break }; surface.swipeUp() }
+        XCTAssertTrue(irreversible.isHittable)
+        let oneWay = XCTAttachment(screenshot: app.screenshot()); oneWay.name = "Irreversible hashing"; oneWay.lifetime = .keepAlways; add(oneWay)
         let details = app.buttons["ハッシュ化なら、漏れても安全？"]
         for _ in 0..<14 { if details.isHittable { break }; app.swipeUp() }
         details.tap(); XCTAssertTrue(app.staticTexts["hash-guessing"].exists)

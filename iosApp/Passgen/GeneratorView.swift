@@ -1568,6 +1568,7 @@ private struct PasswordStorageLessonView: View {
                 }
                 VStack(spacing: 12) { StorageComparisonCard(hashed: false); StorageComparisonCard(hashed: true) }
             }
+            EncryptionHashComparison()
             LessonPanel(title: "ログイン時は、計算して照合") {
                 Text("入力したパスワードを、保存時と同じソルト・設定で計算します。保存済みの値と一致するかで確認します。").font(.subheadline)
                 if typeSize.isAccessibilitySize || horizontalSize != .regular {
@@ -1589,7 +1590,6 @@ private struct PasswordStorageLessonView: View {
                         .accessibilityIdentifier("hash-guessing")
                     SaltComparisonView()
                     Text("個別ソルトがあっても、候補の計算による推測は可能です。サービス側は推測に時間やメモリがかかる専用の保存方式も使います。利用者は長く無作為な値を、サービスごとに別々にしましょう。")
-                    Text("暗号化は鍵で元へ戻せる方式です。ハッシュ化は元へ戻す鍵を持たず、計算結果の照合に使います。")
                 }.font(.subheadline).padding(.top, 10)
             } label: { Text("ハッシュ化なら、漏れても安全？").font(.subheadline.weight(.semibold)) }
                 .padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -1656,6 +1656,31 @@ private struct LessonValueBox: View {
         }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
             .accessibilityElement(children: .combine).accessibilityIdentifier(identifier)
+    }
+}
+
+private struct EncryptionHashComparison: View {
+    var body: some View {
+        LessonPanel(title: "ハッシュ化は、暗号化とは別の仕組み") {
+            Text("暗号化：元に戻せる（可逆性）").font(.subheadline.weight(.semibold))
+            LessonValueBox(caption: "暗号化する前", value: StorageLessonExamples.shared.PASSWORD)
+            Text("↓ 暗号化して暗号文にする\n↓ 適切な鍵で復号する")
+                .font(.subheadline).foregroundStyle(Color.passgenAccent)
+            LessonValueBox(caption: "復号すると、元のパスワードに戻る", value: StorageLessonExamples.shared.PASSWORD)
+            Text("暗号文を元の内容へ戻す操作が「復号」です。鍵を使って戻せる性質を「可逆性」といいます。")
+                .font(.subheadline)
+            Divider()
+            Text("ハッシュ化：元に戻す仕組みがない（不可逆性）").font(.subheadline.weight(.semibold))
+            LessonValueBox(caption: "ハッシュ化する前", value: StorageLessonExamples.shared.PASSWORD)
+            Text("↓ ハッシュ化して、上の照合用の値にする\n↑ 復号して元へ戻すことはできない")
+                .font(.subheadline).foregroundStyle(Color.passgenAccent)
+            Text("ハッシュ値から元の内容を復元するための鍵や復号の手順はありません。この一方向の性質を「不可逆性」といいます。")
+                .font(.subheadline)
+            Text("ただし、候補のパスワードをハッシュ化し、一致を調べて言い当てることは可能です。「復号できない」と「知られる心配がない」は別です。")
+                .font(.subheadline.weight(.medium)).accessibilityIdentifier("hash-not-encryption")
+            Text("サービスがログイン用パスワードを保存するときは、元へ戻せる暗号化ではなく、Argon2idなどパスワード専用のハッシュ方式で照合用の値を保存するのが適切です。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 

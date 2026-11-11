@@ -54,6 +54,7 @@ import jp.passgen.core.StorageLessonExamples
                                 StorageComparison(false, Modifier.fillMaxWidth()); StorageComparison(true, Modifier.fillMaxWidth())
                             }
                         }
+                        EncryptionHashComparison()
                         LessonPanel("ログイン時は、計算して照合") {
                             Text("入力したパスワードを、保存時と同じソルト・設定で計算します。保存済みの値と一致するかで確認します。", style = MaterialTheme.typography.bodyMedium)
                             BoxWithConstraints {
@@ -128,6 +129,23 @@ import jp.passgen.core.StorageLessonExamples
     }
 }
 
+@Composable private fun EncryptionHashComparison() {
+    LessonPanel("ハッシュ化は、暗号化とは別の仕組み") {
+        Text("暗号化：元に戻せる（可逆性）", style = MaterialTheme.typography.titleSmall)
+        ValueBox("暗号化する前", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth())
+        Text("↓ 暗号化して暗号文にする\n↓ 適切な鍵で復号する", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        ValueBox("復号すると、元のパスワードに戻る", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth())
+        Text("暗号文を元の内容へ戻す操作が「復号」です。鍵を使って戻せる性質を「可逆性」といいます。", style = MaterialTheme.typography.bodyMedium)
+        HorizontalDivider()
+        Text("ハッシュ化：元に戻す仕組みがない（不可逆性）", style = MaterialTheme.typography.titleSmall)
+        ValueBox("ハッシュ化する前", StorageLessonExamples.PASSWORD, Modifier.fillMaxWidth())
+        Text("↓ ハッシュ化して、上の照合用の値にする\n↑ 復号して元へ戻すことはできない", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        Text("ハッシュ値から元の内容を復元するための鍵や復号の手順はありません。この一方向の性質を「不可逆性」といいます。", style = MaterialTheme.typography.bodyMedium)
+        Text("ただし、候補のパスワードをハッシュ化し、一致を調べて言い当てることは可能です。「復号できない」と「知られる心配がない」は別です。", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { testTag = "hash-not-encryption" })
+        Text("サービスがログイン用パスワードを保存するときは、元へ戻せる暗号化ではなく、Argon2idなどパスワード専用のハッシュ方式で照合用の値を保存するのが適切です。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 @Composable private fun StorageComparison(hashed: Boolean, modifier: Modifier) {
     val color = if (hashed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     OutlinedCard(modifier) {
@@ -168,7 +186,6 @@ import jp.passgen.core.StorageLessonExamples
         Text("攻撃者は候補を次々に計算し、漏れた値と比べて元のパスワードを探せます。短い値・よくある値は特に推測されやすくなります。", Modifier.semantics { testTag = "hash-guessing" })
         SaltComparison()
         Text("個別ソルトがあっても、候補の計算による推測は可能です。サービス側は推測に時間やメモリがかかる専用の保存方式も使います。利用者は長く無作為な値を、サービスごとに別々にしましょう。", style = MaterialTheme.typography.bodySmall)
-        Text("暗号化は鍵で元へ戻せる方式です。ハッシュ化は元へ戻す鍵を持たず、計算結果の照合に使います。", style = MaterialTheme.typography.bodySmall)
     }
 }
 

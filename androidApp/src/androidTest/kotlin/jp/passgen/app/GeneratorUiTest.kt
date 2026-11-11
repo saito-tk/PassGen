@@ -705,6 +705,12 @@ class GeneratorUiTest {
         rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
         rule.onNodeWithText("12345678").assertDoesNotExist()
         rule.onNodeWithText("P@ssw0rd1!").assertDoesNotExist()
+        val settingsBeforeGuide = rule.runOnIdle { PresetRecipe.capture(model) }
+        rule.onNodeWithTag("generation-rules-guide").performScrollTo().performClick()
+        rule.onNodeWithTag("rules-candidate-example").performScrollTo().assertTextEquals("A1A1    1A1A")
+        saveGuideScreenshot("generation-rule-guidance.png")
+        rule.onNodeWithTag("guide-article-back").performClick()
+        rule.runOnIdle { assertEquals(settingsBeforeGuide, PresetRecipe.capture(model)) }
         rule.onNodeWithTag("password-manager-guide").performScrollTo().performClick()
         rule.onNodeWithTag("guide-manager-password").performScrollTo().assertTextEquals(jp.passgen.core.SecurityGuideExamples.PASSWORD)
         saveGuideScreenshot("guide-manager.png")

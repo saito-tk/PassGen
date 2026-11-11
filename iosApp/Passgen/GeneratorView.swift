@@ -1048,6 +1048,11 @@ struct SecurityGuideView: View {
                     GuideDestination(title: "パスフレーズ", detail: "単語の組み合わせと区切り方")
                 }.accessibilityIdentifier("passphrase-examples-guide")
             }
+            Section("生成時の設定") {
+                NavigationLink { GenerationRulesGuideView() } label: {
+                    GuideDestination(title: "生成ルールの選び方", detail: "候補数・サービスの条件・入力のしやすさ")
+                }.accessibilityIdentifier("generation-rules-guide")
+            }
             Section("保存と使い回し") {
                 NavigationLink { PasswordStorageLessonView() } label: {
                     GuideDestination(title: "なぜ使い回しは危険？", detail: "平文・ハッシュ化と、漏えいの広がり")
@@ -1069,6 +1074,40 @@ struct SecurityGuideView: View {
             }
         }.navigationTitle("アカウントを守る").navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("security-guide-list")
+    }
+}
+
+private struct GenerationRulesGuideView: View {
+    var body: some View {
+        List {
+            Section("必要なルールを選ぶ") {
+                Text("同じ文字数・同じ文字セットなら、3項目ともOFFのとき候補数が最大になります。サービスの条件や入力方法に合わせ、必要なルールだけONにしましょう。")
+            }
+            Section("各文字種を必ず含める") {
+                GuideExampleValue(caption: "サービスが指定する条件の例", value: "英字・数字・記号を各1文字以上")
+                Text("使用する文字種を1文字以上ずつ含めます。このような条件がある場合にONにし、必要な文字種を文字セットでも選んでください。大文字と小文字は別の文字種として扱います。")
+            }
+            Section("似た文字を除外") {
+                GuideExampleValue(caption: "見間違えやすい文字の例", value: "O / 0    I / l / 1")
+                Text("見ながら手入力するときに役立ちます。管理アプリの自動入力やコピーで使うなら、通常はOFFで構いません。ONでは、選んだ除外文字の分だけ候補が減ります。")
+            }
+            Section("同じ文字を連続させない") {
+                GuideExampleValue(caption: "除外される並びの例", value: "aa    11")
+                Text("サービスが同じ文字の連続を禁止している場合にONにします。無作為な生成結果に偶然の連続があっても、それだけで弱いとは限りません。")
+            }
+            Section {
+                Text("Aと1だけを使って、4文字を無作為に作る場合")
+                LabeledContent("追加の制約なし", value: "16通り")
+                LabeledContent("英字と数字を必ず含める", value: "14通り")
+                Text("AAAAと1111の2通りが除かれます。").font(.caption).foregroundStyle(.secondary)
+                LabeledContent("同じ文字を連続させない", value: "2通り")
+                GuideExampleValue(caption: "連続禁止で残る候補", value: "A1A1    1A1A", identifier: "rules-candidate-example")
+            } header: { Text("制約を加えると候補はどう変わる？") } footer: { Text("候補数の変化を示す説明用の例です。実際には十分な長さで無作為に生成してください。") }
+            Section {
+                Link("NISTのパスワード指針（英語）", destination: URL(string: "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")!)
+            }
+        }.navigationTitle("生成ルールの選び方").navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("generation-rules-guide-list")
     }
 }
 

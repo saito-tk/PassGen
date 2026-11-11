@@ -677,6 +677,16 @@ final class PassgenUITests: XCTestCase {
         saveGuideExampleScreenshot(app, "Security guide topics")
         XCTAssertFalse(app.staticTexts["12345678"].exists)
         XCTAssertFalse(app.staticTexts["P@ssw0rd1!"].exists)
+        let rules = app.buttons["generation-rules-guide"]
+        bringGuideElementIntoView(rules, surface: guide); rules.tap()
+        let rulesList = app.descendants(matching: .any).matching(identifier: "generation-rules-guide-list").firstMatch
+        XCTAssertTrue(rulesList.waitForExistence(timeout: 3))
+        saveGuideExampleScreenshot(app, "Generation rule guidance")
+        let candidate = app.staticTexts["rules-candidate-example"]
+        bringGuideElementIntoView(candidate, surface: rulesList)
+        XCTAssertEqual(candidate.label, "A1A1    1A1A")
+        saveGuideExampleScreenshot(app, "Generation rule candidate counts")
+        app.navigationBars["生成ルールの選び方"].buttons.element(boundBy: 0).tap()
         let manager = app.buttons["password-manager-guide"]
         bringGuideElementIntoView(manager, surface: guide); manager.tap()
         let article = app.descendants(matching: .any).matching(identifier: "guide-article-list").firstMatch

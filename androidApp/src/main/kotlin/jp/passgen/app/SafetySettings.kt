@@ -90,6 +90,8 @@ import androidx.compose.ui.unit.dp
                 GuideDestination("避けたいパスワード", "悪い例と、推測されやすい理由", "password-examples-guide") { examplesLesson(0) }
                 GuideDestination("パスワードの長さ", "文字数による候補の増え方を比較", "password-length-guide") { examplesLesson(1) }
                 GuideDestination("パスフレーズ", "単語の組み合わせと区切り方", "passphrase-examples-guide") { examplesLesson(2) }
+                SettingsSectionTitle("生成時の設定", R.drawable.ic_tune)
+                GuideDestination("生成ルールの選び方", "候補数・サービスの条件・入力のしやすさ", "generation-rules-guide") { article(GuideArticle.RULES) }
                 SettingsSectionTitle("保存と使い回し", R.drawable.ic_content_copy)
                 GuideDestination("なぜ使い回しは危険？", "平文・ハッシュ化と、漏えいの広がり", "password-storage-guide", storageLesson)
                 GuideDestination("管理アプリに保存する", "生成から登録・保存・自動入力まで", "password-manager-guide") { article(GuideArticle.MANAGER) }
@@ -103,7 +105,7 @@ import androidx.compose.ui.unit.dp
 }
 
 enum class GuideArticle(val title: String) {
-    MANAGER("管理アプリに保存する"), PHISHING("入力先を確かめる")
+    MANAGER("管理アプリに保存する"), PHISHING("入力先を確かめる"), RULES("生成ルールの選び方")
 }
 
 @Composable fun GuideArticleSheet(article: GuideArticle, fold: androidx.window.layout.FoldingFeature?, back: () -> Unit) {
@@ -115,6 +117,7 @@ enum class GuideArticle(val title: String) {
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (article) {
+                    GuideArticle.RULES -> GenerationRulesGuideContent()
                     GuideArticle.MANAGER -> {
                         GuideCard("管理アプリへの保存例") {
                             GuideExampleValue("サービス", jp.passgen.core.SecurityGuideExamples.SERVICE)
@@ -142,6 +145,34 @@ enum class GuideArticle(val title: String) {
             }
         }
     }
+}
+
+@Composable private fun GenerationRulesGuideContent() {
+    GuideCard("必要なルールを選ぶ") {
+        Text("同じ文字数・同じ文字セットなら、3項目ともOFFのとき候補数が最大になります。サービスの条件や入力方法に合わせ、必要なルールだけONにしましょう。", style = MaterialTheme.typography.bodyMedium)
+    }
+    GuideCard("各文字種を必ず含める") {
+        GuideExampleValue("サービスが指定する条件の例", "英字・数字・記号を各1文字以上")
+        Text("使用する文字種を1文字以上ずつ含めます。このような条件がある場合にONにし、必要な文字種を文字セットでも選んでください。大文字と小文字は別の文字種として扱います。", style = MaterialTheme.typography.bodyMedium)
+    }
+    GuideCard("似た文字を除外") {
+        GuideExampleValue("見間違えやすい文字の例", "O / 0    I / l / 1")
+        Text("見ながら手入力するときに役立ちます。管理アプリの自動入力やコピーで使うなら、通常はOFFで構いません。ONでは、選んだ除外文字の分だけ候補が減ります。", style = MaterialTheme.typography.bodyMedium)
+    }
+    GuideCard("同じ文字を連続させない") {
+        GuideExampleValue("除外される並びの例", "aa    11")
+        Text("サービスが同じ文字の連続を禁止している場合にONにします。無作為な生成結果に偶然の連続があっても、それだけで弱いとは限りません。", style = MaterialTheme.typography.bodyMedium)
+    }
+    GuideCard("制約を加えると候補はどう変わる？") {
+        Text("Aと1だけを使って、4文字を無作為に作る場合", style = MaterialTheme.typography.bodyMedium)
+        GuideExampleValue("追加の制約なし", "16通り")
+        GuideExampleValue("英字と数字を必ず含める", "14通り")
+        Text("AAAAと1111の2通りが除かれます。", style = MaterialTheme.typography.bodySmall)
+        GuideExampleValue("同じ文字を連続させない", "2通り")
+        GuideExampleValue("連続禁止で残る候補", "A1A1    1A1A", "rules-candidate-example")
+        Text("候補数の変化を示す説明用の例です。実際には十分な長さで無作為に生成してください。", style = MaterialTheme.typography.bodySmall)
+    }
+    GuideLink("NISTのパスワード指針（英語）", "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")
 }
 
 @Composable private fun GuideDestination(title: String, detail: String, tag: String, action: () -> Unit) {

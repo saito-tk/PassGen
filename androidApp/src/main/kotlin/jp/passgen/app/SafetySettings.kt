@@ -80,58 +80,64 @@ import androidx.compose.ui.unit.dp
     }
 }
 
-@Composable fun SecurityGuideSheet(fold: androidx.window.layout.FoldingFeature? = null, dismiss: () -> Unit, storageLesson: () -> Unit, authLesson: () -> Unit, examplesLesson: (Int) -> Unit) {
+@Composable fun SecurityGuideSheet(fold: androidx.window.layout.FoldingFeature? = null, dismiss: () -> Unit,
+    storageLesson: () -> Unit, authLesson: (Boolean) -> Unit, examplesLesson: (Int) -> Unit, article: (GuideArticle) -> Unit) {
     PassgenSheet(dismiss, fold) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)) {
             Box(Modifier.padding(horizontal = 20.dp)) { SheetHeading("アカウントを守る", R.drawable.ic_menu_book) { IconAction(R.drawable.ic_close, "閉じる", action = dismiss) } }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("長く、無作為に、サービスごとに", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                Text("このアプリは生成専用です。作った値は利用先に登録し、管理アプリへ保存しましょう。", style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SettingsSectionTitle("パスワードを例で見る", R.drawable.ic_menu_book)
+                GuideDestination("避けたいパスワード", "悪い例と、推測されやすい理由", "password-examples-guide") { examplesLesson(0) }
+                GuideDestination("パスワードの長さ", "文字数による候補の増え方を比較", "password-length-guide") { examplesLesson(1) }
+                GuideDestination("パスフレーズ", "単語の組み合わせと区切り方", "passphrase-examples-guide") { examplesLesson(2) }
+                SettingsSectionTitle("保存と使い回し", R.drawable.ic_content_copy)
                 GuideDestination("なぜ使い回しは危険？", "平文・ハッシュ化と、漏えいの広がり", "password-storage-guide", storageLesson)
-                GuideDestination("2要素と2段階、何が違う？", "手順と要素を、3つの例で見比べる", "authentication-guide", authLesson)
-                GuideCard("避けたいパスワード") {
-                    GuideExampleValue("連番", "12345678")
-                    GuideExampleValue("単語に文字を足しただけ", jp.passgen.core.SecurityGuideExamples.mutations[2])
-                    TextButton({ examplesLesson(0) }, Modifier.semantics { testTag = "password-examples-guide" }) { Text("悪い例と、その理由を見る") }
-                    Text(jp.passgen.core.SecurityGuideExamples.NOTICE, style = MaterialTheme.typography.bodySmall)
-                }
-                GuideDestination("文字数で候補はどう変わる？", "数字4・6・8桁を切り替えて比較", "password-length-guide") { examplesLesson(1) }
-                GuideDestination("7単語をつないでみる", "半角スペース・ハイフン・アンダースコア", "passphrase-examples-guide") { examplesLesson(2) }
-                GuideCard("管理アプリへの保存例") {
-                    GuideExampleValue("サービス", jp.passgen.core.SecurityGuideExamples.SERVICE)
-                    GuideExampleValue("ユーザー名", jp.passgen.core.SecurityGuideExamples.USERNAME)
-                    GuideExampleValue("パスワード（公開の24文字見本）", jp.passgen.core.SecurityGuideExamples.PASSWORD, "guide-manager-password")
-                    GuideJourneyStep(1, "このアプリで生成", "サービスごとに、新しい値を作る")
-                    GuideJourneyStep(2, "利用先で登録・変更", "作った値を、そのサービスに設定する")
-                    GuideJourneyStep(3, "管理アプリへ保存", "次回は保存した項目から自動入力")
-                    Text("Google パスワード マネージャー、Appleの「パスワード」、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。", style = MaterialTheme.typography.bodySmall)
-                    Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。", style = MaterialTheme.typography.bodySmall)
-                    GuideLink("Google パスワード マネージャー", "https://support.google.com/accounts/answer/6208650?hl=ja")
-                    GuideLink("Apple「パスワード」", "https://support.apple.com/ja-jp/120758")
-                    GuideLink("1Passwordの使い方", "https://support.1password.com/category/getting-started/")
-                }
-                GuideCard("認証アプリを加えたサインイン例") {
-                    GuideJourneyStep(1, "パスワードを入力", jp.passgen.core.SecurityGuideExamples.PASSWORD)
-                    GuideJourneyStep(2, "認証アプリの一時コードを入力", "${jp.passgen.core.SecurityGuideExamples.CODE}（説明用）")
-                    Text("知っているパスワード ＋ アプリの秘密鍵を使えること。この例は2段階・2要素です。一時コードも偽サイトへ入力すると盗まれます。", style = MaterialTheme.typography.bodySmall)
-                    Text("機種変更の前に", style = MaterialTheme.typography.titleSmall)
-                    Text("サービスの復旧コードなどを保管し、新端末での利用を確認", style = MaterialTheme.typography.bodySmall)
-                    GuideLink("Googleの2段階認証ガイド", "https://support.google.com/accounts/answer/185839?hl=ja")
-                }
-                GuideCard("パスキーでのサインイン例") {
-                    GuideJourneyStep(1, "対応サービスでパスキーを選ぶ", "事前に登録した鍵を使用")
-                    GuideJourneyStep(2, "端末で本人確認", "指紋・顔認証・端末のロック解除など")
-                    GuideJourneyStep(3, "サインイン", "パスワードや一時コードを入力せずに認証")
-                    Text("本人確認を求めるサービスの例です。顔や指紋の情報をサイトへ送る仕組みではありません。登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。", style = MaterialTheme.typography.bodySmall)
-                    Text("同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。", style = MaterialTheme.typography.bodySmall)
-                    GuideLink("Googleのパスキーガイド", "https://support.google.com/accounts/answer/13548313?hl=ja")
-                    GuideLink("Appleのパスキー解説", "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")
-                }
-                GuideCard("長いパスワードでも、入力先に注意") {
-                    GuideExampleValue("登録先に見立てた架空URL", jp.passgen.core.SecurityGuideExamples.EXPECTED_URL)
-                    GuideExampleValue("先頭を似せた、別のドメイン", jp.passgen.core.SecurityGuideExamples.LOOKALIKE_URL, "guide-lookalike-url")
-                    Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。", style = MaterialTheme.typography.bodyMedium)
-                    Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。", style = MaterialTheme.typography.bodySmall)
+                GuideDestination("管理アプリに保存する", "生成から登録・保存・自動入力まで", "password-manager-guide") { article(GuideArticle.MANAGER) }
+                SettingsSectionTitle("サインインを守る", R.drawable.ic_verified_user)
+                GuideDestination("2要素認証と2段階認証", "確認の回数と要素の違いを比較", "authentication-guide") { authLesson(false) }
+                GuideDestination("パスキー", "端末の鍵と本人確認でサインイン", "passkey-guide") { authLesson(true) }
+                GuideDestination("偽サイトに入力しないために", "似たURLの例と、入力先の確認方法", "phishing-guide") { article(GuideArticle.PHISHING) }
+            }
+        }
+    }
+}
+
+enum class GuideArticle(val title: String) {
+    MANAGER("管理アプリに保存する"), PHISHING("入力先を確かめる")
+}
+
+@Composable fun GuideArticleSheet(article: GuideArticle, fold: androidx.window.layout.FoldingFeature?, back: () -> Unit) {
+    PassgenSheet(back, fold) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.92f)) {
+            Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconAction(R.drawable.ic_arrow_back, "戻る", Modifier.semantics { testTag = "guide-article-back" }, action = back)
+                Text(article.title, style = MaterialTheme.typography.titleLarge)
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when (article) {
+                    GuideArticle.MANAGER -> {
+                        GuideCard("管理アプリへの保存例") {
+                            GuideExampleValue("サービス", jp.passgen.core.SecurityGuideExamples.SERVICE)
+                            GuideExampleValue("ユーザー名", jp.passgen.core.SecurityGuideExamples.USERNAME)
+                            GuideExampleValue("パスワード（公開の24文字見本）", jp.passgen.core.SecurityGuideExamples.PASSWORD, "guide-manager-password")
+                            GuideJourneyStep(1, "このアプリで生成", "サービスごとに、新しい値を作る")
+                            GuideJourneyStep(2, "利用先で登録・変更", "作った値を、そのサービスに設定する")
+                            GuideJourneyStep(3, "管理アプリへ保存", "次回は保存した項目から自動入力")
+                            Text("Google パスワード マネージャー、Appleの「パスワード」、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。", style = MaterialTheme.typography.bodySmall)
+                            Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。", style = MaterialTheme.typography.bodySmall)
+                            GuideLink("Google パスワード マネージャー", "https://support.google.com/accounts/answer/6208650?hl=ja")
+                            GuideLink("Apple「パスワード」", "https://support.apple.com/ja-jp/120758")
+                            GuideLink("1Passwordの使い方", "https://support.1password.com/category/getting-started/")
+                        }
+                    }
+                    GuideArticle.PHISHING -> {
+                        GuideCard("長いパスワードでも、入力先に注意") {
+                            GuideExampleValue("登録先に見立てた架空URL", jp.passgen.core.SecurityGuideExamples.EXPECTED_URL)
+                            GuideExampleValue("先頭を似せた、別のドメイン", jp.passgen.core.SecurityGuideExamples.LOOKALIKE_URL, "guide-lookalike-url")
+                            Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。", style = MaterialTheme.typography.bodyMedium)
+                            Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }

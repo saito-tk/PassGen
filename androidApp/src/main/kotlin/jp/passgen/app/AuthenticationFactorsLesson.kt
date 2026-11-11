@@ -40,8 +40,8 @@ private enum class AuthExample(val tab: String, val title: String, val first: St
 }
 
 /** Local educational diagrams. No credentials or authentication are handled here. */
-@Composable fun AuthenticationFactorsLessonSheet(fold: FoldingFeature?, back: () -> Unit) {
-    var example by remember { mutableStateOf(AuthExample.APP) }
+@Composable fun AuthenticationFactorsLessonSheet(fold: FoldingFeature?, initialPasskey: Boolean = false, back: () -> Unit) {
+    var example by remember { mutableStateOf(if (initialPasskey) AuthExample.PASSKEY else AuthExample.APP) }
     val density = LocalDensity.current
     PassgenSheet(back, fold, maxWidth = 720.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 20.dp)) {
@@ -137,6 +137,9 @@ private enum class AuthExample(val tab: String, val title: String, val first: St
         Text("追加の保護になりますが、電話番号の乗っ取りや偽サイトに弱い面があります。ほかの方法も選べるか確認しましょう。", style = MaterialTheme.typography.bodyMedium)
         HorizontalDivider()
         Text("心当たりのない認証要求は承認せず、コードを人に教えないでください。復旧コードは安全に保管し、機種変更前に引き継ぎ方法を確認しましょう。", style = MaterialTheme.typography.bodySmall)
+        GuideLink("Googleの2段階認証ガイド", "https://support.google.com/accounts/answer/185839?hl=ja")
+        GuideLink("Appleのパスキー解説", "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")
+        GuideLink("Googleのパスキーガイド", "https://support.google.com/accounts/answer/13548313?hl=ja")
     }
     val uri = LocalUriHandler.current
     TextButton({ sources = !sources }) { Text("根拠を読む（英語）") }

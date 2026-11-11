@@ -1035,84 +1035,79 @@ struct PrivacyView: View {
 }
 
 struct SecurityGuideView: View {
-    private let examples = SecurityGuideExamples.shared
     var body: some View {
         List {
-            Section {
-                Label("長く、無作為に、サービスごとに", systemImage: "key.horizontal")
-                    .font(.headline).foregroundStyle(Color.passgenAccent)
-                Text("このアプリは生成専用です。作った値は利用先に登録し、管理アプリへ保存しましょう。")
-                    .font(.subheadline)
+            Section("パスワードを例で見る") {
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 0) } label: {
+                    GuideDestination(title: "避けたいパスワード", detail: "悪い例と、推測されやすい理由")
+                }.accessibilityIdentifier("password-examples-guide")
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 1) } label: {
+                    GuideDestination(title: "パスワードの長さ", detail: "文字数による候補の増え方を比較")
+                }.accessibilityIdentifier("password-length-guide")
+                NavigationLink { PasswordExamplesLessonView(initialTopic: 2) } label: {
+                    GuideDestination(title: "パスフレーズ", detail: "単語の組み合わせと区切り方")
+                }.accessibilityIdentifier("passphrase-examples-guide")
             }
-            Section {
+            Section("保存と使い回し") {
                 NavigationLink { PasswordStorageLessonView() } label: {
                     GuideDestination(title: "なぜ使い回しは危険？", detail: "平文・ハッシュ化と、漏えいの広がり")
                 }.accessibilityIdentifier("password-storage-guide")
+                NavigationLink { GuideArticleView(article: .manager) } label: {
+                    GuideDestination(title: "管理アプリに保存する", detail: "生成から登録・保存・自動入力まで")
+                }.accessibilityIdentifier("password-manager-guide")
+            }
+            Section("サインインを守る") {
                 NavigationLink { AuthenticationFactorsLessonView() } label: {
-                    GuideDestination(title: "2要素と2段階、何が違う？", detail: "手順と要素を、3つの例で見比べる")
+                    GuideDestination(title: "2要素認証と2段階認証", detail: "確認の回数と要素の違いを比較")
                 }.accessibilityIdentifier("authentication-guide")
+                NavigationLink { AuthenticationFactorsLessonView(initialExample: .passkey) } label: {
+                    GuideDestination(title: "パスキー", detail: "端末の鍵と本人確認でサインイン")
+                }.accessibilityIdentifier("passkey-guide")
+                NavigationLink { GuideArticleView(article: .phishing) } label: {
+                    GuideDestination(title: "偽サイトに入力しないために", detail: "似たURLの例と、入力先の確認方法")
+                }.accessibilityIdentifier("phishing-guide")
             }
-            Section {
-                GuideExampleValue(caption: "連番", value: "12345678")
-                GuideExampleValue(caption: "単語に文字を足しただけ", value: examples.mutations[2])
-                NavigationLink { PasswordExamplesLessonView(initialTopic: 0) } label: {
-                    GuideDestination(title: "悪い例と、その理由を見る", detail: "単語・名前と日付・繰り返し・置き換え")
-                }.accessibilityIdentifier("password-examples-guide")
-            } header: { Text("避けたいパスワード") } footer: { Text(examples.NOTICE) }
-            Section("長さとパスフレーズ") {
-                NavigationLink { PasswordExamplesLessonView(initialTopic: 1) } label: {
-                    GuideDestination(title: "文字数で候補はどう変わる？", detail: "数字4・6・8桁を切り替えて比較")
-                }.accessibilityIdentifier("password-length-guide")
-                NavigationLink { PasswordExamplesLessonView(initialTopic: 2) } label: {
-                    GuideDestination(title: "7単語をつないでみる", detail: "半角スペース・ハイフン・アンダースコア")
-                }.accessibilityIdentifier("passphrase-examples-guide")
-            }
-            Section("管理アプリへの保存例") {
-                GuideExampleValue(caption: "サービス", value: examples.SERVICE)
-                GuideExampleValue(caption: "ユーザー名", value: examples.USERNAME)
-                GuideExampleValue(caption: "パスワード（公開の24文字見本）", value: examples.PASSWORD, identifier: "guide-manager-password")
-                GuideJourneyStep(number: 1, title: "このアプリで生成", value: "サービスごとに、新しい値を作る")
-                GuideJourneyStep(number: 2, title: "利用先で登録・変更", value: "作った値を、そのサービスに設定する")
-                GuideJourneyStep(number: 3, title: "管理アプリへ保存", value: "次回は保存した項目から自動入力")
-                Text("Appleの「パスワード」、Google パスワード マネージャー、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Link("Apple「パスワード」の使い方", destination: URL(string: "https://support.apple.com/ja-jp/120758")!)
-                Link("Google パスワード マネージャー", destination: URL(string: "https://support.google.com/accounts/answer/6208650?hl=ja")!)
-                Link("1Passwordの使い方", destination: URL(string: "https://support.1password.com/category/getting-started/")!)
-            }
-            Section("認証アプリを加えたサインイン例") {
-                GuideJourneyStep(number: 1, title: "パスワードを入力", value: examples.PASSWORD)
-                GuideJourneyStep(number: 2, title: "認証アプリの一時コードを入力", value: "\(examples.CODE)（説明用）")
-                Text("知っているパスワード ＋ アプリの秘密鍵を使えること。この例は2段階・2要素です。一時コードも偽サイトへ入力すると盗まれます。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("機種変更の前に").font(.subheadline.weight(.semibold))
-                    Text("サービスの復旧コードなどを保管し、新端末での利用を確認").font(.footnote).foregroundStyle(.secondary)
-                }
-                Link("Googleの2段階認証ガイド", destination: URL(string: "https://support.google.com/accounts/answer/185839?hl=ja")!)
-            }
-            Section("パスキーでのサインイン例") {
-                GuideJourneyStep(number: 1, title: "対応サービスでパスキーを選ぶ", value: "事前に登録した鍵を使用")
-                GuideJourneyStep(number: 2, title: "端末で本人確認", value: "Face ID・Touch ID・端末のロック解除など")
-                    .accessibilityIdentifier("guide-passkey-unlock")
-                GuideJourneyStep(number: 3, title: "サインイン", value: "パスワードや一時コードを入力せずに認証")
-                Text("本人確認を求めるサービスの例です。顔や指紋の情報をサイトへ送る仕組みではありません。登録したサイトに結び付くため、偽サイトへの認証情報の入力を防ぎやすくなります。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Text("同期・機種変更・復旧の方法も確認しましょう。このアプリはパスキー自体を作成しません。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Link("Appleのパスキー解説", destination: URL(string: "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")!)
-                Link("Googleのパスキーガイド", destination: URL(string: "https://support.google.com/accounts/answer/13548313?hl=ja")!)
-            }
-            Section {
-                GuideExampleValue(caption: "登録先に見立てた架空URL", value: examples.EXPECTED_URL)
-                GuideExampleValue(caption: "先頭を似せた、別のドメイン", value: examples.LOOKALIKE_URL, identifier: "guide-lookalike-url")
-                Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。")
-                    .font(.footnote).foregroundStyle(.secondary)
-            } header: { Text("長いパスワードでも、入力先に注意") } footer: { Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。") }
         }.navigationTitle("アカウントを守る").navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("security-guide-list")
+    }
+}
+
+private enum GuideArticle {
+    case manager, phishing
+    var title: String { self == .manager ? "管理アプリに保存する" : "入力先を確かめる" }
+}
+
+private struct GuideArticleView: View {
+    let article: GuideArticle
+    private let examples = SecurityGuideExamples.shared
+    var body: some View {
+        List {
+            if article == .manager {
+                Section("管理アプリへの保存例") {
+                    GuideExampleValue(caption: "サービス", value: examples.SERVICE)
+                    GuideExampleValue(caption: "ユーザー名", value: examples.USERNAME)
+                    GuideExampleValue(caption: "パスワード（公開の24文字見本）", value: examples.PASSWORD, identifier: "guide-manager-password")
+                    GuideJourneyStep(number: 1, title: "このアプリで生成", value: "サービスごとに、新しい値を作る")
+                    GuideJourneyStep(number: 2, title: "利用先で登録・変更", value: "作った値を、そのサービスに設定する")
+                    GuideJourneyStep(number: 3, title: "管理アプリへ保存", value: "次回は保存した項目から自動入力")
+                    Text("Appleの「パスワード」、Google パスワード マネージャー、1Passwordなどで管理できます。同期する端末と復旧方法を確認しましょう。公開の見本は使わず、新しく生成してください。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text("管理アプリのアカウントも保護し、復旧情報を保管。生成結果を平文メモやスクリーンショットに残すことは避けましょう。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Link("Apple「パスワード」の使い方", destination: URL(string: "https://support.apple.com/ja-jp/120758")!)
+                    Link("Google パスワード マネージャー", destination: URL(string: "https://support.google.com/accounts/answer/6208650?hl=ja")!)
+                    Link("1Passwordの使い方", destination: URL(string: "https://support.1password.com/category/getting-started/")!)
+                }
+            } else {
+                Section {
+                    GuideExampleValue(caption: "登録先に見立てた架空URL", value: examples.EXPECTED_URL)
+                    GuideExampleValue(caption: "先頭を似せた、別のドメイン", value: examples.LOOKALIKE_URL, identifier: "guide-lookalike-url")
+                    Text("上はexample.com、下はexample.netの配下です。先頭の文字や鍵マークだけでは、正しい入力先か判断できません。メッセージのリンクから急いで入力せず、保存済みのブックマークや公式アプリから開きましょう。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } header: { Text("長いパスワードでも、入力先に注意") } footer: { Text("URLも説明用の架空例です。長さや無作為さだけでは、偽サイトへの入力やマルウェアを防げません。") }
+            }
+        }.navigationTitle(article.title).navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("guide-article-list")
     }
 }
 
@@ -1498,7 +1493,8 @@ private enum AuthExample: String, CaseIterable {
 }
 
 private struct AuthenticationFactorsLessonView: View {
-    @State private var example = AuthExample.app
+    @State private var example: AuthExample
+    init(initialExample: AuthExample = .app) { _example = State(initialValue: initialExample) }
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         VStack(spacing: 0) {
@@ -1556,6 +1552,9 @@ private struct AuthenticationFactorsLessonView: View {
                             authMethod("SMSの一時コード", "追加の保護になりますが、電話番号の乗っ取りや偽サイトに弱い面があります。ほかの方法も選べるか確認しましょう。")
                             Divider()
                             Text("心当たりのない認証要求は承認せず、コードを人に教えないでください。復旧コードは安全に保管し、機種変更前に引き継ぎ方法を確認しましょう。").font(.caption)
+                            Link("Googleの2段階認証ガイド", destination: URL(string: "https://support.google.com/accounts/answer/185839?hl=ja")!)
+                            Link("Appleのパスキー解説", destination: URL(string: "https://support.apple.com/ja-jp/guide/iphone/iphf538ea8d0/ios")!)
+                            Link("Googleのパスキーガイド", destination: URL(string: "https://support.google.com/accounts/answer/13548313?hl=ja")!)
                         }.padding(.top, 12)
                     }.font(.subheadline.weight(.semibold))
                     Divider()

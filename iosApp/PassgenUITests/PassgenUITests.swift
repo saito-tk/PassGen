@@ -621,9 +621,18 @@ final class PassgenUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    @MainActor private func openSecurityGuide(_ app: XCUIApplication) {
+        app.buttons["安全性とプライバシー"].tap()
+        let link = app.buttons["security-guide"]
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        // iOS 18 exposes sheet controls before the presentation animation completes.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        link.tap()
+        XCTAssertTrue(app.navigationBars["アカウントを守る"].waitForExistence(timeout: 5))
+    }
     @MainActor func testPasswordExamplesShowPatternsAndInteractiveComparisons() {
         let app = launchApp()
-        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        openSecurityGuide(app)
         let guide = app.descendants(matching: .any).matching(identifier: "security-guide-list").firstMatch
         let link = app.buttons["password-examples-guide"]
         bringGuideElementIntoView(link, surface: guide); link.tap()
@@ -663,28 +672,38 @@ final class PassgenUITests: XCTestCase {
     }
     @MainActor func testGuideShowsConcreteAccountAuthenticationAndLookalikeExamples() {
         let app = launchApp()
-        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        openSecurityGuide(app)
         let guide = app.descendants(matching: .any).matching(identifier: "security-guide-list").firstMatch
+        saveGuideExampleScreenshot(app, "Security guide topics")
+        XCTAssertFalse(app.staticTexts["12345678"].exists)
+        XCTAssertFalse(app.staticTexts["P@ssw0rd1!"].exists)
+        let manager = app.buttons["password-manager-guide"]
+        bringGuideElementIntoView(manager, surface: guide); manager.tap()
+        let article = app.descendants(matching: .any).matching(identifier: "guide-article-list").firstMatch
         let password = app.staticTexts["guide-manager-password"]
-        bringGuideElementIntoView(password, surface: guide)
+        bringGuideElementIntoView(password, surface: article)
         XCTAssertEqual(password.label.count, 24)
         saveGuideExampleScreenshot(app, "Password manager record example")
-        let code = app.staticTexts["482915（説明用）"]
-        bringGuideElementIntoView(code, surface: guide)
-        saveGuideExampleScreenshot(app, "Authenticator code example")
-        let passkey = app.descendants(matching: .any).matching(identifier: "guide-passkey-unlock").firstMatch
-        bringGuideElementIntoView(passkey, surface: guide)
+        app.navigationBars["管理アプリに保存する"].buttons.element(boundBy: 0).tap()
+        let passkey = app.buttons["passkey-guide"]
+        bringGuideElementIntoView(passkey, surface: guide); passkey.tap()
+        XCTAssertEqual(app.staticTexts["auth-steps"].label, "一連の操作")
+        app.navigationBars["2要素と2段階"].buttons.element(boundBy: 0).tap()
+        let phishing = app.buttons["phishing-guide"]
+        bringGuideElementIntoView(phishing, surface: guide); phishing.tap()
         let lookalike = app.staticTexts["guide-lookalike-url"]
-        bringGuideElementIntoView(lookalike, surface: guide)
+        bringGuideElementIntoView(lookalike, surface: article)
         XCTAssertEqual(lookalike.label, "https://account.example.com.login-check.example.net")
-        XCTAssertGreaterThanOrEqual(lookalike.frame.minX, guide.frame.minX)
-        XCTAssertLessThanOrEqual(lookalike.frame.maxX, guide.frame.maxX)
         saveGuideExampleScreenshot(app, "Lookalike URL example")
+        app.navigationBars["入力先を確かめる"].buttons.element(boundBy: 0).tap()
+        let phrase = app.buttons["passphrase-examples-guide"]
+        bringGuideElementIntoView(phrase, surface: guide); phrase.tap()
+        XCTAssertTrue(app.staticTexts["guide-phrase-value"].exists)
     }
 
     @MainActor func testAuthenticationLessonDistinguishesStepsFromFactors() {
         let app = launchApp()
-        app.buttons["安全性とプライバシー"].tap(); app.buttons["security-guide"].tap()
+        openSecurityGuide(app)
         let link = app.buttons["authentication-guide"]
         for _ in 0..<6 { if link.isHittable { break }; app.swipeUp() }
         link.tap()

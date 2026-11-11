@@ -56,6 +56,8 @@ enum class CharacterTab(val title: String, val alphabet: String) {
     var showGuide by rememberSaveable { mutableStateOf(false) }
     var showStorageLesson by rememberSaveable { mutableStateOf(false) }
     var showAuthLesson by rememberSaveable { mutableStateOf(false) }
+    var authPasskey by rememberSaveable { mutableStateOf(false) }
+    var guideArticle by rememberSaveable { mutableStateOf<GuideArticle?>(null) }
     var examplesTopic by rememberSaveable { mutableStateOf<Int?>(null) }
     var characterTab by rememberSaveable { mutableStateOf(CharacterTab.UPPER) }
     var rulesExpanded by rememberSaveable { mutableStateOf(false) }
@@ -146,10 +148,12 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         if (showGuide) SecurityGuideSheet(fold = fold,
             dismiss = { showGuide = false },
             storageLesson = { showGuide = false; showStorageLesson = true },
-            authLesson = { showGuide = false; showAuthLesson = true },
+            authLesson = { passkey -> authPasskey = passkey; showGuide = false; showAuthLesson = true },
+            article = { article -> guideArticle = article; showGuide = false },
             examplesLesson = { topic -> showGuide = false; examplesTopic = topic })
         if (showStorageLesson) PasswordStorageLessonSheet(fold) { showStorageLesson = false; showGuide = true }
-        if (showAuthLesson) AuthenticationFactorsLessonSheet(fold) { showAuthLesson = false; showGuide = true }
+        if (showAuthLesson) AuthenticationFactorsLessonSheet(fold, initialPasskey = authPasskey) { showAuthLesson = false; showGuide = true }
+        guideArticle?.let { article -> GuideArticleSheet(article, fold) { guideArticle = null; showGuide = true } }
         examplesTopic?.let { topic -> PasswordExamplesLessonSheet(topic, fold) { examplesTopic = null; showGuide = true } }
     }
 }

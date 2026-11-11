@@ -703,13 +703,21 @@ class GeneratorUiTest {
     @Test fun guideShowsConcreteAccountAuthenticationAndLookalikeExamples() {
         allowGuideScreenshots()
         rule.onNodeWithTag("safety-settings").performClick(); rule.onNodeWithTag("security-guide").performClick()
+        rule.onNodeWithText("12345678").assertDoesNotExist()
+        rule.onNodeWithText("P@ssw0rd1!").assertDoesNotExist()
+        rule.onNodeWithTag("password-manager-guide").performScrollTo().performClick()
         rule.onNodeWithTag("guide-manager-password").performScrollTo().assertTextEquals(jp.passgen.core.SecurityGuideExamples.PASSWORD)
         saveGuideScreenshot("guide-manager.png")
-        rule.onNodeWithText("482915（説明用）").performScrollTo().assertExists()
-        saveGuideScreenshot("guide-authentication.png")
-        rule.onNodeWithText("端末で本人確認").performScrollTo().assertExists()
+        rule.onNodeWithTag("guide-article-back").performClick()
+        rule.onNodeWithTag("passkey-guide").performScrollTo().performClick()
+        rule.onNodeWithTag("auth-steps").assertTextEquals("一連の操作")
+        rule.onNodeWithTag("auth-back").performClick()
+        rule.onNodeWithTag("phishing-guide").performScrollTo().performClick()
         rule.onNodeWithTag("guide-lookalike-url").performScrollTo().assertTextEquals(jp.passgen.core.SecurityGuideExamples.LOOKALIKE_URL)
         saveGuideScreenshot("guide-lookalike.png")
+        rule.onNodeWithTag("guide-article-back").performClick()
+        rule.onNodeWithTag("passphrase-examples-guide").performScrollTo().performClick()
+        rule.onNodeWithTag("guide-phrase-value").performScrollTo().assertExists()
     }
 
     private fun allowGuideScreenshots() {

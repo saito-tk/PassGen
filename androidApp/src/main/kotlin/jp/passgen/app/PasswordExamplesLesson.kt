@@ -121,6 +121,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable private fun BruteForceTimeLesson(combinations: PasswordCombinationCount, rateIndex: Int, changeRate: (Int) -> Unit) {
     var details by rememberSaveable { mutableStateOf(false) }
+    var yearNumbers by rememberSaveable { mutableStateOf(false) }
     Text("総当たりで探す時間の目安", style = MaterialTheme.typography.titleMedium)
     Text("候補を1つずつ試すと仮定します。1秒に試せる回数を変えて比べてください。", style = MaterialTheme.typography.bodySmall)
     Text("仮定する試行速度", style = MaterialTheme.typography.labelLarge)
@@ -138,11 +139,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
                 HorizontalDivider()
                 Text("全候補を試す時間", style = MaterialTheme.typography.labelMedium)
                 Text(estimate.exhaustiveLabel, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { testTag = "guide-time-exhaustive" })
+                estimate.yearUnitExplanation?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (estimate.showsYearNumbers) {
+                    TextButton(onClick = { yearNumbers = !yearNumbers }) {
+                        Text("年数を数字で見る（概算）")
+                        AppIcon(if (yearNumbers) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
+                    }
+                    if (yearNumbers) {
+                        Text("見つかるまでの平均", style = MaterialTheme.typography.labelMedium)
+                        Text(estimate.averageYearNumber, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.semantics { testTag = "guide-time-average-years" })
+                        Text("全候補を試す時間", style = MaterialTheme.typography.labelMedium)
+                        Text(estimate.exhaustiveYearNumber, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.semantics { testTag = "guide-time-exhaustive-years" })
+                    }
+                }
             }
         }
     }
     Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。", style = MaterialTheme.typography.bodySmall)
-    Text(BruteForceLesson.DISPLAY_LIMIT_NOTE, style = MaterialTheme.typography.bodySmall)
     TextButton(onClick = { details = !details }) {
         Text("実際の速さは何で変わる？")
         AppIcon(if (details) R.drawable.ic_expand_less else R.drawable.ic_expand_more)

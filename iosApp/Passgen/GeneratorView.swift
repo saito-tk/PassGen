@@ -1499,12 +1499,25 @@ private struct BruteForceTimeLesson: View {
                     Divider()
                     Text("全候補を試す時間").font(.caption).foregroundStyle(.secondary)
                     Text(estimate.exhaustiveLabel).font(.headline).accessibilityIdentifier("guide-time-exhaustive")
+                    if let explanation = estimate.yearUnitExplanation {
+                        Text(explanation).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if estimate.showsYearNumbers {
+                        DisclosureGroup("年数を数字で見る（概算）") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("見つかるまでの平均").font(.caption)
+                                Text(estimate.averageYearNumber).accessibilityIdentifier("guide-time-average-years")
+                                Text("全候補を試す時間").font(.caption)
+                                Text(estimate.exhaustiveYearNumber).accessibilityIdentifier("guide-time-exhaustive-years")
+                            }.font(.system(.caption, design: .monospaced))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }.font(.subheadline)
+                    }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
                     .background(Color.passgenAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
             }
             Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text(BruteForceLesson.shared.DISPLAY_LIMIT_NOTE).font(.caption).foregroundStyle(.secondary)
             DisclosureGroup("実際の速さは何で変わる？") {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ログイン画面に試す場合：回数制限や待ち時間の影響を受けます。")

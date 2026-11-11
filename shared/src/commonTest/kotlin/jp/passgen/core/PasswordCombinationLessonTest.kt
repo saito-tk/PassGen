@@ -32,17 +32,19 @@ class PasswordCombinationLessonTest {
         assertFailsWith<IllegalArgumentException> { BruteForceLesson.estimate(count, 4) }
         val huge = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(128, 15), 0)!!
         assertTrue(huge.averageSeconds.isFinite())
-        assertEquals("1兆年以上", huge.averageLabel)
-        assertEquals("1兆年以上", huge.exhaustiveLabel)
+        assertNotEquals(huge.averageLabel, huge.exhaustiveLabel)
+        assertFalse(huge.averageLabel.contains("E"))
+        assertFalse(huge.exhaustiveLabel.contains("以上"))
     }
 
-    @Test fun longDurationsUseJapaneseUnitsAndAnExplicitDisplayCap() {
+    @Test fun longDurationsUseJapaneseUnitsWithoutACap() {
         val year = BruteForceLesson.SECONDS_PER_YEAR
         val cases = listOf(9_999.0 to "約 9,999年", 10_000.0 to "約 1万年",
             25_000.0 to "約 2.5万年", 99_999_999.0 to "約 9,999.9万年",
             100_000_000.0 to "約 1億年", 350_000_000.0 to "約 3.5億年",
-            999_999_999_999.0 to "約 9,999.9億年", 1_000_000_000_000.0 to "1兆年以上",
-            1e100 to "1兆年以上")
+            999_999_999_999.0 to "約 9,999.9億年", 1_000_000_000_000.0 to "約 1兆年",
+            2.5e16 to "約 2.5京年", 4e20 to "約 4垓年", 3e24 to "約 3秭年",
+            5e28 to "約 5穣年", 6e32 to "約 6溝年", 7e36 to "約 7澗年")
         cases.forEach { (years, label) -> assertEquals(label, BruteForceLesson.duration(years * year)) }
         for (length in listOf(4, 8, 12, 16, 24)) for (mask in 1..15) for (rate in 0..3) {
             val result = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(length, mask), rate)!!
@@ -50,6 +52,26 @@ class PasswordCombinationLessonTest {
                 assertFalse(label.contains("×")); assertFalse(label.contains("E")); assertFalse(label.contains("Infinity"))
             }
         }
+    }
+
+    @Test fun largeYearNumbersStayReadableAndRespondToLongerPasswords() {
+        val year = BruteForceLesson.SECONDS_PER_YEAR
+        assertEquals("約 123,000年", BruteForceLesson.plainYears(123456.0 * year))
+        assertEquals("約 1,000,000年", BruteForceLesson.plainYears(999999.0 * year))
+        assertEquals("約 10,000,000,000,000年", BruteForceLesson.plainYears(9999999999999.0 * year))
+        assertEquals("約 " + ("1" + "0".repeat(100)).reversed().chunked(3).joinToString(",").reversed() + "年",
+            BruteForceLesson.duration(1e100 * year))
+        val sixteen = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(16, 15), 2)!!
+        val twentyFour = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(24, 15), 2)!!
+        assertEquals("約 58.9京年", sixteen.averageLabel)
+        assertEquals("約 35.9溝年", twentyFour.averageLabel)
+        assertEquals("約 3,590,000,000,000,000,000,000,000,000,000,000年", twentyFour.averageYearNumber)
+        assertEquals("約 7,180,000,000,000,000,000,000,000,000,000,000年", twentyFour.exhaustiveYearNumber)
+        assertEquals("1溝は、1穣の1万倍です。", twentyFour.yearUnitExplanation)
+        assertTrue(twentyFour.showsYearNumbers)
+        val crossing = BruteForceEstimate(6e15 * year, 1.2e16 * year)
+        assertEquals("1京は、1兆の1万倍です。", crossing.yearUnitExplanation)
+        assertFalse(BruteForceLesson.estimate(PasswordCombinationLesson.calculate(4, 4), 2)!!.showsYearNumbers)
     }
 
     @Test fun durationUnitsCoverSmallAndLargeTimesWithoutZeroOrInfinity() {

@@ -790,8 +790,17 @@ final class PassgenUITests: XCTestCase {
         let twentyFour = app.buttons["guide-length-preset-24"]
         bringGuideElementIntoView(twentyFour, surface: scroll); twentyFour.tap()
         bringGuideElementIntoView(average, surface: scroll)
-        XCTAssertEqual(average.label, "1兆年以上")
-        saveGuideExampleScreenshot(app, "Time display cap")
+        XCTAssertEqual(average.label, "約 35.9溝年")
+        let yearToggle = app.buttons["年数を数字で見る（概算）"]
+        bringGuideElementIntoView(yearToggle, surface: scroll); yearToggle.tap()
+        let yearNumber = app.staticTexts["guide-time-average-years"]
+        bringGuideElementIntoView(yearNumber, surface: scroll)
+        XCTAssertEqual(yearNumber.label, "約 3,590,000,000,000,000,000,000,000,000,000,000年")
+        saveGuideExampleScreenshot(app, "Large time with ordinary year numbers")
+        let sixteen = app.buttons["guide-length-preset-16"]
+        bringGuideElementIntoView(sixteen, surface: scroll); sixteen.tap()
+        bringGuideElementIntoView(average, surface: scroll)
+        XCTAssertEqual(average.label, "約 58.9京年")
         for _ in 0..<6 {
             if app.buttons["guide-alphabet-1"].exists { break }
             scroll.swipeDown()

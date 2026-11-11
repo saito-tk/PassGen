@@ -45,8 +45,7 @@ object BruteForceLesson {
         LessonTrialRate(1, "1回/秒"), LessonTrialRate(1_000, "1,000回/秒"),
         LessonTrialRate(1_000_000, "100万回/秒"), LessonTrialRate(1_000_000_000, "10億回/秒"),
     )
-    const val DISPLAY_YEAR_LIMIT = 1_000_000_000_000.0
-    const val DISPLAY_LIMIT_NOTE = "1兆年以上は、細かい年数を省いた表示です。計算上の時間であり、安全を保証するものではありません。"
+    private val yearUnits = listOf("", "万", "億", "兆", "京", "垓", "秭", "穣", "溝", "澗")
     const val SECONDS_PER_YEAR = 31_557_600.0 // 365.25 days; a display conversion, not a prediction.
 
     fun estimate(combinations: PasswordCombinationCount, rateIndex: Int): BruteForceEstimate? {
@@ -70,12 +69,41 @@ object BruteForceLesson {
             else -> seconds / SECONDS_PER_YEAR to "年"
         }
         if (unit != "年" || value < 10_000) return "約 ${oneDecimal(value)}$unit"
-        if (value >= DISPLAY_YEAR_LIMIT) return "1兆年以上"
-        val scale = if (value >= 100_000_000) 100_000_000.0 else 10_000.0
-        val yearUnit = if (value >= 100_000_000) "億年" else "万年"
-        // Keep rounding below the next named unit, especially the explicit display cap.
-        val scaled = (value / scale).coerceAtMost(9999.9)
-        return "約 ${oneDecimal(scaled)}$yearUnit"
+        val (scaled, index) = yearScale(value)
+        // The UI's largest case (94^24 at one guess/s) fits in 澗. Keep larger
+        // shared-calculator values distinct with ordinary decimal notation too.
+        if (index >= yearUnits.size) return plainYears(seconds)
+        return "約 ${oneDecimal(scaled.coerceAtMost(9999.9))}${yearUnits[index]}年"
+    }
+
+    private fun yearScale(years: Double): Pair<Double, Int> {
+        var scaled = years
+        var index = 0
+        while (scaled >= 10_000) { scaled /= 10_000; index++ }
+        return scaled to index
+    }
+
+    internal fun yearUnitExplanation(seconds: Double): String? {
+        val index = yearScale(seconds / SECONDS_PER_YEAR).second
+        return if (index in 4 until yearUnits.size) {
+            "1${yearUnits[index]}は、1${yearUnits[index - 1]}の1万倍です。"
+        } else null
+    }
+
+    /** Three significant digits expanded to ordinary integers; not an exact forecast. */
+    internal fun plainYears(seconds: Double): String {
+        require(seconds >= SECONDS_PER_YEAR && seconds.isFinite())
+        val parts = (seconds / SECONDS_PER_YEAR).toString().lowercase().split('e')
+        val mantissa = parts[0]
+        val digits = mantissa.replace(".", "")
+        var positions = (mantissa.indexOf('.').takeIf { it >= 0 } ?: mantissa.length) +
+            (parts.getOrNull(1)?.toInt() ?: 0)
+        if (positions <= 3) return "約 ${oneDecimal(seconds / SECONDS_PER_YEAR)}年"
+        val padded = digits.padEnd(4, '0')
+        var leading = padded.take(3).toInt() + if (padded[3] >= '5') 1 else 0
+        if (leading == 1000) { leading = 100; positions++ }
+        val integer = leading.toString() + "0".repeat(positions - 3)
+        return "約 ${integer.reversed().chunked(3).joinToString(",").reversed()}年"
     }
 
     private fun oneDecimal(value: Double): String {
@@ -87,6 +115,13 @@ object BruteForceLesson {
 
 class LessonTrialRate(val attemptsPerSecond: Long, val label: String)
 class BruteForceEstimate internal constructor(val averageSeconds: Double, val exhaustiveSeconds: Double) {
+    val yearUnitExplanation: String? get() = listOfNotNull(
+        BruteForceLesson.yearUnitExplanation(averageSeconds),
+        BruteForceLesson.yearUnitExplanation(exhaustiveSeconds),
+    ).distinct().takeIf { it.isNotEmpty() }?.joinToString("\n")
+    val showsYearNumbers: Boolean get() = exhaustiveSeconds / BruteForceLesson.SECONDS_PER_YEAR >= 1_000_000_000_000.0
+    val averageYearNumber: String get() = BruteForceLesson.plainYears(averageSeconds)
+    val exhaustiveYearNumber: String get() = BruteForceLesson.plainYears(exhaustiveSeconds)
     val averageLabel: String get() = BruteForceLesson.duration(averageSeconds)
     val exhaustiveLabel: String get() = BruteForceLesson.duration(exhaustiveSeconds)
 }

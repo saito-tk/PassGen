@@ -12,6 +12,39 @@ class PasswordCombinationLessonTest {
         assertEquals(94, PasswordCombinationLesson.calculate(12, 15).alphabetSize)
         assertEquals("94¹²", PasswordCombinationLesson.calculate(12, 15).formula)
     }
+    @Test fun bruteForceTimesUseUniformWithoutReplacementModelAndSelectedRate() {
+        val count = PasswordCombinationLesson.calculate(4, 4)
+        val slow = BruteForceLesson.estimate(count, 0)!!
+        assertEquals(5000.5, slow.averageSeconds)
+        assertEquals(10000.0, slow.exhaustiveSeconds)
+        assertEquals("約 1.4時間", slow.averageLabel)
+        assertEquals("約 2.8時間", slow.exhaustiveLabel)
+        BruteForceLesson.rates.forEachIndexed { i, rate ->
+            val estimate = BruteForceLesson.estimate(count, i)!!
+            assertEquals(slow.averageSeconds / rate.attemptsPerSecond, estimate.averageSeconds)
+            assertEquals(slow.exhaustiveSeconds / rate.attemptsPerSecond, estimate.exhaustiveSeconds)
+        }
+        val fast = BruteForceLesson.estimate(count, 2)!!
+        assertEquals("約 5ミリ秒", fast.averageLabel)
+        assertEquals("約 10ミリ秒", fast.exhaustiveLabel)
+        assertNull(BruteForceLesson.estimate(PasswordCombinationLesson.calculate(4, 0), 0))
+        assertFailsWith<IllegalArgumentException> { BruteForceLesson.estimate(count, -1) }
+        assertFailsWith<IllegalArgumentException> { BruteForceLesson.estimate(count, 4) }
+        val huge = BruteForceLesson.estimate(PasswordCombinationLesson.calculate(128, 15), 0)!!
+        assertTrue(huge.averageSeconds.isFinite())
+        assertEquals("約 5.8 × 10²⁴⁴年", huge.averageLabel)
+        assertEquals("約 1.2 × 10²⁴⁵年", huge.exhaustiveLabel)
+    }
+
+    @Test fun durationUnitsCoverSmallAndLargeTimesWithoutZeroOrInfinity() {
+        val cases = listOf(0.00001 to "1ミリ秒未満", 0.001 to "約 1ミリ秒", 1.0 to "約 1秒",
+            60.0 to "約 1分", 3600.0 to "約 1時間", 86400.0 to "約 1日", BruteForceLesson.SECONDS_PER_YEAR to "約 1年")
+        cases.forEach { (seconds, label) -> assertEquals(label, BruteForceLesson.duration(seconds)) }
+        for (bad in listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            assertFailsWith<IllegalArgumentException> { BruteForceLesson.duration(bad) }
+        }
+    }
+
     @Test fun boundsEmptyAlphabetAndHugePowersRemainExact() {
         assertEquals("0", PasswordCombinationLesson.calculate(128, 0).exactCount)
         assertEquals("94", PasswordCombinationLesson.calculate(1, 15).exactCount)

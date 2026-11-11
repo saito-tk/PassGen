@@ -1339,6 +1339,7 @@ private struct PasswordExamplesLessonView: View {
     @State private var topic: Int
     @State private var lessonLength = "4"
     @State private var lessonCharacters = 4
+    @State private var lessonRate = 2
     @State private var separator = " "
     @Environment(\.dynamicTypeSize) private var typeSize
     private let examples = SecurityGuideExamples.shared
@@ -1387,7 +1388,7 @@ private struct PasswordExamplesLessonView: View {
     }
     private var lengthContent: some View {
         Group {
-            LengthCombinationLesson(lengthText: $lessonLength, selection: $lessonCharacters)
+            LengthCombinationLesson(lengthText: $lessonLength, selection: $lessonCharacters, rateIndex: $lessonRate)
             LessonPanel(title: "24文字のパスワードの形") {
                 GuideExampleValue(caption: "英大文字・小文字・数字・記号の見本", value: examples.PASSWORD, identifier: "guide-password-shape")
                 Text("まず15文字以上を目安に、利用先が許す範囲で長く。このアプリの初期値は24文字です。長いだけ・複雑に見えるだけでは足りず、無作為に新しく作ることが大切です。")
@@ -1421,6 +1422,7 @@ private struct PasswordExamplesLessonView: View {
 private struct LengthCombinationLesson: View {
     @Binding var lengthText: String
     @Binding var selection: Int
+    @Binding var rateIndex: Int
     @FocusState private var editingLength: Bool
     @State private var showExact = false
     private var length: Int? {
@@ -1477,12 +1479,53 @@ private struct LengthCombinationLesson: View {
                     } else { Text("文字種を1つ以上選んでください。").font(.subheadline) }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
                     .background(Color.passgenAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                if selection != 0 {
+                    BruteForceTimeLesson(combinations: result, rateIndex: $rateIndex)
+                }
             } else { Text("文字数は1〜128で入力してください。").font(.subheadline) }
             Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。")
                 .font(.caption).foregroundStyle(.secondary)
             Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct BruteForceTimeLesson: View {
+    let combinations: PasswordCombinationCount
+    @Binding var rateIndex: Int
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("総当たりで探す時間の目安").font(.headline)
+            Text("候補を1つずつ試すと仮定します。1秒に試せる回数を変えて比べてください。")
+                .font(.caption).foregroundStyle(.secondary)
+            Picker("仮定する試行速度", selection: $rateIndex) {
+                ForEach(BruteForceLesson.shared.rates.indices, id: \.self) { index in
+                    Text(BruteForceLesson.shared.rates[index].label).tag(index)
+                }
+            }.pickerStyle(.menu).accessibilityIdentifier("guide-trial-rate")
+            if let estimate = BruteForceLesson.shared.estimate(combinations: combinations, rateIndex: Int32(rateIndex)) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("見つかるまでの平均").font(.caption).foregroundStyle(.secondary)
+                    Text(estimate.averageLabel).font(.title3.bold()).accessibilityIdentifier("guide-time-average")
+                    Divider()
+                    Text("全候補を試す時間").font(.caption).foregroundStyle(.secondary)
+                    Text(estimate.exhaustiveLabel).font(.headline).accessibilityIdentifier("guide-time-exhaustive")
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                    .background(Color.passgenAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+            Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。")
+                .font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup("実際の速さは何で変わる？") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ログイン画面に試す場合：回数制限や待ち時間の影響を受けます。")
+                    Text("漏えいしたハッシュに試す場合：サイトへのログインを介さず試せるため、その回数制限は効きません。ハッシュ方式・計算コストの設定・攻撃側の機材で速さが変わります。")
+                    Text("ここで選ぶ速度は説明用の仮定で、特定のサービスや機材の測定値ではありません。辞書攻撃・使い回し・フィッシングなどは、この試算の対象外です。")
+                    Link("NIST：パスワードの保護（英語）", destination: URL(string: "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")!)
+                    Link("OWASP：パスワードの保存（英語）", destination: URL(string: "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")!)
+                }.font(.caption).foregroundStyle(.secondary)
+            }.font(.subheadline)
+        }.padding(.top, 8)
     }
 }
 

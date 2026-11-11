@@ -742,6 +742,23 @@ final class PassgenUITests: XCTestCase {
         let count = app.staticTexts["guide-length-count"]
         bringGuideElementIntoView(count, surface: scroll)
         XCTAssertEqual(count.label, "10,000 通り")
+        let average = app.staticTexts["guide-time-average"]
+        let exhaustive = app.staticTexts["guide-time-exhaustive"]
+        bringGuideElementIntoView(average, surface: scroll)
+        XCTAssertEqual(average.label, "約 5ミリ秒")
+        XCTAssertEqual(exhaustive.label, "約 10ミリ秒")
+        let rate = app.buttons["guide-trial-rate"]
+        bringGuideElementIntoView(rate, surface: scroll); rate.tap()
+        app.buttons["1回/秒"].tap()
+        XCTAssertEqual(average.label, "約 1.4時間")
+        XCTAssertEqual(exhaustive.label, "約 2.8時間")
+        saveGuideExampleScreenshot(app, "Brute force time assumptions")
+        rate.tap(); app.buttons["100万回/秒"].tap()
+        // Lazy grid cells above the viewport can be absent from the accessibility tree.
+        for _ in 0..<4 {
+            if app.buttons["guide-alphabet-1"].exists { break }
+            scroll.swipeDown()
+        }
         for mask in [1, 2, 8] {
             let option = app.buttons["guide-alphabet-\(mask)"]
             bringGuideElementIntoView(option, surface: scroll); option.tap()
@@ -762,6 +779,7 @@ final class PassgenUITests: XCTestCase {
         }
         bringGuideElementIntoView(count, surface: scroll)
         XCTAssertEqual(count.label, "0 通り")
+        XCTAssertFalse(average.exists)
         let digits = app.buttons["guide-alphabet-4"]
         bringGuideElementIntoView(digits, surface: scroll); digits.tap()
         let input = app.textFields["guide-length-input"]

@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.window.layout.FoldingFeature
 import jp.passgen.core.SecurityGuideExamples
 import jp.passgen.core.PasswordCombinationLesson
+import jp.passgen.core.PasswordCombinationCount
+import jp.passgen.core.BruteForceLesson
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
     var topic by rememberSaveable { mutableIntStateOf(initialTopic) }
     var lessonLength by rememberSaveable { mutableStateOf("4") }
     var lessonCharacters by rememberSaveable { mutableIntStateOf(4) }
+    var lessonRate by rememberSaveable { mutableIntStateOf(2) }
     val density = LocalDensity.current
     val topics = listOf("避けたい例", "長さ", "パスフレーズ")
     PassgenSheet(back, fold, maxWidth = 720.dp) {
@@ -48,7 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
             key(topic) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(SecurityGuideExamples.NOTICE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    when (topic) { 0 -> WeakPasswordExamples(); 1 -> LengthExamples(lessonLength, { lessonLength = it }, lessonCharacters, { lessonCharacters = it }); else -> PhraseExamples() }
+                    when (topic) { 0 -> WeakPasswordExamples(); 1 -> LengthExamples(lessonLength, { lessonLength = it }, lessonCharacters, { lessonCharacters = it }, lessonRate, { lessonRate = it }); else -> PhraseExamples() }
                 }
             }
         }
@@ -71,7 +74,7 @@ import androidx.compose.ui.text.input.KeyboardType
     }
 }
 
-@Composable private fun LengthExamples(lengthText: String, changeLength: (String) -> Unit, selection: Int, changeSelection: (Int) -> Unit) {
+@Composable private fun LengthExamples(lengthText: String, changeLength: (String) -> Unit, selection: Int, changeSelection: (Int) -> Unit, rateIndex: Int, changeRate: (Int) -> Unit) {
     val length = lengthText.toIntOrNull()?.takeIf { it in 1..PasswordCombinationLesson.MAX_LENGTH }
     var showExact by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -118,6 +121,7 @@ import androidx.compose.ui.text.input.KeyboardType
                     } else Text("文字種を1つ以上選んでください。", style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            if (selection != 0) BruteForceTimeLesson(result, rateIndex, changeRate)
         } else Text("文字数は1〜128で入力してください。", style = MaterialTheme.typography.bodyMedium)
         Text("選んだ文字種は全文字を使います。記号は半角32種類。各位置で独立に選び、同じ文字の繰り返しや先頭の0も含めた計算です。各文字種を必ず含む条件は付けません。", style = MaterialTheme.typography.bodySmall)
         Text("説明用の試算です。生成設定・使用不可記号の設定とは連動しません。候補数は安全性や解読時間の保証ではなく、人が選ぶ単語や規則的な並びの推測しにくさを表すものでもありません。", style = MaterialTheme.typography.bodySmall)
@@ -126,6 +130,42 @@ import androidx.compose.ui.text.input.KeyboardType
         GuideExampleValue("英大文字・小文字・数字・記号の見本", SecurityGuideExamples.PASSWORD, "guide-password-shape")
         Text("まず15文字以上を目安に、利用先が許す範囲で長く。このアプリの初期値は24文字です。長いだけ・複雑に見えるだけでは足りず、無作為に新しく作ることが大切です。", style = MaterialTheme.typography.bodyMedium)
         GuideLink("NISTのパスワードガイド（英語）", "https://www.nist.gov/cybersecurity-and-privacy/how-do-i-create-good-password")
+    }
+}
+
+@Composable private fun BruteForceTimeLesson(combinations: PasswordCombinationCount, rateIndex: Int, changeRate: (Int) -> Unit) {
+    var details by rememberSaveable { mutableStateOf(false) }
+    Text("総当たりで探す時間の目安", style = MaterialTheme.typography.titleMedium)
+    Text("候補を1つずつ試すと仮定します。1秒に試せる回数を変えて比べてください。", style = MaterialTheme.typography.bodySmall)
+    Text("仮定する試行速度", style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        BruteForceLesson.rates.forEachIndexed { index, rate ->
+            FilterChip(rateIndex == index, { changeRate(index) }, label = { Text(rate.label) },
+                modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "guide-trial-rate-$index" })
+        }
+    }
+    BruteForceLesson.estimate(combinations, rateIndex)?.let { estimate ->
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("見つかるまでの平均", style = MaterialTheme.typography.labelMedium)
+                Text(estimate.averageLabel, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { testTag = "guide-time-average" })
+                HorizontalDivider()
+                Text("全候補を試す時間", style = MaterialTheme.typography.labelMedium)
+                Text(estimate.exhaustiveLabel, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { testTag = "guide-time-exhaustive" })
+            }
+        }
+    }
+    Text("均等に無作為に選ばれた1つの値を、重複なく同じ速さで試す計算です。平均では約半分の候補を試す計算です。最初の1回で当たる場合もあり、表示時間まで安全という意味ではありません。1年は365.25日で換算します。", style = MaterialTheme.typography.bodySmall)
+    TextButton(onClick = { details = !details }) {
+        Text("実際の速さは何で変わる？")
+        AppIcon(if (details) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
+    }
+    if (details) {
+        Text("ログイン画面に試す場合：回数制限や待ち時間の影響を受けます。", style = MaterialTheme.typography.bodySmall)
+        Text("漏えいしたハッシュに試す場合：サイトへのログインを介さず試せるため、その回数制限は効きません。ハッシュ方式・計算コストの設定・攻撃側の機材で速さが変わります。", style = MaterialTheme.typography.bodySmall)
+        Text("ここで選ぶ速度は説明用の仮定で、特定のサービスや機材の測定値ではありません。辞書攻撃・使い回し・フィッシングなどは、この試算の対象外です。", style = MaterialTheme.typography.bodySmall)
+        GuideLink("NIST：パスワードの保護（英語）", "https://pages.nist.gov/800-63-4/sp800-63b.html#passwords")
+        GuideLink("OWASP：パスワードの保存（英語）", "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html")
     }
 }
 

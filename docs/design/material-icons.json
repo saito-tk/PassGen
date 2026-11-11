@@ -435,6 +435,20 @@
       "geometry": "unchanged; official 960-unit Android export",
       "license": "Apache-2.0",
       "adaptation": "AppCompat tint attribute removed; Compose Icon supplies tint. Geometry and official mirroring unchanged."
+    },
+    {
+      "name": "lock",
+      "family": "Material Symbols Outlined",
+      "weight": 400,
+      "fill": 0,
+      "grade": 0,
+      "optical_size": 20,
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/android/lock/materialsymbolsoutlined/lock_20px.xml",
+      "source_sha256": "4aa1f56dce2c9eb4efc66f32d27c297736f6576614ce34f525b1939e30f88f60",
+      "rtl": "no-mirror",
+      "geometry": "unchanged; official 960-unit Android export",
+      "license": "Apache-2.0",
+      "adaptation": "AppCompat tint removed; Compose supplies tint. 20px master scaled to 14dp as a decorative lock badge, accompanied by a visible legend and disabled semantics."
     }
   ]
 }

@@ -1,0 +1,39 @@
+{
+  "validator": "lint_material_svg.py",
+  "version": "1.0.0",
+  "reports": [
+    {
+      "file": "docs/design/icons/lock.svg",
+      "errors": 0,
+      "warnings": 1,
+      "issues": [
+        {
+          "severity": "warning",
+          "code": "outside-live-area",
+          "message": "Geometry enters 2dp padding; document the optical-weight reason.",
+          "element": null
+        }
+      ],
+      "metadata": {
+        "validatorVersion": "1.0.0",
+        "canvas": 24.0,
+        "style": "outlined",
+        "drawableElements": 1,
+        "approximateCommandCount": 68,
+        "conservativeBounds": [
+          4.8,
+          1.2,
+          19.2,
+          21.6
+        ],
+        "boundsSpace": "render-coordinate",
+        "note": "Structural lint only; not a Material compliance certification."
+      }
+    }
+  ],
+  "summary": {
+    "files": 1,
+    "errors": 0,
+    "warnings": 1
+  }
+}

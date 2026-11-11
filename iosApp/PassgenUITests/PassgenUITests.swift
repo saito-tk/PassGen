@@ -513,6 +513,7 @@ final class PassgenUITests: XCTestCase {
         app.segmentedControls.buttons["記号"].tap()
         XCTAssertTrue(app.segmentedControls.buttons["記号"].isSelected)
         XCTAssertFalse(app.buttons["character-!"].isEnabled)
+        saveGuideExampleScreenshot(app, "Blocked symbol character grid")
         app.swipeUp()
         let overview = app.descendants(matching: .any).matching(identifier: "overview-symbols").firstMatch
         XCTAssertTrue((overview.value as? String)?.contains("アプリの設定で使用しない記号: !") == true)
@@ -524,6 +525,11 @@ final class PassgenUITests: XCTestCase {
         let input = editor.textFields["symbol-paste-input"]
         input.tap(); input.typeText("!?\n")
         editor.buttons["apply-pasted-symbols"].tap()
+        for _ in 0..<3 {
+            if editor.buttons["記号 ?"].exists { break }
+            editor.swipeDown()
+        }
+        saveGuideExampleScreenshot(app, "Blocked symbol editor")
         XCTAssertFalse(editor.buttons["記号 !"].isEnabled)
         XCTAssertTrue(editor.buttons["記号 ?"].isSelected)
     }

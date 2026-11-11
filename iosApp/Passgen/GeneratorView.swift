@@ -345,6 +345,27 @@ private struct QuantityEditor: View {
     }
 }
 
+/// A non-interactive policy lock, distinct from an ordinary unselected character.
+struct BlockedCharacterAppearance: ViewModifier {
+    let blocked: Bool
+    var cornerRadius: CGFloat = 8
+    func body(content: Content) -> some View {
+        content.overlay {
+            if blocked {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(Color.secondary.opacity(0.65), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .allowsHitTesting(false)
+            }
+        }.overlay(alignment: .topTrailing) {
+            if blocked {
+                Image(systemName: "lock.fill").font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.secondary).padding(4)
+                    .accessibilityHidden(true).allowsHitTesting(false)
+            }
+        }
+    }
+}
+
 private struct CharacterEditor: View {
     @Bindable var model: GeneratorModel
     @Binding var showSymbols: Bool
@@ -394,10 +415,12 @@ private struct CharacterEditor: View {
                             updateSelection(selected.contains(character) ? String(selected.filter { $0 != character }) : selected + String(character))
                         } label: {
                             Text(String(character)).font(.system(.body, design: .monospaced, weight: .medium))
+                                .strikethrough(isBlocked)
                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(checked ? Color.passgenAccent.opacity(0.15) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                                .background(isBlocked ? Color(uiColor: .systemGray5) : checked ? Color.passgenAccent.opacity(0.15) : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
                                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(checked ? Color.passgenAccent.opacity(0.5) : Color.clear))
-                                .foregroundStyle(!enabled || isExcluded ? Color.secondary.opacity(0.4) : Color.primary)
+                                .foregroundStyle(isBlocked ? Color.secondary : !enabled || isExcluded ? Color.secondary.opacity(0.4) : Color.primary)
+                                .modifier(BlockedCharacterAppearance(blocked: isBlocked))
                         }.buttonStyle(.plain).disabled(!enabled || isExcluded)
                             .accessibilityLabel("\(group.title) \(String(character))")
                             .accessibilityValue(isBlocked ? "アプリの設定で使用しない記号" : isExcluded ? "似た文字として除外中" : checked ? "選択" : "未選択")
@@ -406,7 +429,7 @@ private struct CharacterEditor: View {
                     }
                 }
                 if !excluded.isEmpty { Text("\(excluded) は「似た文字を除外」で除外中").font(.caption2).foregroundStyle(.secondary) }
-                if group == .symbols && !model.blockedSymbols.isEmpty { Text("薄い記号はアプリの設定で使用しない記号です。").font(.caption2).foregroundStyle(.secondary) }
+                if group == .symbols && !model.blockedSymbols.isEmpty { Label("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", systemImage: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
                 if group == .symbols && enabled {
                     Button("記号一覧を貼り付け・画像から読み取る", systemImage: "doc.viewfinder") { showSymbols = true }
                         .font(.subheadline).frame(minHeight: 44)

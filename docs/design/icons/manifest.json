@@ -44,5 +44,27 @@
     "badge_accessibility": "decorative; parent action name includes copied status",
     "localization": "コピー / コピー済み。もう一度コピー",
     "checked": "2026-10-29"
+  },
+  {
+    "name": "lock",
+    "classification": "official-material-symbol",
+    "family": "Outlined",
+    "source": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/android/lock/materialsymbolsoutlined/lock_20px.xml",
+    "license": "Apache-2.0",
+    "normalization": "SVG coordinates divided by 40; Android export geometry unchanged.",
+    "axes": {
+      "wght": 400,
+      "FILL": 0,
+      "GRAD": 0,
+      "opsz": 20
+    },
+    "output": "static SVG and VectorDrawable; no variable axes",
+    "rtl": "do-not-mirror",
+    "badge_dp": 14,
+    "badge_accessibility": "decorative; disabled parent announces app-level restriction; visible legend explains lock",
+    "checked": "2026-11-11",
+    "reuse_decision": "lock communicates a setting-controlled unavailable choice; block was considered but its circular slash would interfere with punctuation. No custom glyph.",
+    "lint_warning": "Official 20px master extends into the baseline 24px live-area padding after equivalent coordinate normalization. Preserve official optical spacing.",
+    "review": "Review beside check_circle in light/dark/checkerboard at 20/24/40/48; app screenshots cover the actual 14dp badge."
   }
 ]

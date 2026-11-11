@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -261,6 +262,7 @@ enum class CharacterTab(val title: String, val alphabet: String) {
         when (tab) { CharacterTab.UPPER -> model.uppercase = value; CharacterTab.LOWER -> model.lowercase = value; CharacterTab.DIGITS -> model.digits = value; CharacterTab.SYMBOLS -> model.symbolsEnabled = value }
     }
     val excluded = if (model.excludeSimilar && tab != CharacterTab.SYMBOLS) tab.alphabet.filter { it in model.similarExclusions } else ""
+    val blockedOutline = MaterialTheme.colorScheme.outline
     var selectionMenu by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -303,18 +305,30 @@ enum class CharacterTab(val title: String, val alphabet: String) {
                             stateDescription = if (isBlocked) "アプリの設定で使用しない記号" else if (isExcluded) "似た文字として除外中" else if (checked) "選択" else "未選択"
                             testTag = "character-$character"
                         }, shape = RoundedCornerShape(10.dp),
-                        color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        color = if (isBlocked) MaterialTheme.colorScheme.surfaceContainerHighest else if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                         border = if (checked) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().drawWithContent {
+                            drawContent()
+                            if (isBlocked) {
+                                val inset = 0.5.dp.toPx()
+                                drawRoundRect(blockedOutline, topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                                    size = androidx.compose.ui.geometry.Size(size.width - 2 * inset, size.height - 2 * inset),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx()),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx(),
+                                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx()))))
+                            }
+                        }, contentAlignment = Alignment.Center) {
                             Text(character.toString(), fontSize = 18.sp, lineHeight = 22.sp, fontFamily = FontFamily.Monospace,
-                                color = if (!enabled || isExcluded) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f) else MaterialTheme.colorScheme.onSurface)
+                                color = if (isBlocked) MaterialTheme.colorScheme.onSurfaceVariant else if (!enabled || isExcluded) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f) else MaterialTheme.colorScheme.onSurface,
+                                textDecoration = if (isBlocked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+                            if (isBlocked) AppIcon(R.drawable.ic_lock, Modifier.align(Alignment.TopEnd).padding(3.dp).size(14.dp))
                             if (checked) AppIcon(R.drawable.ic_check, Modifier.align(Alignment.TopEnd).padding(3.dp).size(10.dp))
                         }
                     }
                 }
             }
             if (excluded.isNotEmpty()) Text("$excluded は「似た文字を除外」で除外中", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) Text("薄い記号はアプリの設定で使用しない記号です。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (tab == CharacterTab.SYMBOLS && model.blockedSymbols.isNotEmpty()) Text("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (tab == CharacterTab.SYMBOLS && enabled) TextButton(onClick = importSymbols, enabled = !model.busy) { ActionLabel(R.drawable.ic_content_paste, "記号一覧を貼り付け") }
         }
     }

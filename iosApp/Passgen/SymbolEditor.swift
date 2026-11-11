@@ -39,17 +39,18 @@ struct SymbolEditor: View {
                                 let blocked = model.blockedSymbols.contains(symbol)
                                 let selected = model.effectiveSymbols.contains(symbol)
                                 Button { toggle(symbol) } label: {
-                                    Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
+                                    Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium)).strikethrough(blocked)
                                         .frame(maxWidth: .infinity, minHeight: 48)
-                                        .background(selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-                                        .foregroundStyle(selected ? Color.passgenOnAccent : Color.primary)
-                                }.buttonStyle(.plain).disabled(blocked).opacity(blocked ? 0.35 : 1)
+                                        .background(blocked ? Color(uiColor: .systemGray5) : selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+                                        .foregroundStyle(blocked ? Color.secondary : selected ? Color.passgenOnAccent : Color.primary)
+                                        .modifier(BlockedCharacterAppearance(blocked: blocked, cornerRadius: 14))
+                                }.buttonStyle(.plain).disabled(blocked)
                                     .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "選択" : "未選択")
                                     .accessibilityLabel("記号 \(String(symbol))")
                                     .accessibilityAddTraits(selected ? [.isSelected] : [])
                             }
                         }
-                        if !model.blockedSymbols.isEmpty { Text("薄い記号はアプリの設定で使用しない記号です。").font(.caption).foregroundStyle(.secondary) }
+                        if !model.blockedSymbols.isEmpty { Label("ロック付きの記号は使用禁止です。解除は設定の「アプリで使う記号」から。", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary) }
                     }.padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     VStack(alignment: .leading, spacing: 12) {
                         Label("記号一覧を貼り付け", systemImage: "doc.on.clipboard").font(.headline)
@@ -122,11 +123,12 @@ struct SymbolEditor: View {
                                             if session.candidate.contains(symbol) { session.candidate.removeAll { $0 == symbol } }
                                             else { session.candidate = SymbolPolicy.shared.recognized(text: session.candidate + String(symbol)) }
                                         } label: {
-                                            Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium))
+                                            Text(String(symbol)).font(.system(.title3, design: .monospaced, weight: .medium)).strikethrough(blocked)
                                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                                .foregroundStyle(selected ? Color.passgenOnAccent : Color.primary)
-                                                .background(selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                                        }.buttonStyle(.plain).disabled(blocked).opacity(blocked ? 0.35 : 1)
+                                                .foregroundStyle(blocked ? Color.secondary : selected ? Color.passgenOnAccent : Color.primary)
+                                                .background(blocked ? Color(uiColor: .systemGray5) : selected ? Color.passgenAccent : Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                                .modifier(BlockedCharacterAppearance(blocked: blocked, cornerRadius: 12))
+                                        }.buttonStyle(.plain).disabled(blocked)
                                             .accessibilityValue(blocked ? "アプリの設定で使用しない記号" : selected ? "選択" : "未選択")
                                             .accessibilityLabel("候補 \(String(symbol))")
                                             .accessibilityIdentifier("candidate-\(String(symbol))")

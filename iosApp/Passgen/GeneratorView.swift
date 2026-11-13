@@ -727,6 +727,7 @@ struct ResultsList: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: generate) { GenerationActionLabel(model: model) }
+                        .modifier(PrimaryActionStyle()).controlSize(.regular)
                         .disabled(!model.generationActionEnabled).accessibilityIdentifier("generate")
                 }
             }
